@@ -8,9 +8,13 @@ pub fn main() !void {
 
     gfx.setFrequency(60.0);
 
-    rc.castRays();
+    while (gfx.isWindowOpen()) {
+        rc.castRays();
+        try gfx.run();
+        gfx.draw();
+        gfx.finishFrame();
+    }
 
-    try gfx.run();
 }
 
 test "simple test" {

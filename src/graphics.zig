@@ -41,50 +41,54 @@ pub fn deinit() void {
     std.log.info("Terminating glfw", .{});
 }
 
+pub fn isWindowOpen() bool {
+    if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
+pub fn finishFrame() void {
+    c.glfwSwapBuffers(window);
+    c.glClear(c.GL_COLOR_BUFFER_BIT);
+
+    // Sleep if time step (frame_time) is lower than that of the targeted
+    // frequency. Make sure not to have a negative sleep for high frame
+    // times.
+    const t = timer_main.read();
+    var t_s = frame_time - @intCast(i64, t);
+    if (t_s < 0) {
+        t_s = 0;
+        std.log.warn("Update frequency can't be reached", .{});
+    }
+    std.time.sleep(@intCast(u64, t_s));
+    timer_main.reset();
+}
+
 /// Run the main loop with input poll events -- will be moved to a separate
 /// module later.
 pub fn run() !void {
     var glfw_error: bool = false;
 
-    var timer_main = try std.time.Timer.start();
-    while (c.glfwWindowShouldClose(window) == 0) {
+    // timer_main = std.time.Timer.start();
+    // try timer_main.start();
 
-        c.glfwPollEvents();
-        glfw_error = glfwCheckError();
+    c.glfwPollEvents();
+    glfw_error = glfwCheckError();
 
-        if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
-
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
-
-        // Plain old OpenGL fixed function pipeline for testing
-        c.glBegin(c.GL_TRIANGLES);
-            c.glVertex3f( 100.0, 100.0, 0.0);
-            c.glVertex3f( 50.0, 50.0, 0.0);
-            c.glVertex3f( 150.0, 50.0, 0.0);
-        c.glEnd();
-        drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
-
-        c.glfwSwapBuffers(window);
-
-        // Sleep if time step (frame_time) is lower than that of the targeted
-        // frequency. Make sure not to have a negative sleep for high frame
-        // times.
-        const t = timer_main.read();
-        var t_s = frame_time - @intCast(i64, t);
-        if (t_s < 0) {
-            t_s = 0;
-            std.log.warn("Update frequency can't be reached", .{});
-        }
-        std.time.sleep(@intCast(u64, t_s));
-        timer_main.reset();
-    }
+    if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 }
 
-pub fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
-    c.glBegin(c.GL_LINES);
-        c.glVertex2i(x, @floatToInt(c_int, y0));
-        c.glVertex2i(x, @floatToInt(c_int, y1));
+pub fn draw() void {
+    // Plain old OpenGL fixed function pipeline for testing
+    c.glBegin(c.GL_TRIANGLES);
+        c.glVertex3f( 100.0, 100.0, 0.0);
+        c.glVertex3f( 50.0, 50.0, 0.0);
+        c.glVertex3f( 150.0, 50.0, 0.0);
     c.glEnd();
+    drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
 }
 
 /// This will become important later, when the main loop is separated from gfx
@@ -107,6 +111,14 @@ var window: ?*c.GLFWwindow = null;
 var window_w: u64 = 640; // Window width
 var window_h: u64 = 480; // Window height
 var frame_time: i64 = @floatToInt(i64, 1.0/5.0*1.0e9);
+var timer_main: std.time.Timer = undefined;
+
+fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
+    c.glBegin(c.GL_LINES);
+        c.glVertex2i(x, @floatToInt(c_int, y0));
+        c.glVertex2i(x, @floatToInt(c_int, y1));
+    c.glEnd();
+}
 
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
