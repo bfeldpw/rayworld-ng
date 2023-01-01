@@ -1,11 +1,15 @@
 const std = @import("std");
 const gfx = @import("graphics.zig");
+const rc = @import("raycaster.zig");
 
 pub fn main() !void {
     try gfx.init();
     defer gfx.deinit();
 
     gfx.setFrequency(60.0);
+
+    rc.castRays();
+
     try gfx.run();
 }
 

@@ -22,9 +22,13 @@ pub fn init() !void {
     c.glfwMakeContextCurrent(window);
     glfw_error = glfwCheckError();
 
+    c.glfwSwapInterval(0);
+    glfw_error = glfwCheckError();
+
     _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
 
     std.log.info("Initialising open gl", .{});
+    c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
     c.glOrtho(0, @intToFloat(f64, window_w), 0, @intToFloat(f64, window_h), -1, 1);
@@ -58,7 +62,7 @@ pub fn run() !void {
             c.glVertex3f( 50.0, 50.0, 0.0);
             c.glVertex3f( 150.0, 50.0, 0.0);
         c.glEnd();
-        drawVerticalLine(200, 10, 70);
+        drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
 
         c.glfwSwapBuffers(window);
 
@@ -67,16 +71,19 @@ pub fn run() !void {
         // times.
         const t = timer_main.read();
         var t_s = frame_time - @intCast(i64, t);
-        if (t_s < 0) t_s = 0;
+        if (t_s < 0) {
+            t_s = 0;
+            std.log.warn("Update frequency can't be reached", .{});
+        }
         std.time.sleep(@intCast(u64, t_s));
         timer_main.reset();
     }
 }
 
-pub fn drawVerticalLine(x: f32, y0: f32, y1: f32) void {
+pub fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
     c.glBegin(c.GL_LINES);
-        c.glVertex3f(x, y0, 0.0);
-        c.glVertex3f(x, y1, 0.0);
+        c.glVertex2i(x, @floatToInt(c_int, y0));
+        c.glVertex2i(x, @floatToInt(c_int, y1));
     c.glEnd();
 }
 
@@ -89,7 +96,7 @@ pub fn getWindow() ?*c.GLFWwindow {
 pub fn setFrequency(f: f32) void {
     if (f > 0.0) {
         frame_time = @floatToInt(i64, 1.0/f*1.0e9);
-        std.log.info("Setting graphics frequency to {} Hz", .{f});
+        std.log.info("Setting graphics frequency to {d:.1} Hz", .{f});
     } else {
         std.log.warn("Invalid frequency, defaulting to 60Hz", .{});
         frame_time = 16_666_667;
@@ -115,6 +122,7 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     _ = win;
     window_w = @intCast(u64, w);
     window_h = @intCast(u64, h);
+    c.glViewport(0, 0, w, h);
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
     c.glOrtho(0, @intToFloat(f64, w), 0, @intToFloat(f64, h), -1, 1);
