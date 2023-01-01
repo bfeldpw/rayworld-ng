@@ -5,7 +5,7 @@ pub fn main() !void {
     try gfx.init();
     defer gfx.deinit();
 
-    gfx.setFrequency(1.0);
+    gfx.setFrequency(60.0);
     try gfx.run();
 }
 

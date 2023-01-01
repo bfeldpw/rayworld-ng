@@ -5,6 +5,7 @@ const c = @cImport({
     @cInclude("GLFW/glfw3.h");
 });
 
+/// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
     std.log.info("Initialising glfw", .{});
     var glfw_error: bool = false;
@@ -15,13 +16,18 @@ pub fn init() !void {
         return;
     }
 
-    // Create our window
-    window = c.glfwCreateWindow(640, 480, "bfe-next", null, null);
+    window = c.glfwCreateWindow(@intCast(c_int, window_w), @intCast(c_int, window_h), "rayworld-ng", null, null);
     glfw_error = glfwCheckError();
 
-    // try glfw.makeContextCurrent(window);
     c.glfwMakeContextCurrent(window);
     glfw_error = glfwCheckError();
+
+    _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
+
+    std.log.info("Initialising open gl", .{});
+    c.glMatrixMode(c.GL_PROJECTION);
+    c.glLoadIdentity();
+    c.glOrtho(0, @intToFloat(f64, window_w), 0, @intToFloat(f64, window_h), -1, 1);
 }
 
 pub fn deinit() void {
@@ -31,37 +37,59 @@ pub fn deinit() void {
     std.log.info("Terminating glfw", .{});
 }
 
+/// Run the main loop with input poll events -- will be moved to a separate
+/// module later.
 pub fn run() !void {
     var glfw_error: bool = false;
 
     var timer_main = try std.time.Timer.start();
-    // Wait for the user to close the window.
     while (c.glfwWindowShouldClose(window) == 0) {
 
-        // try glfw.pollEvents();
         c.glfwPollEvents();
         glfw_error = glfwCheckError();
 
-        // if (window.getKey(glfw.Key.q) == .press) window.setShouldClose(true);
-        std.log.debug("1s gone by", .{});
+        if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 
         c.glClear(c.GL_COLOR_BUFFER_BIT);
+
+        // Plain old OpenGL fixed function pipeline for testing
+        c.glBegin(c.GL_TRIANGLES);
+            c.glVertex3f( 100.0, 100.0, 0.0);
+            c.glVertex3f( 50.0, 50.0, 0.0);
+            c.glVertex3f( 150.0, 50.0, 0.0);
+        c.glEnd();
+        drawVerticalLine(200, 10, 70);
+
         c.glfwSwapBuffers(window);
 
+        // Sleep if time step (frame_time) is lower than that of the targeted
+        // frequency. Make sure not to have a negative sleep for high frame
+        // times.
         const t = timer_main.read();
-        std.time.sleep(frame_time - t);
+        var t_s = frame_time - @intCast(i64, t);
+        if (t_s < 0) t_s = 0;
+        std.time.sleep(@intCast(u64, t_s));
         timer_main.reset();
-        // c.glfwSetWindowShouldClose(window, 1);
     }
 }
 
+pub fn drawVerticalLine(x: f32, y0: f32, y1: f32) void {
+    c.glBegin(c.GL_LINES);
+        c.glVertex3f(x, y0, 0.0);
+        c.glVertex3f(x, y1, 0.0);
+    c.glEnd();
+}
+
+/// This will become important later, when the main loop is separated from gfx
 pub fn getWindow() ?*c.GLFWwindow {
     return window;
 }
 
+/// Set the frequency of the main loop
 pub fn setFrequency(f: f32) void {
     if (f > 0.0) {
-        frame_time = @floatToInt(u64, 1.0/f*1.0e9);
+        frame_time = @floatToInt(i64, 1.0/f*1.0e9);
+        std.log.info("Setting graphics frequency to {} Hz", .{f});
     } else {
         std.log.warn("Invalid frequency, defaulting to 60Hz", .{});
         frame_time = 16_666_667;
@@ -69,7 +97,9 @@ pub fn setFrequency(f: f32) void {
 }
 
 var window: ?*c.GLFWwindow = null;
-var frame_time: u64 = @floatToInt(u64, 1.0/5.0*1.0e9);
+var window_w: u64 = 640; // Window width
+var window_h: u64 = 480; // Window height
+var frame_time: i64 = @floatToInt(i64, 1.0/5.0*1.0e9);
 
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
@@ -78,6 +108,16 @@ fn glfwCheckError() bool {
         return false;
     }
     return true;
+}
+
+fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C) void {
+    std.log.debug("Window resized, new size is {}x{}.", .{w, h});
+    _ = win;
+    window_w = @intCast(u64, w);
+    window_h = @intCast(u64, h);
+    c.glMatrixMode(c.GL_PROJECTION);
+    c.glLoadIdentity();
+    c.glOrtho(0, @intToFloat(f64, w), 0, @intToFloat(f64, h), -1, 1);
 }
 
 test "setFrequency" {
