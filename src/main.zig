@@ -1,5 +1,6 @@
 const std = @import("std");
 const gfx = @import("graphics.zig");
+const input = @import("input.zig");
 const rc = @import("raycaster.zig");
 
 pub fn main() !void {
@@ -7,14 +8,15 @@ pub fn main() !void {
     defer gfx.deinit();
 
     gfx.setFrequency(60.0);
+    const win = gfx.getWindow();
+    input.setWindow(win);
 
     while (gfx.isWindowOpen()) {
         rc.castRays();
-        try gfx.run();
+        try input.processInputs();
         gfx.draw();
         gfx.finishFrame();
     }
-
 }
 
 test "simple test" {

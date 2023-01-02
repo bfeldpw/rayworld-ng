@@ -1,9 +1,10 @@
 const std = @import("std");
 // const glfw = @import("glfw");
-const c = @cImport({
-    @cInclude("GL/gl.h");
-    @cInclude("GLFW/glfw3.h");
-});
+const c = @import("c.zig").c;
+
+//-----------------------------------------------------------------------------//
+//   Init / DeInit
+//-----------------------------------------------------------------------------//
 
 /// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
@@ -41,13 +42,18 @@ pub fn deinit() void {
     std.log.info("Terminating glfw", .{});
 }
 
-pub fn isWindowOpen() bool {
-    if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
-        return false;
-    }
-    else {
-        return true;
-    }
+//-----------------------------------------------------------------------------//
+//   Processing
+//-----------------------------------------------------------------------------//
+
+pub fn draw() void {
+    // Plain old OpenGL fixed function pipeline for testing
+    c.glBegin(c.GL_TRIANGLES);
+        c.glVertex3f( 100.0, 100.0, 0.0);
+        c.glVertex3f( 50.0, 50.0, 0.0);
+        c.glVertex3f( 150.0, 50.0, 0.0);
+    c.glEnd();
+    drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
 }
 
 pub fn finishFrame() void {
@@ -67,31 +73,20 @@ pub fn finishFrame() void {
     timer_main.reset();
 }
 
-/// Run the main loop with input poll events -- will be moved to a separate
-/// module later.
-pub fn run() !void {
-    var glfw_error: bool = false;
-
-    // timer_main = std.time.Timer.start();
-    // try timer_main.start();
-
-    c.glfwPollEvents();
-    glfw_error = glfwCheckError();
-
-    if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
+pub fn isWindowOpen() bool {
+    if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
+        return false;
+    }
+    else {
+        return true;
+    }
 }
 
-pub fn draw() void {
-    // Plain old OpenGL fixed function pipeline for testing
-    c.glBegin(c.GL_TRIANGLES);
-        c.glVertex3f( 100.0, 100.0, 0.0);
-        c.glVertex3f( 50.0, 50.0, 0.0);
-        c.glVertex3f( 150.0, 50.0, 0.0);
-    c.glEnd();
-    drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
-}
+//-----------------------------------------------------------------------------//
+//   Getter/Setter
+//-----------------------------------------------------------------------------//
 
-/// This will become important later, when the main loop is separated from gfx
+/// Get the active glfw window
 pub fn getWindow() ?*c.GLFWwindow {
     return window;
 }
@@ -106,6 +101,10 @@ pub fn setFrequency(f: f32) void {
         frame_time = 16_666_667;
     }
 }
+
+//-----------------------------------------------------------------------------//
+//   Internal
+//-----------------------------------------------------------------------------//
 
 var window: ?*c.GLFWwindow = null;
 var window_w: u64 = 640; // Window width
@@ -123,7 +122,7 @@ fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
     if (code != c.GLFW_NO_ERROR) {
-        std.log.err("GLFW could not be intialised, error code {}", .{code});
+        std.log.err("GLFW error code {}", .{code});
         return false;
     }
     return true;
@@ -139,6 +138,10 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     c.glLoadIdentity();
     c.glOrtho(0, @intToFloat(f64, w), 0, @intToFloat(f64, h), -1, 1);
 }
+
+//-----------------------------------------------------------------------------//
+//   Tests
+//-----------------------------------------------------------------------------//
 
 test "setFrequency" {
     setFrequency(40);
