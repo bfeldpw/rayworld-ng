@@ -13,7 +13,7 @@ pub fn main() !void {
 
     while (gfx.isWindowOpen()) {
         rc.castRays();
-        try input.processInputs();
+        input.processInputs();
         gfx.draw();
         gfx.finishFrame();
     }

@@ -145,9 +145,9 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
 
 test "setFrequency" {
     setFrequency(40);
-    try std.testing.expectEqual(frame_time, 25_000_000);
+    try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
     setFrequency(100);
-    try std.testing.expectEqual(frame_time, 10_000_000);
+    try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
     setFrequency(0);
-    try std.testing.expectEqual(frame_time, 16_666_667);
+    try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
 }
