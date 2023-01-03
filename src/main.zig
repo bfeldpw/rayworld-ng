@@ -20,7 +20,7 @@ pub fn main() !void {
     while (gfx.isWindowOpen()) {
         input.processInputs();
         rc.processRays();
-        gfx.draw();
+        rc.showMap();
         gfx.finishFrame();
     }
 }

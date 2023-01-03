@@ -47,14 +47,13 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn draw() void {
-    // Plain old OpenGL fixed function pipeline for testing
-    c.glBegin(c.GL_TRIANGLES);
-        c.glVertex3f( 100.0, 100.0, 0.0);
-        c.glVertex3f( 50.0, 50.0, 0.0);
-        c.glVertex3f( 150.0, 50.0, 0.0);
+pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    c.glBegin(c.GL_QUADS);
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y0);
+    c.glVertex2f(x1, y1);
+    c.glVertex2f(x0, y1);
     c.glEnd();
-    drawVerticalLine(@intCast(i32,window_w)-10, 10, @intToFloat(f32, window_h)-10);
 }
 
 pub fn finishFrame() void {

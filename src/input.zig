@@ -14,6 +14,7 @@ pub fn init() void {
     _ = glfwCheckError();
     _ = c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
     _ = glfwCheckError();
+    _ = c.glfwSetCursorPos(window, 0.0, 0.0);
 }
 //-----------------------------------------------------------------------------//
 //   Processing
@@ -25,8 +26,8 @@ pub fn processInputs() void {
     c.glfwPollEvents();
     glfw_error = glfwCheckError();
 
-    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.strafe(-0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.strafe(0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(-0.1);
     if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.move(0.1);
     if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-0.1);
 }
@@ -67,7 +68,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
 fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     _ = win;
     log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
-    plr.turn(@floatCast(f32, x)*0.01);
+    plr.turn(-@floatCast(f32, x)*0.001);
 
     _ = c.glfwSetCursorPos(window, 0.0, 0.0);
 }

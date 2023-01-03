@@ -15,7 +15,7 @@ pub fn move(m: f32) void {
 }
 
 pub fn strafe(m: f32) void {
-    const p_x = pos_x + m * @sin(dir);
+    const p_x = pos_x - m * @sin(dir);
     const p_y = pos_y + m * @cos(dir);
     if (!isColliding(p_x, p_y)) {
         pos_x = p_x;
@@ -32,6 +32,22 @@ pub fn turn(d: f32) void {
     const map_y = @floatToInt(u32, pos_y) / map.getResolution();
     const map_v = map.get().*[map_x][map_y];
     log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2} -> map={}", .{pos_x, pos_y, dir, map_v});
+}
+
+//-----------------------------------------------------------------------------//
+//   Getter/Setter
+//-----------------------------------------------------------------------------//
+
+pub fn getDir() f32 {
+    return dir;
+}
+
+pub fn getPosX() f32 {
+    return pos_x;
+}
+
+pub fn getPosY() f32 {
+    return pos_y;
 }
 
 //-----------------------------------------------------------------------------//
