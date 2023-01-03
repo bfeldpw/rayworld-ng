@@ -8,7 +8,7 @@ const c = @import("c.zig").c;
 
 /// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
-    std.log.info("Initialising glfw", .{});
+    log_gfx.info("Initialising glfw", .{});
     var glfw_error: bool = false;
 
     const r = c.glfwInit();
@@ -29,7 +29,7 @@ pub fn init() !void {
     _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
     glfw_error = glfwCheckError();
 
-    std.log.info("Initialising open gl", .{});
+    log_gfx.info("Initialising open gl", .{});
     c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
@@ -38,9 +38,9 @@ pub fn init() !void {
 
 pub fn deinit() void {
     c.glfwDestroyWindow(window);
-    std.log.info("Destroying window", .{});
+    log_gfx.info("Destroying window", .{});
     c.glfwTerminate();
-    std.log.info("Terminating glfw", .{});
+    log_gfx.info("Terminating glfw", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -68,7 +68,7 @@ pub fn finishFrame() void {
     var t_s = frame_time - @intCast(i64, t);
     if (t_s < 0) {
         t_s = 0;
-        std.log.warn("Update frequency can't be reached", .{});
+        log_gfx.warn("Update frequency can't be reached", .{});
     }
     std.time.sleep(@intCast(u64, t_s));
     timer_main.reset();
@@ -100,9 +100,9 @@ pub fn getWindowWidth() u64 {
 pub fn setFrequency(f: f32) void {
     if (f > 0.0) {
         frame_time = @floatToInt(i64, 1.0/f*1.0e9);
-        std.log.info("Setting graphics frequency to {d:.1} Hz", .{f});
+        log_gfx.info("Setting graphics frequency to {d:.1} Hz", .{f});
     } else {
-        std.log.warn("Invalid frequency, defaulting to 60Hz", .{});
+        log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
         frame_time = 16_666_667;
     }
 }
@@ -110,6 +110,8 @@ pub fn setFrequency(f: f32) void {
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
+
+const log_gfx = std.log.scoped(.gfx);
 
 var window: ?*c.GLFWwindow = null;
 var window_w: u64 = 640; // Window width
@@ -127,14 +129,14 @@ fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
     if (code != c.GLFW_NO_ERROR) {
-        std.log.err("GLFW error code {}", .{code});
+        log_gfx.err("GLFW error code {}", .{code});
         return false;
     }
     return true;
 }
 
 fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C) void {
-    std.log.debug("Window resized, new size is {}x{}.", .{w, h});
+    log_gfx.debug("Window resized, new size is {}x{}.", .{w, h});
     _ = win;
     window_w = @intCast(u64, w);
     window_h = @intCast(u64, h);

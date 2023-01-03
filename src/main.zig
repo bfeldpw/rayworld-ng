@@ -3,18 +3,23 @@ const gfx = @import("graphics.zig");
 const input = @import("input.zig");
 const rc = @import("raycaster.zig");
 
+pub const scope_levels = [_]std.log.ScopeLevel{
+    // .{ .scope = .gfx, .level = .debug },
+    .{ .scope = .input, .level = .info },
+    // .{ .scope = .plr, .level = .debug },
+};
+
 pub fn main() !void {
     try gfx.init();
     defer gfx.deinit();
 
     gfx.setFrequency(60.0);
-    const win = gfx.getWindow();
-    input.setWindow(win);
+    input.setWindow(gfx.getWindow());
     input.init();
 
     while (gfx.isWindowOpen()) {
-        rc.castRays();
         input.processInputs();
+        rc.processRays();
         gfx.draw();
         gfx.finishFrame();
     }

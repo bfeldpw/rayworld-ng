@@ -25,10 +25,10 @@ pub fn processInputs() void {
     c.glfwPollEvents();
     glfw_error = glfwCheckError();
 
-    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.moveX(-0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.moveX(0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.moveY(0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.moveY(-0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.strafe(-0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.move(0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-0.1);
 }
 
 //-----------------------------------------------------------------------------//
@@ -43,12 +43,14 @@ pub fn setWindow(win: ?*c.GLFWwindow) void {
 //   Internal
 //-----------------------------------------------------------------------------//
 
+const log_input = std.log.scoped(.input);
+
 var window: ?*c.GLFWwindow = null;
 
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
     if (code != c.GLFW_NO_ERROR) {
-        std.log.err("GLFW error code {}", .{code});
+        log_input.err("GLFW error code {}", .{code});
         return false;
     }
     return true;
@@ -64,8 +66,8 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
 
 fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     _ = win;
-    std.log.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
-    plr.turn(std.math.sign(@floatCast(f32, x-1300))*0.01);
+    log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
+    plr.turn(@floatCast(f32, x)*0.01);
 
     _ = c.glfwSetCursorPos(window, 0.0, 0.0);
 }

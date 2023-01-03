@@ -1,37 +1,60 @@
 const std = @import("std");
+const map = @import("map.zig");
 
 //-----------------------------------------------------------------------------//
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn move(x: f32, y: f32) void {
-    pos_x += x;
-    pos_y += y;
-    std.log.debug("Pos: ({d:.1}, {d:.1})", .{pos_x, pos_y});
+pub fn move(m: f32) void {
+    const p_x = pos_x + m * @cos(dir);
+    const p_y = pos_y + m * @sin(dir);
+    if (!isColliding(p_x, p_y)) {
+        pos_x = p_x;
+        pos_y = p_y;
+    }
 }
 
-pub fn moveX(x: f32) void {
-    pos_x += x;
-    std.log.debug("Pos: ({d:.1}, {d:.1})", .{pos_x, pos_y});
-}
-
-pub fn moveY(y: f32) void {
-    pos_y += y;
-    std.log.debug("Pos: ({d:.1}, {d:.1})", .{pos_x, pos_y});
+pub fn strafe(m: f32) void {
+    const p_x = pos_x + m * @sin(dir);
+    const p_y = pos_y + m * @cos(dir);
+    if (!isColliding(p_x, p_y)) {
+        pos_x = p_x;
+        pos_y = p_y;
+    }
 }
 
 pub fn turn(d: f32) void {
     dir += d;
     if (dir < 0.0) dir += 2.0*std.math.pi;
     if (dir > 2.0*std.math.pi) dir -= 2.0*std.math.pi;
-    std.log.debug("Dir: {d:.2}", .{dir});
+
+    const map_x = @floatToInt(u32, pos_x) / map.getResolution();
+    const map_y = @floatToInt(u32, pos_y) / map.getResolution();
+    const map_v = map.get().*[map_x][map_y];
+    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2} -> map={}", .{pos_x, pos_y, dir, map_v});
 }
 
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
 
+const log_plr = std.log.scoped(.plr);
+
 var dir: f32 = 0.0;
 var fov: u32 = 90.0;
-var pos_x: f32 = 10.0;
-var pos_y: f32 = 10.0;
+var pos_x: f32 = 2.5;
+var pos_y: f32 = 2.5;
+
+fn isColliding(x: f32, y: f32) bool {
+    const map_x = @floatToInt(u32, x) / map.getResolution();
+    const map_y = @floatToInt(u32, y) / map.getResolution();
+
+    const map_v = map.get().*[map_x][map_y];
+    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2} -> map={}", .{pos_x, pos_y, dir, map_v});
+
+    if (map_v != 0) {
+        return true;
+    } else {
+        return false;
+    }
+}

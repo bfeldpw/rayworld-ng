@@ -3,7 +3,7 @@ const gfx = @import("graphics.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
 
-pub fn castRays() void {
+pub fn processRays() void {
     const m = map.get();
     _ = m;
 
