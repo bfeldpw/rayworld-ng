@@ -27,6 +27,7 @@ pub fn init() !void {
     glfw_error = glfwCheckError();
 
     _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
+    glfw_error = glfwCheckError();
 
     std.log.info("Initialising open gl", .{});
     c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
@@ -89,6 +90,10 @@ pub fn isWindowOpen() bool {
 /// Get the active glfw window
 pub fn getWindow() ?*c.GLFWwindow {
     return window;
+}
+
+pub fn getWindowWidth() u64 {
+    return window_w;
 }
 
 /// Set the frequency of the main loop

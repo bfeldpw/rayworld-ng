@@ -10,6 +10,7 @@ pub fn main() !void {
     gfx.setFrequency(60.0);
     const win = gfx.getWindow();
     input.setWindow(win);
+    input.init();
 
     while (gfx.isWindowOpen()) {
         rc.castRays();
