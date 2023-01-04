@@ -8,6 +8,7 @@ const plr = @import("player.zig");
 //-----------------------------------------------------------------------------//
 
 pub fn init() void {
+    // ToDo: errors need to be handled
     _ = c.glfwSetCursorPosCallback(window, processMouseMoveEvent);
     _ = glfwCheckError();
     _ = c.glfwSetKeyCallback(window, processKeyPressEvent);

@@ -33,7 +33,7 @@ pub fn init() !void {
     c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
-    c.glOrtho(0, @intToFloat(f64, window_w), 0, @intToFloat(f64, window_h), -1, 1);
+    c.glOrtho(0, @intToFloat(f64, window_w), @intToFloat(f64, window_h), 0, -1, 1);
 }
 
 pub fn deinit() void {
@@ -91,6 +91,10 @@ pub fn getWindow() ?*c.GLFWwindow {
     return window;
 }
 
+pub fn getWindowHeight() u64 {
+    return window_h;
+}
+
 pub fn getWindowWidth() u64 {
     return window_w;
 }
@@ -142,7 +146,7 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     c.glViewport(0, 0, w, h);
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
-    c.glOrtho(0, @intToFloat(f64, w), 0, @intToFloat(f64, h), -1, 1);
+    c.glOrtho(0, @intToFloat(f64, w), @intToFloat(f64, h), 0, -1, 1);
 }
 
 //-----------------------------------------------------------------------------//

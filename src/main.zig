@@ -6,7 +6,7 @@ const rc = @import("raycaster.zig");
 pub const scope_levels = [_]std.log.ScopeLevel{
     // .{ .scope = .gfx, .level = .debug },
     .{ .scope = .input, .level = .info },
-    // .{ .scope = .plr, .level = .debug },
+    .{ .scope = .plr, .level = .info },
 };
 
 pub fn main() !void {
