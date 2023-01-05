@@ -34,6 +34,9 @@ pub fn init() !void {
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
     c.glOrtho(0, @intToFloat(f64, window_w), @intToFloat(f64, window_h), 0, -1, 1);
+
+    c.glEnable(c.GL_BLEND);
+    c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
 }
 
 pub fn deinit() void {
@@ -47,12 +50,27 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
+pub fn drawLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    c.glBegin(c.GL_LINES);
+        c.glVertex2f(x0, y0);
+        c.glVertex2f(x1, y1);
+    c.glEnd();
+}
+
 pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glBegin(c.GL_QUADS);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x0, y1);
+        c.glVertex2f(x0, y0);
+        c.glVertex2f(x1, y0);
+        c.glVertex2f(x1, y1);
+        c.glVertex2f(x0, y1);
+    c.glEnd();
+}
+
+pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
+    c.glBegin(c.GL_TRIANGLES);
+        c.glVertex2f(x0, y0);
+        c.glVertex2f(x1, y1);
+        c.glVertex2f(x2, y2);
     c.glEnd();
 }
 
@@ -72,6 +90,15 @@ pub fn finishFrame() void {
     std.time.sleep(@intCast(u64, t_s));
     timer_main.reset();
 }
+
+pub fn setColor3(r: f32, g: f32, b: f32) void {
+    c.glColor3f(r, g, b);
+}
+
+pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
+    c.glColor4f(r, g, b, a);
+}
+
 
 pub fn isWindowOpen() bool {
     if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
@@ -139,7 +166,8 @@ fn glfwCheckError() bool {
 }
 
 fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C) void {
-    log_gfx.debug("Window resized, new size is {}x{}.", .{w, h});
+    log_gfx.debug("Resize triggered by callback", .{});
+    log_gfx.info("Setting window size to {}x{}.", .{w, h});
     _ = win;
     window_w = @intCast(u64, w);
     window_h = @intCast(u64, h);
