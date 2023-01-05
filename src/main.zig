@@ -11,7 +11,9 @@ pub const scope_levels = [_]std.log.ScopeLevel{
 
 pub fn main() !void {
     try gfx.init();
+    try rc.init();
     defer gfx.deinit();
+    defer rc.deinit();
 
     gfx.setFrequency(60.0);
     input.setWindow(gfx.getWindow());
@@ -20,7 +22,7 @@ pub fn main() !void {
     while (gfx.isWindowOpen()) {
         input.processInputs();
         rc.processRays();
-        rc.showMap();
+        try rc.showMap();
         gfx.finishFrame();
     }
 }

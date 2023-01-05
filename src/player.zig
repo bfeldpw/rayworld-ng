@@ -42,6 +42,10 @@ pub fn getDir() f32 {
     return dir;
 }
 
+pub fn getFOV() f32 {
+    return fov;
+}
+
 pub fn getPosX() f32 {
     return pos_x;
 }
@@ -50,14 +54,18 @@ pub fn getPosY() f32 {
     return pos_y;
 }
 
+pub fn setDir(d: f32) void {
+    dir = d;
+}
+
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
 
 const log_plr = std.log.scoped(.plr);
 
+const fov = std.math.degreesToRadians(f32, 90.0);
 var dir: f32 = 0.0;
-var fov: u32 = 90.0;
 var pos_x: f32 = 2.5;
 var pos_y: f32 = 2.5;
 
@@ -66,7 +74,8 @@ fn isColliding(x: f32, y: f32) bool {
     const map_y = @floatToInt(u32, y) / map.getResolution();
 
     const map_v = map.get().*[map_y][map_x];
-    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2} -> map={}", .{pos_x, pos_y, dir, map_v});
+    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2}° -> map={}",
+                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), map_v});
 
     if (map_v != 0) {
         return true;
