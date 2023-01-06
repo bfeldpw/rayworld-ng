@@ -27,29 +27,18 @@ pub fn deinit() void {
 pub fn processRays() !void {
     try reallocRaysOnChange();
 
-    const m = map.get();
-    const x = plr.getPosX();
-    const y = plr.getPosY();
-    const l = 10.0;
+    const p_x = plr.getPosX();
+    const p_y = plr.getPosY();
 
-    var i: @TypeOf(gfx.getWindowWidth()) = 0;
+    var i: usize = 0;
     var angle: f32 = plr.getDir() - 0.5*plr.getFOV();
-    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, gfx.getWindowWidth());
+    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.x.len);
 
     while (i < rays.x.len) : (i += 1) {
-        rays.x[i] = x+l*@cos(angle);
-        rays.y[i] = y+l*@sin(angle);
+        rays.x[i] = p_x;
+        rays.y[i] = p_y;
 
-        var r_xi = @floatToInt(usize, rays.x[i]);
-        var r_yi = @floatToInt(usize, rays.y[i]);
-        if (r_xi < 0) r_xi = 0;
-        if (r_yi < 0) r_yi = 0;
-        if (r_xi > 19) r_xi = 19;
-        if (r_yi > 17) r_yi = 17;
-
-        if (m[r_yi][r_xi] == 1) {
-            rays.x[i] -= 3.0;
-        }
+        traceSingleRay(angle, i);
 
         angle += inc_angle;
     }
@@ -105,7 +94,12 @@ pub fn showScene() void {
     while (i < rays.x.len) : (i += 1) {
         const d_x = rays.x[i] - x;
         const d_y = rays.y[i] - y;
-        var d = @sqrt(d_x*d_x + d_y*d_y);
+        // var angle = @intToFloat(f32, i) * plr.getFOV() / @intToFloat(f32, rays.x.len) + plr.getDir() - 0.5*plr.getFOV();
+        // if (angle < 0) angle += 2.0*std.math.pi;
+        // if (angle > 2.0 * std.math.pi) angle -= 2.0*std.math.pi;
+        // var ang = angle - plr.getDir();
+        var d = @sqrt(d_x*d_x + d_y*d_y);// * @cos(ang);
+
         if (d < 0.5) d = 0.5;
 
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
@@ -147,4 +141,64 @@ fn reallocRaysOnChange() !void {
         rays.y = try allocator.alloc(f32, gfx.getWindowWidth());
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
+}
+
+fn traceSingleRay(angle: f32, r_i: usize) void {
+    const Axis = enum { x, y };
+
+    var a: Axis = .y;           // primary axis for stepping
+    var sign_x: f32 = 1;
+    var sign_y: f32 = 1;
+    var is_wall: bool = false;
+    var d_x = @cos(angle);      // direction x
+    var d_y = @sin(angle);      // direction y
+    var r_x = rays.x[r_i];      // ray pos x
+    var r_y = rays.y[r_i];      // ray pos y
+    const g_x = d_y/d_x;        // gradient/derivative of the ray for direction x
+    const g_y = d_x/d_y;        // gradient/derivative of the ray for direction y
+
+    if (@fabs(d_x) > @fabs(d_y)) a = .x;
+    if (d_x < 0) sign_x = -1;
+    if (d_y < 0) sign_y = -1;
+
+    while (!is_wall) {
+        if (sign_x == 1) {
+            d_x = @trunc(r_x+1) - r_x;
+        } else {
+            d_x = @ceil(r_x-1) - r_x;
+        }
+        if (sign_y == 1) {
+            d_y = @trunc(r_y+1) - r_y;
+        } else {
+            d_y = @ceil(r_y-1) - r_y;
+        }
+
+        var o_x: f32 = 0;
+        var o_y: f32 = 0;
+        if (a == .x) {
+            if (@fabs(d_x * g_x) < @fabs(d_y)) {
+                r_x += d_x;
+                r_y += @fabs(d_x * g_x) * sign_y;
+                if (sign_x == -1) o_x = -0.5;
+            } else {
+                r_x += @fabs(d_y * g_y) * sign_x;
+                r_y += d_y;
+                if (sign_y == -1) o_y = -0.5;
+            }
+        } else { // (a == .y)
+            if (@fabs(d_y * g_y) < @fabs(d_x)) {
+                r_x += @fabs(d_y * g_y) * sign_x;
+                r_y += d_y;
+                if (sign_y == -1) o_y = -0.5;
+            } else {
+                r_x += d_x;
+                r_y += @fabs(d_x * g_x) * sign_y;
+                if (sign_x == -1) o_x = -0.5;
+            }
+        }
+
+        if (map.get()[@floatToInt(usize, r_y+o_y)][@floatToInt(usize, r_x+o_x)] == 1) is_wall = true;
+    }
+    rays.x[r_i] = r_x;
+    rays.y[r_i] = r_y;
 }
