@@ -74,6 +74,13 @@ pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
     c.glEnd();
 }
 
+pub fn drawVerticalLine(x: f32, y0: f32, y1: f32) void {
+    c.glBegin(c.GL_LINES);
+        c.glVertex2f(x, y0);
+        c.glVertex2f(x, y1);
+    c.glEnd();
+}
+
 pub fn finishFrame() void {
     c.glfwSwapBuffers(window);
     c.glClear(c.GL_COLOR_BUFFER_BIT);
@@ -148,13 +155,6 @@ var window_w: u64 = 640; // Window width
 var window_h: u64 = 480; // Window height
 var frame_time: i64 = @floatToInt(i64, 1.0/5.0*1.0e9);
 var timer_main: std.time.Timer = undefined;
-
-fn drawVerticalLine(x: i32, y0: f32, y1: f32) void {
-    c.glBegin(c.GL_LINES);
-        c.glVertex2i(x, @floatToInt(c_int, y0));
-        c.glVertex2i(x, @floatToInt(c_int, y1));
-    c.glEnd();
-}
 
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);

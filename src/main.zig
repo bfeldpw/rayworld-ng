@@ -21,8 +21,9 @@ pub fn main() !void {
 
     while (gfx.isWindowOpen()) {
         input.processInputs();
-        rc.processRays();
-        try rc.showMap();
+        try rc.processRays();
+        rc.showScene();
+        rc.showMap();
         gfx.finishFrame();
     }
 }
