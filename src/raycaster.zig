@@ -99,19 +99,38 @@ pub fn showScene() void {
     while (i < rays.x.len) : (i += 1) {
         const d_x = rays.x[i] - x;
         const d_y = rays.y[i] - y;
-        // var angle = @intToFloat(f32, i) * plr.getFOV() / @intToFloat(f32, rays.x.len) + plr.getDir() - 0.5*plr.getFOV();
-        // if (angle < 0) angle += 2.0*std.math.pi;
-        // if (angle > 2.0 * std.math.pi) angle -= 2.0*std.math.pi;
-        // var ang = angle - plr.getDir();
         var d = @sqrt(d_x*d_x + d_y*d_y);// * @cos(ang);
 
         if (d < 0.5) d = 0.5;
 
+        // Draw the scene with a very naive vertical ambient occlusion approach
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
-        const h_half = win_h * 2.0 / d * 0.5;
+        const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
+        const h_half = win_h * d_norm * 0.5;
+        const ao_darkening_0 = 0.5;         // outer color fading factor
+        const ao_darkening_1 = 0.6;         // inner color fading factor
+        const ao_height_0 = 0.9;            // outer color fading height
+        const ao_height_1 = 0.1;            // inner color fading height
 
-        gfx.setColor3(2.0 / d, 2.0 / d, 2.0 / d);
-        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5+h_half);
+        // The vertical line consists of 5 parts. While the center part has the
+        // base color, outer lines produce a darkening towards the upper and
+        // lower edges. Since OpenGL interpolation is done linearily, it is two
+        // line segments on top and bottom to hide the linear behaviour a little
+        // This might be easily replaced by GL core profile and a simple shader
+        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_0,
+                          d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0,
+                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
+        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_1,
+                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
+                          d_norm, d_norm, d_norm);
+        gfx.setColor3(d_norm, d_norm, d_norm);
+        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_1);
+        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_0,
+                          d_norm, d_norm, d_norm,
+                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
+        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5+h_half,
+                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
+                          d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0);
     }
     gfx.endBatch();
 }

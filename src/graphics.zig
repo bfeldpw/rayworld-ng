@@ -63,6 +63,15 @@ pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glVertex2f(x1, y1);
 }
 
+pub fn addLineColor3(x0: f32, y0: f32, x1: f32, y1: f32,
+                     r0: f32, g0: f32, b0: f32,
+                     r1: f32, g1: f32, b1: f32) void {
+    c.glColor3f(r0, g0, b0);
+    c.glVertex2f(x0, y0);
+    c.glColor3f(r1, g1, b1);
+    c.glVertex2f(x1, y1);
+}
+
 pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glVertex2f(x0, y0);
     c.glVertex2f(x1, y0);
