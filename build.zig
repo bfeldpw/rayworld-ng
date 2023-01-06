@@ -13,13 +13,9 @@ pub fn build(b: *std.build.Builder) !void {
     const glfw = @import("3rdparty/mach-glfw/build.zig");
 
     const exe = b.addExecutable("rayworld-ng", "src/main.zig");
-    // exe.addIncludePath("3rdparty/zgl");
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.addPackage(glfw.pkg);
-    // glfw.link(b, exe, .{}) catch |e| {
-    //     std.log.err("Linker error: {}", .{e});
-    // };
     exe.linkSystemLibrary("gl");
     try glfw.link(b, exe, .{});
     exe.install();
