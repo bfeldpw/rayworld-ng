@@ -52,6 +52,7 @@ pub fn showMap() void {
     const f = win_h * map_vis_y / map_cells_y; // scale factor cell -> px
     const o = win_h-f*map_cells_y; // y-offset for map drawing in px
 
+    gfx.startBatchQuads();
     for (m) |y,j| {
         for (y) |x,i| {
             if (x == 0) {
@@ -59,10 +60,11 @@ pub fn showMap() void {
             } else {
                 gfx.setColor4(1.0, 1.0, 1.0, 0.3);
             }
-            gfx.drawQuad(@intToFloat(f32, i)*f, o+@intToFloat(f32, j)*f,
-                         @intToFloat(f32, (i+1))*f, o+@intToFloat(f32, (j+1))*f);
+            gfx.addQuad(@intToFloat(f32, i)*f, o+@intToFloat(f32, j)*f,
+                        @intToFloat(f32, (i+1))*f, o+@intToFloat(f32, (j+1))*f);
         }
     }
+    gfx.endBatch();
 
     const x = plr.getPosX();
     const y = plr.getPosY();
@@ -70,11 +72,13 @@ pub fn showMap() void {
     var i: @TypeOf(gfx.getWindowWidth()) = 0;
 
     gfx.setColor4(0.0, 0.0, 1.0, 0.5);
+    gfx.startBatchLine();
     while (i < rays.x.len) : (i += 1) {
         if (i % 10 == 0) {
-            gfx.drawLine(x*f, o+y*f, rays.x[i]*f, o+rays.y[i]*f);
+            gfx.addLine(x*f, o+y*f, rays.x[i]*f, o+rays.y[i]*f);
         }
     }
+    gfx.endBatch();
 
     const w = 0.1;
     const h = 0.5;
@@ -91,6 +95,7 @@ pub fn showScene() void {
 
     var i: @TypeOf(gfx.getWindowWidth()) = 0;
 
+    gfx.startBatchLine();
     while (i < rays.x.len) : (i += 1) {
         const d_x = rays.x[i] - x;
         const d_y = rays.y[i] - y;
@@ -106,8 +111,9 @@ pub fn showScene() void {
         const h_half = win_h * 2.0 / d * 0.5;
 
         gfx.setColor3(2.0 / d, 2.0 / d, 2.0 / d);
-        gfx.drawVerticalLine(@intToFloat(f32, i), win_h*0.5-h_half, win_h*0.5+h_half);
+        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5+h_half);
     }
+    gfx.endBatch();
 }
 
 //-----------------------------------------------------------------------------//

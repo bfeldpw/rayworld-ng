@@ -50,6 +50,30 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
+pub fn startBatchLine() void {
+    c.glBegin(c.GL_LINES);
+}
+
+pub fn startBatchQuads() void {
+    c.glBegin(c.GL_QUADS);
+}
+
+pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y1);
+}
+
+pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y0);
+    c.glVertex2f(x1, y1);
+    c.glVertex2f(x0, y1);
+}
+
+pub fn endBatch() void {
+    c.glEnd();
+}
+
 pub fn drawLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glBegin(c.GL_LINES);
         c.glVertex2f(x0, y0);
