@@ -107,10 +107,10 @@ pub fn showScene() void {
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
         const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
         const h_half = win_h * d_norm * 0.5;
-        const ao_darkening_0 = 0.5;         // outer color fading factor
-        const ao_darkening_1 = 0.6;         // inner color fading factor
+        const ao_darkening_0 = 0.6;         // outer color fading factor
+        const ao_darkening_1 = 0.9;         // inner color fading factor
         const ao_height_0 = 0.9;            // outer color fading height
-        const ao_height_1 = 0.1;            // inner color fading height
+        const ao_height_1 = 0.8;            // inner color fading height
 
         // The vertical line consists of 5 parts. While the center part has the
         // base color, outer lines produce a darkening towards the upper and
