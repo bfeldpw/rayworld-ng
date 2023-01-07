@@ -11,8 +11,8 @@ pub const scope_levels = [_]std.log.ScopeLevel{
 
 pub fn main() !void {
     try gfx.init();
-    try rc.init();
     defer gfx.deinit();
+    try rc.init();
     defer rc.deinit();
 
     gfx.setFrequency(60.0);
