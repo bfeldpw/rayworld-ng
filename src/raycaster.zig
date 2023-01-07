@@ -8,19 +8,21 @@ const plr = @import("player.zig");
 //-----------------------------------------------------------------------------//
 
 pub fn init() !void {
-    // ToDo: Free if out of memory occurs for an allocation
     log_ray.debug("Allocating memory for ray data", .{});
-    rays.x = try allocator.alloc(f32, 640);
-    rays.y = try allocator.alloc(f32, 640);
-    rays.poc_x = try allocator.alloc(f32, 640);
-    rays.poc_y = try allocator.alloc(f32, 640);
+    rays.x = allocator.alloc(f32, 640) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    rays.y = allocator.alloc(f32, 640) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        allocator.free(rays.x);
+        return e;
+    };
 }
 
 pub fn deinit() void {
     allocator.free(rays.x);
     allocator.free(rays.y);
-    allocator.free(rays.poc_x);
-    allocator.free(rays.poc_y);
 
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -155,8 +157,6 @@ const allocator = gpa.allocator();
 const RayData = struct {
     x: []f32,
     y: []f32,
-    poc_x: []f32, // point of collision (within cell, -1 if wall on y-axis)
-    poc_y: []f32, // point of collision (within cell, -1 if wall on x-axis)
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
@@ -164,8 +164,6 @@ const RayData = struct {
 var rays = RayData{
     .x = undefined,
     .y = undefined,
-    .poc_x = undefined,
-    .poc_y = undefined,
 };
 
 fn reallocRaysOnChange() !void {
@@ -173,12 +171,15 @@ fn reallocRaysOnChange() !void {
         log_ray.debug("Reallocating memory for ray data", .{});
         allocator.free(rays.x);
         allocator.free(rays.y);
-        allocator.free(rays.poc_x);
-        allocator.free(rays.poc_y);
-        rays.x = try allocator.alloc(f32, gfx.getWindowWidth());
-        rays.y = try allocator.alloc(f32, gfx.getWindowWidth());
-        rays.poc_x = try allocator.alloc(f32, gfx.getWindowWidth());
-        rays.poc_y = try allocator.alloc(f32, gfx.getWindowWidth());
+        rays.x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
+            log_ray.err("Allocation error ", .{});
+            return e;
+        };
+        rays.y = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
+            log_ray.err("Allocation error ", .{});
+            allocator.free(rays.x);
+            return e;
+        };
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
 }
