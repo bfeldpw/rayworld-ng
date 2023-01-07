@@ -2,6 +2,7 @@ const std = @import("std");
 const gfx = @import("graphics.zig");
 const input = @import("input.zig");
 const rc = @import("raycaster.zig");
+const stats = @import("perf_stats.zig");
 
 pub const scope_levels = [_]std.log.ScopeLevel{
     // .{ .scope = .gfx, .level = .debug },
@@ -19,18 +20,32 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
+    var perf_fps = try stats.Performance.init("Frametime");
+    var perf_in = try stats.Performance.init("Input");
+    var perf_rc = try stats.Performance.init("Raycasting");
+    var perf_ren = try stats.Performance.init("Rendering");
+
     while (gfx.isWindowOpen()) {
+
+        perf_in.startMeasurement();
         input.processInputs();
+        perf_in.stopMeasurement();
+
+        perf_rc.startMeasurement();
         try rc.processRays();
+        perf_rc.stopMeasurement();
+
+        perf_ren.startMeasurement();
         rc.showScene();
         rc.showMap();
-        gfx.finishFrame();
-    }
-}
+        perf_ren.stopMeasurement();
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+        gfx.finishFrame();
+        perf_fps.stopMeasurement();
+        perf_fps.startMeasurement();
+    }
+    perf_fps.printStats();
+    perf_in.printStats();
+    perf_rc.printStats();
+    perf_ren.printStats();
 }
