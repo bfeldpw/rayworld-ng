@@ -8,6 +8,7 @@ pub const scope_levels = [_]std.log.ScopeLevel{
     // .{ .scope = .gfx, .level = .debug },
     .{ .scope = .input, .level = .info },
     .{ .scope = .plr, .level = .info },
+    // .{ .scope = .stats, .level = .info },
 };
 
 pub fn main() !void {
