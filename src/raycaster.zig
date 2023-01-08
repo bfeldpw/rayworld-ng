@@ -18,11 +18,18 @@ pub fn init() !void {
         allocator.free(rays.x);
         return e;
     };
+    rays.poc_x = allocator.alloc(f32, 640) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        allocator.free(rays.x);
+        allocator.free(rays.y);
+        return e;
+    };
 }
 
 pub fn deinit() void {
     allocator.free(rays.x);
     allocator.free(rays.y);
+    allocator.free(rays.poc_x);
 
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -107,7 +114,14 @@ pub fn showScene() void {
     while (i < rays.x.len) : (i += 1) {
         const d_x = rays.x[i] - x;
         const d_y = rays.y[i] - y;
-        var d = @sqrt(d_x*d_x + d_y*d_y);// * @cos(ang);
+
+        // Use an optical pleasing combination of the natural lense effect due
+        // to a "point" camera and the "straight line correction". This results
+        // in little dynamic changes when rotating the camera (instead of just)
+        // moving the still scene on the screen) as well as the non-linearity
+        // that differentiates it from polygons
+        const ang = std.math.atan2(f32, d_y, d_x) - plr.getDir();
+        var d = @sqrt(d_x*d_x + d_y*d_y) * (0.6 + 0.4*@cos(ang));
 
         if (d < 0.5) d = 0.5;
 
@@ -115,30 +129,43 @@ pub fn showScene() void {
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
         const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
         const h_half = win_h * d_norm * 0.5;
-        const ao_darkening_0 = 0.6;         // outer color fading factor
-        const ao_darkening_1 = 0.9;         // inner color fading factor
-        const ao_height_0 = 0.9;            // outer color fading height
-        const ao_height_1 = 0.8;            // inner color fading height
+        // const ao_darkening_0 = 0.6;         // outer color fading factor
+        // const ao_darkening_1 = 0.9;         // inner color fading factor
+        // const ao_height_0 = 0.9;            // outer color fading height
+        // const ao_height_1 = 0.8;            // inner color fading height
+
+        // var ao_hx = rays.poc_x[i];
+        // if (ao_hx > 0.5) ao_hx = 1 - ao_hx;
+        // if (ao_hx > 0.1) {
+        //     ao_hx = 1;
+        // } else {
+        //     ao_hx *= 10;
+        // }
+
+        const tilt = -@intToFloat(f32, gfx.getWindowHeight()) * plr.getTilt();
+        const shift = @intToFloat(f32, gfx.getWindowHeight()) * plr.getPosZ() / (d+1e-3);
 
         // The vertical line consists of 5 parts. While the center part has the
         // base color, outer lines produce a darkening towards the upper and
         // lower edges. Since OpenGL interpolation is done linearily, it is two
         // line segments on top and bottom to hide the linear behaviour a little
         // This might be easily replaced by GL core profile and a simple shader
-        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_0,
-                          d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0,
-                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
-        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_1,
-                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
-                          d_norm, d_norm, d_norm);
+        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_0,
+        //                   d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0,
+        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
+        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_1,
+        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
+        //                   d_norm, d_norm, d_norm);
         gfx.setColor3(d_norm, d_norm, d_norm);
-        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_1);
-        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_0,
-                          d_norm, d_norm, d_norm,
-                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
-        gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5+h_half,
-                          d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
-                          d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0);
+        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
+                    @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+        // gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_1);
+        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_0,
+        //                   d_norm, d_norm, d_norm,
+        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
+        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5+h_half,
+        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
+        //                   d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0);
     }
     gfx.endBatch();
 }
@@ -157,6 +184,8 @@ const allocator = gpa.allocator();
 const RayData = struct {
     x: []f32,
     y: []f32,
+    poc_x: []f32, // point of contact with a wall in m
+    poc_y: []f32, // point of contact with a wall in m
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
@@ -164,6 +193,8 @@ const RayData = struct {
 var rays = RayData{
     .x = undefined,
     .y = undefined,
+    .poc_x = undefined,
+    .poc_y = undefined,
 };
 
 fn reallocRaysOnChange() !void {
@@ -171,6 +202,7 @@ fn reallocRaysOnChange() !void {
         log_ray.debug("Reallocating memory for ray data", .{});
         allocator.free(rays.x);
         allocator.free(rays.y);
+        allocator.free(rays.poc_x);
         rays.x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
             log_ray.err("Allocation error ", .{});
             return e;
@@ -180,21 +212,32 @@ fn reallocRaysOnChange() !void {
             allocator.free(rays.x);
             return e;
         };
+        rays.poc_x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
+            log_ray.err("Allocation error ", .{});
+            allocator.free(rays.x);
+            allocator.free(rays.y);
+            return e;
+        };
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
 }
-
 fn traceSingleRay(angle: f32, r_i: usize) void {
+    var d_x = @cos(angle);      // direction x
+    var d_y = @sin(angle);      // direction y
+    traceSingleRay0(d_x, d_y, r_i);
+}
+
+fn traceSingleRay0(d_x0: f32, d_y0: f32, r_i: usize) void {
     const Axis = enum { x, y };
 
     var a: Axis = .y;           // primary axis for stepping
     var sign_x: f32 = 1;
     var sign_y: f32 = 1;
     var is_wall: bool = false;
-    var d_x = @cos(angle);      // direction x
-    var d_y = @sin(angle);      // direction y
     var r_x = rays.x[r_i];      // ray pos x
     var r_y = rays.y[r_i];      // ray pos y
+    var d_x = d_x0;             // direction x
+    var d_y = d_y0;             // direction y
     const g_x = d_y/d_x;        // gradient/derivative of the ray for direction x
     const g_y = d_x/d_y;        // gradient/derivative of the ray for direction y
 
@@ -216,29 +259,67 @@ fn traceSingleRay(angle: f32, r_i: usize) void {
 
         var o_x: f32 = 0;
         var o_y: f32 = 0;
+        var is_contact_on_x_axis: bool = false;
         if (a == .x) {
             if (@fabs(d_x * g_x) < @fabs(d_y)) {
                 r_x += d_x;
                 r_y += @fabs(d_x * g_x) * sign_y;
                 if (sign_x == -1) o_x = -0.5;
+                // default: is_contact_on_y_axis = false;
             } else {
                 r_x += @fabs(d_y * g_y) * sign_x;
                 r_y += d_y;
                 if (sign_y == -1) o_y = -0.5;
+                is_contact_on_x_axis = true;
             }
         } else { // (a == .y)
             if (@fabs(d_y * g_y) < @fabs(d_x)) {
                 r_x += @fabs(d_y * g_y) * sign_x;
                 r_y += d_y;
                 if (sign_y == -1) o_y = -0.5;
+                is_contact_on_x_axis = true;
             } else {
                 r_x += d_x;
                 r_y += @fabs(d_x * g_x) * sign_y;
                 if (sign_x == -1) o_x = -0.5;
+                // default: is_contact_on_y_axis = false;
             }
         }
 
-        if (map.get()[@floatToInt(usize, r_y+o_y)][@floatToInt(usize, r_x+o_x)] == 1) is_wall = true;
+        const m_y = @floatToInt(usize, r_y+o_y);
+        const m_x = @floatToInt(usize, r_x+o_x);
+        const m_v = @intToEnum(map.Cell, map.get()[m_y][m_x]);
+
+        switch (m_v) {
+            map.Cell.wall => {
+                is_wall = true;
+                rays.poc_x[r_i] = @fabs(r_x - @trunc(r_x)) +
+                                  @fabs(r_y - @trunc(r_y));
+            },
+            map.Cell.mirror => {
+                if (is_contact_on_x_axis) {
+                    d_x = -d_x;
+                    traceSingleRay0(d_x, d_y, r_i);
+                    r_x += rays.x[r_i];
+                    r_y += rays.y[r_i];
+                } else {
+                    d_y = -d_y;
+                    traceSingleRay0(d_x, d_y, r_i);
+                    r_x += rays.x[r_i];
+                    r_y += rays.y[r_i];
+                }
+            },
+            else => {}
+        }
+        // if (map.get()[m_y][m_x] == @enumToInt(map.Cell.wall)) {
+            // is_wall = true;
+            // if (is_contact_on_x_axis) {
+            //     log_ray.debug("X", .{});
+            // }
+            // else {
+            //     log_ray.debug("Y", .{});
+            // }
+        // }
     }
     rays.x[r_i] = r_x;
     rays.y[r_i] = r_y;

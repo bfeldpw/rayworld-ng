@@ -14,6 +14,10 @@ pub fn move(m: f32) void {
     }
 }
 
+pub fn moveUpDown(m: f32) void {
+    pos_z += m;
+}
+
 pub fn strafe(m: f32) void {
     const p_x = pos_x + m * @sin(dir);
     const p_y = pos_y - m * @cos(dir);
@@ -21,6 +25,10 @@ pub fn strafe(m: f32) void {
         pos_x = p_x;
         pos_y = p_y;
     }
+}
+
+pub fn lookUpDown(t: f32) void {
+    tilt += t;
 }
 
 pub fn turn(d: f32) void {
@@ -54,6 +62,14 @@ pub fn getPosY() f32 {
     return pos_y;
 }
 
+pub fn getPosZ() f32 {
+    return pos_z;
+}
+
+pub fn getTilt() f32 {
+    return tilt;
+}
+
 pub fn setDir(d: f32) void {
     dir = d;
 }
@@ -68,6 +84,8 @@ const fov = std.math.degreesToRadians(f32, 90.0);
 var dir: f32 = 0.0;
 var pos_x: f32 = 2.5;
 var pos_y: f32 = 2.5;
+var pos_z: f32 = 0.3;
+var tilt: f32 = 0.0;
 
 fn isColliding(x: f32, y: f32) bool {
     const map_x = @floatToInt(u32, x) / map.getResolution();

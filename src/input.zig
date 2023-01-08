@@ -31,6 +31,8 @@ pub fn processInputs() void {
     if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(-0.1);
     if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.move(0.1);
     if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-0.1);
+    if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(0.05);
+    if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-0.05);
 }
 
 //-----------------------------------------------------------------------------//
@@ -70,6 +72,7 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
     _ = win;
     log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
     plr.turn(-@floatCast(f32, x)*0.001);
+    plr.lookUpDown(@floatCast(f32, y)*0.001);
 
     _ = c.glfwSetCursorPos(window, 0.0, 0.0);
 }
