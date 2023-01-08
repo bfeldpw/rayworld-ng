@@ -20,16 +20,17 @@ Raycasting is done on CPU, which is an old 4790K underclocked (yes, underclocked
 The algorithm is single-threaded for now. My stats are as follows:
 ### debug
 Raycasting: ~2.8ms (@ ~3000 measurements, i.e. frames)
+
 Rendering: ~0.96ms (@ ~3000 measurements, i.e. frames)
 
 ### release-safe
 Raycasting: ~1.22ms (@ ~2860 measurements, i.e. frames)
+
 Rendering:  ~0.41ms (@ ~2860 measurements, i.e. frames) 
 
 ### release-fast
 Raycasting: ~0.97ms (@ ~4700 measurements, i.e. frames)
-Rendering:  ~0.43ms (@ ~4700 measurements, i.e. frames)
 
-This is using OpenGL fixed function pipeline
+Rendering:  ~0.43ms (@ ~4700 measurements, i.e. frames)
 
 
