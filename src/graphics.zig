@@ -1,5 +1,4 @@
 const std = @import("std");
-// const glfw = @import("glfw");
 const c = @import("c.zig").c;
 
 //-----------------------------------------------------------------------------//
@@ -12,6 +11,7 @@ pub fn init() !void {
     var glfw_error: bool = false;
 
     const r = c.glfwInit();
+
     if (r == c.GLFW_FALSE) {
         glfw_error = glfwCheckError();
         return;

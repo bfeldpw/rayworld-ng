@@ -10,14 +10,13 @@ pub fn build(b: *std.build.Builder) !void {
     // Standard release options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
-    const glfw = @import("3rdparty/mach-glfw/build.zig");
 
     const exe = b.addExecutable("rayworld-ng", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    exe.addPackage(glfw.pkg);
+    exe.linkLibC();
     exe.linkSystemLibrary("gl");
-    try glfw.link(b, exe, .{});
+    exe.linkSystemLibrary("glfw");
     exe.install();
     exe.emit_docs = .emit;
 
