@@ -1,6 +1,7 @@
 const std = @import("std");
 const gfx = @import("graphics.zig");
 const map = @import("map.zig");
+const stats = @import("perf_stats.zig");
 const plr = @import("player.zig");
 
 //-----------------------------------------------------------------------------//
@@ -9,6 +10,8 @@ const plr = @import("player.zig");
 
 pub fn init() !void {
     log_ray.debug("Allocating memory for ray data", .{});
+    perf_gfx_alloc = try stats.Performance.init("Graphics memory allocation");
+    perf_gfx_alloc.startMeasurement();
     rays.x = allocator.alloc(f32, 640) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
@@ -24,6 +27,7 @@ pub fn init() !void {
         allocator.free(rays.y);
         return e;
     };
+    perf_gfx_alloc.stopMeasurement();
 }
 
 pub fn deinit() void {
@@ -33,6 +37,8 @@ pub fn deinit() void {
 
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
+
+    perf_gfx_alloc.printStats();
 }
 
 //-----------------------------------------------------------------------------//
@@ -121,7 +127,7 @@ pub fn showScene() void {
         // moving the still scene on the screen) as well as the non-linearity
         // that differentiates it from polygons
         const ang = std.math.atan2(f32, d_y, d_x) - plr.getDir();
-        var d = @sqrt(d_x*d_x + d_y*d_y) * (0.6 + 0.4*@cos(ang));
+        var d = @sqrt(d_x*d_x + d_y*d_y) * (0.5 + 0.5*@cos(ang));
 
         if (d < 0.5) d = 0.5;
 
@@ -197,8 +203,11 @@ var rays = RayData{
     .poc_y = undefined,
 };
 
+var perf_gfx_alloc: stats.Performance = undefined;
+
 fn reallocRaysOnChange() !void {
     if (gfx.getWindowWidth() != rays.x.len) {
+        perf_gfx_alloc.startMeasurement();
         log_ray.debug("Reallocating memory for ray data", .{});
         allocator.free(rays.x);
         allocator.free(rays.y);
@@ -218,6 +227,7 @@ fn reallocRaysOnChange() !void {
             allocator.free(rays.y);
             return e;
         };
+        perf_gfx_alloc.stopMeasurement();
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
 }
