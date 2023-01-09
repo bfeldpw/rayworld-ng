@@ -45,23 +45,28 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn processRays() !void {
+pub fn processRays(comptime multithreading: bool) !void {
     try reallocRaysOnChange();
 
-    const p_x = plr.getPosX();
-    const p_y = plr.getPosY();
-
-    var i: usize = 0;
-    var angle: f32 = plr.getDir() - 0.5*plr.getFOV();
+    var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
     const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.x.len);
 
-    while (i < rays.x.len) : (i += 1) {
-        rays.x[i] = p_x;
-        rays.y[i] = p_y;
+    const split = rays.x.len / 4;
 
-        traceSingleRay(angle, i);
-
-        angle += inc_angle;
+    if (multithreading) {
+        var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
+        var thread_1 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{split, 2*split, @mulAdd(f32, inc_angle, @intToFloat(f32, split), angle), inc_angle});
+        var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
+        var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{3*split, rays.x.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
+        thread_0.join();
+        thread_1.join();
+        thread_2.join();
+        thread_3.join();
+    } else {
+        traceMultipleRays(0, rays.x.len, angle, inc_angle);
     }
 }
 
@@ -231,7 +236,24 @@ fn reallocRaysOnChange() !void {
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
 }
-fn traceSingleRay(angle: f32, r_i: usize) void {
+
+fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
+    const p_x = plr.getPosX();
+    const p_y = plr.getPosY();
+
+    var i = i_0;
+    var angle = angle_0;
+    while (i < i_1) : (i += 1) {
+        rays.x[i] = p_x;
+        rays.y[i] = p_y;
+
+        traceSingleRay(angle, i);
+
+        angle += inc;
+    }
+}
+
+inline fn traceSingleRay(angle: f32, r_i: usize) void {
     var d_x = @cos(angle);      // direction x
     var d_y = @sin(angle);      // direction y
     traceSingleRay0(d_x, d_y, r_i);

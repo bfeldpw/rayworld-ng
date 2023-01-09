@@ -4,6 +4,8 @@ const input = @import("input.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("perf_stats.zig");
 
+const multithreading = true;
+
 pub const scope_levels = [_]std.log.ScopeLevel{
     // .{ .scope = .gfx, .level = .debug },
     .{ .scope = .input, .level = .info },
@@ -33,7 +35,7 @@ pub fn main() !void {
         perf_in.stopMeasurement();
 
         perf_rc.startMeasurement();
-        try rc.processRays();
+        try rc.processRays(multithreading);
         perf_rc.stopMeasurement();
 
         perf_ren.startMeasurement();
