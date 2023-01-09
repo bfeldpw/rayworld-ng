@@ -16,17 +16,17 @@ pub fn init() !void {
         log_ray.err("Allocation error ", .{});
         return e;
     };
+    errdefer allocator.free(rays.x);
     rays.y = allocator.alloc(f32, 640) catch |e| {
         log_ray.err("Allocation error ", .{});
-        allocator.free(rays.x);
         return e;
     };
+    errdefer allocator.free(rays.y);
     rays.poc_x = allocator.alloc(f32, 640) catch |e| {
         log_ray.err("Allocation error ", .{});
-        allocator.free(rays.x);
-        allocator.free(rays.y);
         return e;
     };
+    errdefer allocator.free(rays.poc_x);
     perf_gfx_alloc.stopMeasurement();
 }
 
@@ -216,17 +216,17 @@ fn reallocRaysOnChange() !void {
             log_ray.err("Allocation error ", .{});
             return e;
         };
+        errdefer allocator.free(rays.x);
         rays.y = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
             log_ray.err("Allocation error ", .{});
-            allocator.free(rays.x);
             return e;
         };
+        errdefer allocator.free(rays.y);
         rays.poc_x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
             log_ray.err("Allocation error ", .{});
-            allocator.free(rays.x);
-            allocator.free(rays.y);
             return e;
         };
+        errdefer allocator.free(rays.poc_x);
         perf_gfx_alloc.stopMeasurement();
         log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
     }
