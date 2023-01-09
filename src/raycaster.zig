@@ -240,16 +240,45 @@ fn reallocRaysOnChange() !void {
 fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
     const p_x = plr.getPosX();
     const p_y = plr.getPosY();
+    const interpolation = true;
 
     var i = i_0;
     var angle = angle_0;
-    while (i < i_1) : (i += 1) {
+
+    if (interpolation == true) {
+        // Make sure to calculate the first ray
+        rays.x[i] = p_x;
+        rays.y[i] = p_y;
+        traceSingleRay(angle, i);
+        i += 2;
+        angle += 2*inc;
+    }
+
+    while (i < i_1) {
         rays.x[i] = p_x;
         rays.y[i] = p_y;
 
         traceSingleRay(angle, i);
 
-        angle += inc;
+        if (interpolation == true) {
+            rays.x[i-1] = (rays.x[i-2] + rays.x[i]) * 0.5;
+            rays.y[i-1] = (rays.y[i-2] + rays.y[i]) * 0.5;
+
+            i += 2;
+            angle += 2*inc;
+        } else {
+            i += 1;
+            angle += inc;
+        }
+    }
+
+    if (interpolation == true) {
+        // Calculate last ray if number of rays is even
+        if (i != i_1 - 1) {
+            rays.x[i_1-1] = p_x;
+            rays.y[i_1-1] = p_y;
+            traceSingleRay(angle-inc, i_1-1);
+        }
     }
 }
 
