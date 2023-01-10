@@ -109,6 +109,7 @@ pub fn showMap() void {
 
 pub fn showScene() void {
 
+    const mirror_borders = true;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
     var i: usize = 0;
 
@@ -146,6 +147,13 @@ pub fn showScene() void {
             }
             gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
                         @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+            if (mirror_borders == true) {
+                gfx.setColor3(d_norm, d_norm, d_norm);
+                gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
+                            @intToFloat(f32, i), win_h*0.5-h_half*0.85 + shift + tilt);
+                gfx.addLine(@intToFloat(f32, i), win_h*0.5+h_half*0.85 + shift + tilt,
+                            @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+            }
         }
     }
     gfx.endBatch();
