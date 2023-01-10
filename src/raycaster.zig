@@ -12,28 +12,14 @@ pub fn init() !void {
     log_ray.debug("Allocating memory for ray data", .{});
     perf_gfx_alloc = try stats.Performance.init("Graphics memory allocation");
     perf_gfx_alloc.startMeasurement();
-    rays.x = allocator.alloc(f32, 640) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(rays.x);
-    rays.y = allocator.alloc(f32, 640) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(rays.y);
-    rays.poc_x = allocator.alloc(f32, 640) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(rays.poc_x);
+
+    try allocMemory(640);
+
     perf_gfx_alloc.stopMeasurement();
 }
 
 pub fn deinit() void {
-    allocator.free(rays.x);
-    allocator.free(rays.y);
-    allocator.free(rays.poc_x);
+    freeMemory();
 
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -49,9 +35,9 @@ pub fn processRays(comptime multithreading: bool) !void {
     try reallocRaysOnChange();
 
     var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
-    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.x.len);
+    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.seg_i0.len);
 
-    const split = rays.x.len / 4;
+    const split = rays.seg_i0.len / 4;
 
     if (multithreading) {
         var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
@@ -60,13 +46,13 @@ pub fn processRays(comptime multithreading: bool) !void {
         var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
                                             .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
         var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{3*split, rays.x.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
+                                            .{3*split, rays.seg_i0.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
         thread_0.join();
         thread_1.join();
         thread_2.join();
         thread_3.join();
     } else {
-        traceMultipleRays(0, rays.x.len, angle, inc_angle);
+        traceMultipleRays(0, rays.seg_i0.len, angle, inc_angle);
     }
 }
 
@@ -92,20 +78,26 @@ pub fn showMap() void {
     }
     gfx.endBatch();
 
-    const x = plr.getPosX();
-    const y = plr.getPosY();
 
-    var i: @TypeOf(gfx.getWindowWidth()) = 0;
+    var i: usize = 0;
 
     gfx.setColor4(0.0, 0.0, 1.0, 0.5);
     gfx.startBatchLine();
-    while (i < rays.x.len) : (i += 1) {
+    while (i < rays.seg_i0.len) : (i += 1) {
         if (i % 10 == 0) {
-            gfx.addLine(x*f, o+y*f, rays.x[i]*f, o+rays.y[i]*f);
+            var j = rays.seg_i0[i];
+            const j0 = rays.seg_i1[i];
+
+            while (j <= j0) : (j += 1) {
+                gfx.addLine(segments.x0[j]*f, o+segments.y0[j]*f,
+                            segments.x1[j]*f, o+segments.y1[j]*f);
+            }
         }
     }
     gfx.endBatch();
 
+    const x = plr.getPosX();
+    const y = plr.getPosY();
     const w = 0.1;
     const h = 0.5;
     const d = plr.getDir();
@@ -116,67 +108,45 @@ pub fn showMap() void {
 }
 
 pub fn showScene() void {
-    const x = plr.getPosX();
-    const y = plr.getPosY();
 
-    var i: @TypeOf(gfx.getWindowWidth()) = 0;
+    const win_h = @intToFloat(f32, gfx.getWindowHeight());
+    var i: usize = 0;
 
     gfx.startBatchLine();
-    while (i < rays.x.len) : (i += 1) {
-        const d_x = rays.x[i] - x;
-        const d_y = rays.y[i] - y;
+    while (i < rays.seg_i0.len) : (i += 1) {
 
-        // Use an optical pleasing combination of the natural lense effect due
-        // to a "point" camera and the "straight line correction". This results
-        // in little dynamic changes when rotating the camera (instead of just)
-        // moving the still scene on the screen) as well as the non-linearity
-        // that differentiates it from polygons
-        const ang = std.math.atan2(f32, d_y, d_x) - plr.getDir();
-        var d = @sqrt(d_x*d_x + d_y*d_y) * (0.5 + 0.5*@cos(ang));
+        const j0 = rays.seg_i0[i];
+        const j1 = rays.seg_i1[i];
+        var j = @intCast(i32, j1);
 
-        if (d < 0.5) d = 0.5;
+        const s_dx0 = segments.x1[j0] - segments.x0[j0];
+        const s_dy0 = segments.y1[j0] - segments.y0[j0];
+        const ang_0 = std.math.atan2(f32, s_dy0, s_dx0) - plr.getDir();
 
-        // Draw the scene with a very naive vertical ambient occlusion approach
-        const win_h = @intToFloat(f32, gfx.getWindowHeight());
-        const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
-        const h_half = win_h * d_norm * 0.5;
-        // const ao_darkening_0 = 0.6;         // outer color fading factor
-        // const ao_darkening_1 = 0.9;         // inner color fading factor
-        // const ao_height_0 = 0.9;            // outer color fading height
-        // const ao_height_1 = 0.8;            // inner color fading height
+        while (j >= j0) : (j -= 1){
+            // Use an optical pleasing combination of the natural lense effect due
+            // to a "point" camera and the "straight line correction". This results
+            // in little dynamic changes when rotating the camera (instead of just)
+            // moving the still scene on the screen) as well as the non-linearity
+            // that differentiates it from polygons
+            var d = segments.d[@intCast(usize, j)];
+            d *= (0.5 + 0.5 * @cos(ang_0));
+            if (d < 0.5) d = 0.5;
 
-        // var ao_hx = rays.poc_x[i];
-        // if (ao_hx > 0.5) ao_hx = 1 - ao_hx;
-        // if (ao_hx > 0.1) {
-        //     ao_hx = 1;
-        // } else {
-        //     ao_hx *= 10;
-        // }
+            const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
+            const h_half = win_h * d_norm * 0.5;
 
-        const tilt = -@intToFloat(f32, gfx.getWindowHeight()) * plr.getTilt();
-        const shift = @intToFloat(f32, gfx.getWindowHeight()) * plr.getPosZ() / (d+1e-3);
+            const tilt = -win_h * plr.getTilt();
+            const shift = win_h * plr.getPosZ() / (d+1e-3);
 
-        // The vertical line consists of 5 parts. While the center part has the
-        // base color, outer lines produce a darkening towards the upper and
-        // lower edges. Since OpenGL interpolation is done linearily, it is two
-        // line segments on top and bottom to hide the linear behaviour a little
-        // This might be easily replaced by GL core profile and a simple shader
-        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_0,
-        //                   d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0,
-        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
-        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5-h_half*ao_height_1,
-        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
-        //                   d_norm, d_norm, d_norm);
-        gfx.setColor3(d_norm, d_norm, d_norm);
-        gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
-                    @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
-        // gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_1);
-        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_1, @intToFloat(f32, i), win_h*0.5+h_half*ao_height_0,
-        //                   d_norm, d_norm, d_norm,
-        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1);
-        // gfx.addLineColor3(@intToFloat(f32, i), win_h*0.5+h_half*ao_height_0, @intToFloat(f32, i), win_h*0.5+h_half,
-        //                   d_norm * ao_darkening_1, d_norm * ao_darkening_1, d_norm * ao_darkening_1,
-        //                   d_norm * ao_darkening_0, d_norm * ao_darkening_0, d_norm * ao_darkening_0);
+            if (j == j1) {
+                gfx.setColor3(d_norm, d_norm, d_norm);
+            } else {
+                gfx.setColor4(d_norm*0.5, d_norm*0.5, d_norm, 0.3);
+            }
+            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
+                        @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+        }
     }
     gfx.endBatch();
 }
@@ -184,6 +154,8 @@ pub fn showScene() void {
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
+
+const segments_max = 10;
 
 const log_ray = std.log.scoped(.ray);
 
@@ -193,76 +165,141 @@ const allocator = gpa.allocator();
 
 /// Struct of arrays (SOA) to store ray data
 const RayData = struct {
-    x: []f32,
-    y: []f32,
-    poc_x: []f32, // point of contact with a wall in m
-    poc_y: []f32, // point of contact with a wall in m
+    seg_i0: []usize,
+    seg_i1: []usize,
+};
+
+/// Struct of arrays (SOA) to store data of ray segments
+const RaySegmentData = struct {
+    x0: []f32,
+    y0: []f32,
+    x1: []f32,
+    y1: []f32,
+    d:  []f32,
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
 /// in @init function
 var rays = RayData{
-    .x = undefined,
-    .y = undefined,
-    .poc_x = undefined,
-    .poc_y = undefined,
+    .seg_i0 = undefined,
+    .seg_i1 = undefined,
+};
+
+/// Struct of array instanciation to store ray segment data. Memory allocation is
+/// done in @init function
+var segments = RaySegmentData{
+    .x0 = undefined,
+    .y0 = undefined,
+    .x1 = undefined,
+    .y1 = undefined,
+    .d  = undefined,
 };
 
 var perf_gfx_alloc: stats.Performance = undefined;
 
+fn allocMemory(n: usize) !void {
+    // Allocate for memory for ray data
+    rays.seg_i0 = allocator.alloc(usize, n) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(rays.seg_i0);
+    rays.seg_i1 = allocator.alloc(usize, n) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(rays.seg_i1);
+
+    // Allocate memory for segment data
+    segments.x0 = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.x0);
+    segments.y0 = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.y0);
+    segments.x1 = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.x1);
+    segments.y1 = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.y1);
+    segments.d = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.d);
+}
+
+fn freeMemory() void {
+    allocator.free(rays.seg_i0);
+    allocator.free(rays.seg_i1);
+    allocator.free(segments.x0);
+    allocator.free(segments.y0);
+    allocator.free(segments.x1);
+    allocator.free(segments.y1);
+    allocator.free(segments.d);
+}
+
 fn reallocRaysOnChange() !void {
-    if (gfx.getWindowWidth() != rays.x.len) {
+    if (gfx.getWindowWidth() != rays.seg_i0.len) {
         perf_gfx_alloc.startMeasurement();
         log_ray.debug("Reallocating memory for ray data", .{});
-        allocator.free(rays.x);
-        allocator.free(rays.y);
-        allocator.free(rays.poc_x);
-        rays.x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
-            log_ray.err("Allocation error ", .{});
-            return e;
-        };
-        errdefer allocator.free(rays.x);
-        rays.y = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
-            log_ray.err("Allocation error ", .{});
-            return e;
-        };
-        errdefer allocator.free(rays.y);
-        rays.poc_x = allocator.alloc(f32, gfx.getWindowWidth()) catch |e| {
-            log_ray.err("Allocation error ", .{});
-            return e;
-        };
-        errdefer allocator.free(rays.poc_x);
+
+        freeMemory();
+        try allocMemory(gfx.getWindowWidth());
+
         perf_gfx_alloc.stopMeasurement();
-        log_ray.debug("Window resized, changing number of rays -> {}", .{rays.x.len});
+        log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.seg_i0.len});
     }
 }
 
 fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
     const p_x = plr.getPosX();
     const p_y = plr.getPosY();
-    const interpolation = true;
+    const interpolation = false;
 
     var i = i_0;
     var angle = angle_0;
 
     if (interpolation == true) {
         // Make sure to calculate the first ray
-        rays.x[i] = p_x;
-        rays.y[i] = p_y;
-        traceSingleRay(angle, i);
+        const j = segments_max*i;
+
+        rays.seg_i0[i] = j;
+        rays.seg_i1[i] = j;
+        segments.x0[j] = p_x;
+        segments.y0[j] = p_y;
+        traceSingleSegment(angle, j, i);
         i += 2;
         angle += 2*inc;
     }
 
     while (i < i_1) {
-        rays.x[i] = p_x;
-        rays.y[i] = p_y;
+        const j = segments_max*i;
+        rays.seg_i0[i] = j;
+        rays.seg_i1[i] = j;
+        segments.x0[j] = p_x;
+        segments.y0[j] = p_y;
 
-        traceSingleRay(angle, i);
+        traceSingleSegment(angle, j, i);
 
         if (interpolation == true) {
-            rays.x[i-1] = (rays.x[i-2] + rays.x[i]) * 0.5;
-            rays.y[i-1] = (rays.y[i-2] + rays.y[i]) * 0.5;
+            const k0 = segments_max*(i-1);
+            const k1 = segments_max*(i-2);
+            rays.seg_i0[i-1] = k0;
+
+            segments.x0[k0] = (segments.x0[k1] + segments.x0[j]) * 0.5;
+            segments.y0[k0] = (segments.y0[k1] + segments.y0[j]) * 0.5;
+            segments.x1[k0] = (segments.x1[k1] + segments.x1[j]) * 0.5;
+            segments.y1[k0] = (segments.y1[k1] + segments.y1[j]) * 0.5;
 
             i += 2;
             angle += 2*inc;
@@ -275,32 +312,35 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
     if (interpolation == true) {
         // Calculate last ray if number of rays is even
         if (i != i_1 - 1) {
-            rays.x[i_1-1] = p_x;
-            rays.y[i_1-1] = p_y;
-            traceSingleRay(angle-inc, i_1-1);
+            const j = segments_max*(i_1-1);
+            rays.seg_i0[i_1-1] = j;
+            rays.seg_i1[i_1-1] = j;
+            segments.x0[j] = p_x;
+            segments.y0[j] = p_y;
+            traceSingleSegment(angle-inc, j, i);
         }
     }
 }
 
-inline fn traceSingleRay(angle: f32, r_i: usize) void {
+inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
     var d_x = @cos(angle);      // direction x
     var d_y = @sin(angle);      // direction y
-    traceSingleRay0(d_x, d_y, r_i);
+    traceSingleSegment0(d_x, d_y, s_i, r_i);
 }
 
-fn traceSingleRay0(d_x0: f32, d_y0: f32, r_i: usize) void {
+fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
     const Axis = enum { x, y };
 
     var a: Axis = .y;           // primary axis for stepping
     var sign_x: f32 = 1;
     var sign_y: f32 = 1;
     var is_wall: bool = false;
-    var r_x = rays.x[r_i];      // ray pos x
-    var r_y = rays.y[r_i];      // ray pos y
+    var s_x = segments.x0[s_i]; // segment pos x
+    var s_y = segments.y0[s_i]; // segment pos y
     var d_x = d_x0;             // direction x
     var d_y = d_y0;             // direction y
-    const g_x = d_y/d_x;        // gradient/derivative of the ray for direction x
-    const g_y = d_x/d_y;        // gradient/derivative of the ray for direction y
+    const g_x = d_y/d_x;        // gradient/derivative of the segment for direction x
+    const g_y = d_x/d_y;        // gradient/derivative of the segment for direction y
 
     if (@fabs(d_x) > @fabs(d_y)) a = .x;
     if (d_x < 0) sign_x = -1;
@@ -308,14 +348,14 @@ fn traceSingleRay0(d_x0: f32, d_y0: f32, r_i: usize) void {
 
     while (!is_wall) {
         if (sign_x == 1) {
-            d_x = @trunc(r_x+1) - r_x;
+            d_x = @trunc(s_x+1) - s_x;
         } else {
-            d_x = @ceil(r_x-1) - r_x;
+            d_x = @ceil(s_x-1) - s_x;
         }
         if (sign_y == 1) {
-            d_y = @trunc(r_y+1) - r_y;
+            d_y = @trunc(s_y+1) - s_y;
         } else {
-            d_y = @ceil(r_y-1) - r_y;
+            d_y = @ceil(s_y-1) - s_y;
         }
 
         var o_x: f32 = 0;
@@ -323,65 +363,85 @@ fn traceSingleRay0(d_x0: f32, d_y0: f32, r_i: usize) void {
         var is_contact_on_x_axis: bool = false;
         if (a == .x) {
             if (@fabs(d_x * g_x) < @fabs(d_y)) {
-                r_x += d_x;
-                r_y += @fabs(d_x * g_x) * sign_y;
+                s_x += d_x;
+                s_y += @fabs(d_x * g_x) * sign_y;
                 if (sign_x == -1) o_x = -0.5;
                 // default: is_contact_on_y_axis = false;
             } else {
-                r_x += @fabs(d_y * g_y) * sign_x;
-                r_y += d_y;
+                s_x += @fabs(d_y * g_y) * sign_x;
+                s_y += d_y;
                 if (sign_y == -1) o_y = -0.5;
                 is_contact_on_x_axis = true;
             }
         } else { // (a == .y)
             if (@fabs(d_y * g_y) < @fabs(d_x)) {
-                r_x += @fabs(d_y * g_y) * sign_x;
-                r_y += d_y;
+                s_x += @fabs(d_y * g_y) * sign_x;
+                s_y += d_y;
                 if (sign_y == -1) o_y = -0.5;
                 is_contact_on_x_axis = true;
             } else {
-                r_x += d_x;
-                r_y += @fabs(d_x * g_x) * sign_y;
+                s_x += d_x;
+                s_y += @fabs(d_x * g_x) * sign_y;
                 if (sign_x == -1) o_x = -0.5;
                 // default: is_contact_on_y_axis = false;
             }
         }
 
-        const m_y = @floatToInt(usize, r_y+o_y);
-        const m_x = @floatToInt(usize, r_x+o_x);
+        const m_y = @floatToInt(usize, s_y+o_y);
+        const m_x = @floatToInt(usize, s_x+o_x);
         const m_v = @intToEnum(map.Cell, map.get()[m_y][m_x]);
 
         switch (m_v) {
             map.Cell.wall => {
                 is_wall = true;
-                rays.poc_x[r_i] = @fabs(r_x - @trunc(r_x)) +
-                                  @fabs(r_y - @trunc(r_y));
+                segments.x1[s_i] = s_x;
+                segments.y1[s_i] = s_y;
+                const s_x0 = segments.x0[s_i];
+                const s_y0 = segments.y0[s_i];
+                const s_dx = s_x - s_x0;
+                const s_dy = s_y - s_y0;
+
+                // Accumulate distances, if first segment, set
+                if (s_i > rays.seg_i0[r_i]) {
+                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
+                } else {
+                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
+                }
             },
             map.Cell.mirror => {
                 if (is_contact_on_x_axis) {
-                    d_x = -d_x;
-                    traceSingleRay0(d_x, d_y, r_i);
-                    r_x += rays.x[r_i];
-                    r_y += rays.y[r_i];
+                    d_y = -d_y0;
+                    d_x = d_x0;
                 } else {
-                    d_y = -d_y;
-                    traceSingleRay0(d_x, d_y, r_i);
-                    r_x += rays.x[r_i];
-                    r_y += rays.y[r_i];
+                    d_x = -d_x0;
+                    d_y = d_y0;
                 }
+                // Only prepare next segment if not already the last segment of the
+                // last ray!
+                if (s_i+1 < rays.seg_i0.len * segments_max) {
+                    segments.x0[s_i+1] = s_x;
+                    segments.y0[s_i+1] = s_y;
+                }
+                segments.x1[s_i] = s_x;
+                segments.y1[s_i] = s_y;
+                const s_x0 = segments.x0[s_i];
+                const s_y0 = segments.y0[s_i];
+                const s_dx = s_x - s_x0;
+                const s_dy = s_y - s_y0;
+
+                // Accumulate distances, if first segment, set
+                if (s_i > rays.seg_i0[r_i]) {
+                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
+                } else {
+                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
+                }
+                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
+                    rays.seg_i1[r_i] += 1;
+                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
+                }
+                is_wall = true;
             },
             else => {}
         }
-        // if (map.get()[m_y][m_x] == @enumToInt(map.Cell.wall)) {
-            // is_wall = true;
-            // if (is_contact_on_x_axis) {
-            //     log_ray.debug("X", .{});
-            // }
-            // else {
-            //     log_ray.debug("Y", .{});
-            // }
-        // }
     }
-    rays.x[r_i] = r_x;
-    rays.y[r_i] = r_y;
 }
