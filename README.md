@@ -19,7 +19,7 @@ Figure 2 shows an enlarged version of a similar scene as seen in Figure 1 to dem
 
 ![map](screenshots/map.jpg?raw=true)
 
-*Figure 1: Enlarged map view of the ray propagation*
+*Figure 2: Enlarged map view of the ray propagation*
 
 ## Installation and dependencies
 

@@ -264,23 +264,9 @@ fn reallocRaysOnChange() !void {
 fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
     const p_x = plr.getPosX();
     const p_y = plr.getPosY();
-    const interpolation = false;
 
     var i = i_0;
     var angle = angle_0;
-
-    if (interpolation == true) {
-        // Make sure to calculate the first ray
-        const j = segments_max*i;
-
-        rays.seg_i0[i] = j;
-        rays.seg_i1[i] = j;
-        segments.x0[j] = p_x;
-        segments.y0[j] = p_y;
-        traceSingleSegment(angle, j, i);
-        i += 2;
-        angle += 2*inc;
-    }
 
     while (i < i_1) {
         const j = segments_max*i;
@@ -291,34 +277,8 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
 
         traceSingleSegment(angle, j, i);
 
-        if (interpolation == true) {
-            const k0 = segments_max*(i-1);
-            const k1 = segments_max*(i-2);
-            rays.seg_i0[i-1] = k0;
-
-            segments.x0[k0] = (segments.x0[k1] + segments.x0[j]) * 0.5;
-            segments.y0[k0] = (segments.y0[k1] + segments.y0[j]) * 0.5;
-            segments.x1[k0] = (segments.x1[k1] + segments.x1[j]) * 0.5;
-            segments.y1[k0] = (segments.y1[k1] + segments.y1[j]) * 0.5;
-
-            i += 2;
-            angle += 2*inc;
-        } else {
-            i += 1;
-            angle += inc;
-        }
-    }
-
-    if (interpolation == true) {
-        // Calculate last ray if number of rays is even
-        if (i != i_1 - 1) {
-            const j = segments_max*(i_1-1);
-            rays.seg_i0[i_1-1] = j;
-            rays.seg_i1[i_1-1] = j;
-            segments.x0[j] = p_x;
-            segments.y0[j] = p_y;
-            traceSingleSegment(angle-inc, j, i);
-        }
+        i += 1;
+        angle += inc;
     }
 }
 
@@ -416,6 +376,35 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     d_x = -d_x0;
                     d_y = d_y0;
                 }
+                // Only prepare next segment if not already the last segment of the
+                // last ray!
+                if (s_i+1 < rays.seg_i0.len * segments_max) {
+                    segments.x0[s_i+1] = s_x;
+                    segments.y0[s_i+1] = s_y;
+                }
+                segments.x1[s_i] = s_x;
+                segments.y1[s_i] = s_y;
+                const s_x0 = segments.x0[s_i];
+                const s_y0 = segments.y0[s_i];
+                const s_dx = s_x - s_x0;
+                const s_dy = s_y - s_y0;
+
+                // Accumulate distances, if first segment, set
+                if (s_i > rays.seg_i0[r_i]) {
+                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
+                } else {
+                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
+                }
+                // Just be sure to stay below the maximum segment number per ray
+                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
+                    rays.seg_i1[r_i] += 1;
+                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
+                }
+                is_wall = true;
+            },
+            map.Cell.glass => {
+                d_x = d_x0;
+                d_y = d_y0;
                 // Only prepare next segment if not already the last segment of the
                 // last ray!
                 if (s_i+1 < rays.seg_i0.len * segments_max) {
