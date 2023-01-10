@@ -9,7 +9,7 @@ pub const Cell = enum {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn get() *const[18][20]u8 {
+pub fn get() *const[map_size_y][map_size_x]u8 {
     return &map;
 }
 
@@ -22,9 +22,11 @@ pub fn getResolution() u32 {
 //-----------------------------------------------------------------------------//
 
 const res = 1; // resolution of blocks in meter
+const map_size_y = 18;
+const map_size_x = 20;
 
-// Examplary 18*20m map
-const map = [18][20]u8 {
+// Examplary y*x map
+const map = [map_size_y][map_size_x]u8 {
     [_]u8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
