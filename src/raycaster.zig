@@ -10,12 +10,12 @@ const plr = @import("player.zig");
 
 pub fn init() !void {
     log_ray.debug("Allocating memory for ray data", .{});
-    perf_gfx_alloc = try stats.Performance.init("Graphics memory allocation");
-    perf_gfx_alloc.startMeasurement();
+    perf_mem = try stats.Performance.init("Graphics memory allocation");
+    perf_mem.startMeasurement();
 
     try allocMemory(640);
 
-    perf_gfx_alloc.stopMeasurement();
+    perf_mem.stopMeasurement();
 }
 
 pub fn deinit() void {
@@ -24,7 +24,7 @@ pub fn deinit() void {
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
 
-    perf_gfx_alloc.printStats();
+    perf_mem.printStats();
 }
 
 //-----------------------------------------------------------------------------//
@@ -206,7 +206,7 @@ var segments = RaySegmentData{
     .d  = undefined,
 };
 
-var perf_gfx_alloc: stats.Performance = undefined;
+var perf_mem: stats.Performance = undefined;
 
 fn allocMemory(n: usize) !void {
     // Allocate for memory for ray data
@@ -261,13 +261,13 @@ fn freeMemory() void {
 
 fn reallocRaysOnChange() !void {
     if (gfx.getWindowWidth() != rays.seg_i0.len) {
-        perf_gfx_alloc.startMeasurement();
+        perf_mem.startMeasurement();
         log_ray.debug("Reallocating memory for ray data", .{});
 
         freeMemory();
         try allocMemory(gfx.getWindowWidth());
 
-        perf_gfx_alloc.stopMeasurement();
+        perf_mem.stopMeasurement();
         log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.seg_i0.len});
     }
 }
@@ -444,4 +444,19 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
             else => {}
         }
     }
+}
+
+//-----------------------------------------------------------------------------//
+//   Tests
+//-----------------------------------------------------------------------------//
+
+test "raycaster" {
+    try allocMemory(1000);
+    freeMemory();
+    try allocMemory(10000);
+    freeMemory();
+    try init();
+    defer deinit();
+    try processRays(false);
+    try processRays(true);
 }

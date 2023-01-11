@@ -38,3 +38,20 @@ pub const Performance = struct {
 //-----------------------------------------------------------------------------//
 
 const log_stats = std.log.scoped(.stats);
+
+//-----------------------------------------------------------------------------//
+//   Tests
+//-----------------------------------------------------------------------------//
+
+test "performance stats" {
+    var s = try Performance.init("test");
+    try std.testing.expect(s.count == 0);
+    try std.testing.expectEqualStrings(s.name, "test");
+    try std.testing.expect(s.sum == 0);
+    s.startMeasurement();
+    std.time.sleep(42); // ns
+    s.stopMeasurement();
+    try std.testing.expect(s.count == 1);
+    try std.testing.expect(s.sum > 0);
+    s.printStats();
+}
