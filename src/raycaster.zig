@@ -145,8 +145,8 @@ pub fn showScene() void {
             } else {
                 gfx.setColor4(d_norm*0.5, d_norm*0.5, d_norm, 0.3);
             }
-            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
-                        @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*0.85 + shift + tilt,
+                        @intToFloat(f32, i), win_h*0.5+h_half*0.85 + shift + tilt);
             if (mirror_borders == true) {
                 gfx.setColor3(d_norm, d_norm, d_norm);
                 gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
