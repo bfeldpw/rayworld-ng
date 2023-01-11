@@ -95,7 +95,7 @@ fn isColliding(x: f32, y: f32) bool {
     log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2}° -> map={}",
                   .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), map_v});
 
-    if (map_v != 0) {
+    if (map_v != .floor) {
         return true;
     } else {
         return false;

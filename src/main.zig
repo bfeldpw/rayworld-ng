@@ -1,5 +1,6 @@
 const std = @import("std");
 const gfx = @import("graphics.zig");
+const map = @import("map.zig");
 const input = @import("input.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("perf_stats.zig");
@@ -22,6 +23,8 @@ pub fn main() !void {
     gfx.setFrequency(60.0);
     input.setWindow(gfx.getWindow());
     input.init();
+
+    map.init();
 
     var perf_fps = try stats.Performance.init("Frametime");
     var perf_in = try stats.Performance.init("Input");

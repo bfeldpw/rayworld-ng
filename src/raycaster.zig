@@ -57,7 +57,9 @@ pub fn processRays(comptime multithreading: bool) !void {
 }
 
 pub fn showMap() void {
+    const opacity = 0.9;
     const m = map.get();
+    const m_col = map.getColor();
     const map_cells_y = @intToFloat(f32, map.get().len);
     const map_vis_y = 0.3;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
@@ -66,12 +68,23 @@ pub fn showMap() void {
 
     gfx.startBatchQuads();
     for (m) |y,j| {
-        for (y) |x,i| {
-            if (x == 0) {
-                gfx.setColor4(0.2, 0.2, 0.2, 0.3);
-            } else {
-                gfx.setColor4(1.0, 1.0, 1.0, 0.3);
+        for (y) |cell,i| {
+            const c = m_col[j][i];
+            switch (cell) {
+                .floor => {
+                    gfx.setColor4(0.2+0.1*c.r, 0.2+0.1*c.g, 0.2+0.1*c.b, opacity);
+                },
+                .wall => {
+                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
+                },
+                .mirror => {
+                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
+                },
+                .glass => {
+                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
+                },
             }
+
             gfx.addQuad(@intToFloat(f32, i)*f, o+@intToFloat(f32, j)*f,
                         @intToFloat(f32, (i+1))*f, o+@intToFloat(f32, (j+1))*f);
         }
@@ -130,7 +143,8 @@ pub fn showScene() void {
             // in little dynamic changes when rotating the camera (instead of just)
             // moving the still scene on the screen) as well as the non-linearity
             // that differentiates it from polygons
-            var d = segments.d[@intCast(usize, j)];
+            const k = @intCast(usize, j);
+            var d = segments.d[k];
             d *= (0.5 + 0.5 * @cos(ang_0));
             if (d < 0.5) d = 0.5;
 
@@ -140,17 +154,21 @@ pub fn showScene() void {
             const tilt = -win_h * plr.getTilt();
             const shift = win_h * plr.getPosZ() / (d+1e-3);
 
-            if (j == j1) {
-                gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
-            } else {
-                gfx.setColor4(d_norm*0.5, d_norm*0.5, d_norm, 0.3);
-            }
+            const col_r = segments.c_r[k];
+            const col_g = segments.c_g[k];
+            const col_b = segments.c_b[k];
+            const col_a = segments.c_a[k];
 
-            const mirror_height = 0.85;
+            gfx.setColor4(d_norm*col_r, d_norm*col_g, d_norm*col_b, col_a);
+
+            var mirror_height: f32 = 1.0;
+            if (segments.cell[k] == .mirror) {
+                mirror_height = 0.85;
+            }
 
             gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt,
                         @intToFloat(f32, i), win_h*0.5+h_half*mirror_height + shift + tilt);
-            if (mirror_borders == true) {
+            if (mirror_borders == true and mirror_height < 1.0) {
                 gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
                 gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
                             @intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt);
@@ -187,6 +205,11 @@ const RaySegmentData = struct {
     x1: []f32,
     y1: []f32,
     d:  []f32,
+    c_r: []f32,
+    c_g: []f32,
+    c_b: []f32,
+    c_a: []f32,
+    cell: []map.Cell,
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
@@ -204,6 +227,11 @@ var segments = RaySegmentData{
     .x1 = undefined,
     .y1 = undefined,
     .d  = undefined,
+    .c_r = undefined,
+    .c_g = undefined,
+    .c_b = undefined,
+    .c_a = undefined,
+    .cell = undefined,
 };
 
 var perf_mem: stats.Performance = undefined;
@@ -242,11 +270,36 @@ fn allocMemory(n: usize) !void {
         return e;
     };
     errdefer allocator.free(segments.y1);
+    segments.c_r = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.c_r);
+    segments.c_g = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.c_g);
+    segments.c_b = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.c_b);
+    segments.c_a = allocator.alloc(f32, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.c_a);
     segments.d = allocator.alloc(f32, n * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.d);
+    segments.cell = allocator.alloc(map.Cell, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.cell);
 }
 
 fn freeMemory() void {
@@ -257,6 +310,11 @@ fn freeMemory() void {
     allocator.free(segments.x1);
     allocator.free(segments.y1);
     allocator.free(segments.d);
+    allocator.free(segments.c_r);
+    allocator.free(segments.c_g);
+    allocator.free(segments.c_b);
+    allocator.free(segments.c_a);
+    allocator.free(segments.cell);
 }
 
 fn reallocRaysOnChange() !void {
@@ -360,10 +418,12 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
 
         const m_y = @floatToInt(usize, s_y+o_y);
         const m_x = @floatToInt(usize, s_x+o_x);
-        const m_v = @intToEnum(map.Cell, map.get()[m_y][m_x]);
+        const m_v = map.get()[m_y][m_x];
+        const m_c = map.getColor()[m_y][m_x];
 
         switch (m_v) {
-            map.Cell.wall => {
+            .floor => {},
+            .wall => {
                 is_wall = true;
                 segments.x1[s_i] = s_x;
                 segments.y1[s_i] = s_y;
@@ -378,8 +438,14 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 } else {
                     segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
                 }
+
+                segments.c_r[s_i] = m_c.r;
+                segments.c_g[s_i] = m_c.g;
+                segments.c_b[s_i] = m_c.b;
+                segments.c_a[s_i] = m_c.a;
+                segments.cell[s_i] = .wall;
             },
-            map.Cell.mirror => {
+            .mirror => {
                 if (is_contact_on_x_axis) {
                     d_y = -d_y0;
                     d_x = d_x0;
@@ -406,6 +472,13 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 } else {
                     segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
                 }
+
+                segments.c_r[s_i] = m_c.r;
+                segments.c_g[s_i] = m_c.g;
+                segments.c_b[s_i] = m_c.b;
+                segments.c_a[s_i] = m_c.a;
+                segments.cell[s_i] = .mirror;
+
                 // Just be sure to stay below the maximum segment number per ray
                 if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
                     rays.seg_i1[r_i] += 1;
@@ -413,7 +486,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
                 is_wall = true;
             },
-            map.Cell.glass => {
+            .glass => {
                 d_x = d_x0;
                 d_y = d_y0;
                 // Only prepare next segment if not already the last segment of the
@@ -435,13 +508,20 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 } else {
                     segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
                 }
+
+                segments.c_r[s_i] = m_c.r;
+                segments.c_g[s_i] = m_c.g;
+                segments.c_b[s_i] = m_c.b;
+                segments.c_a[s_i] = m_c.a;
+                segments.cell[s_i] = .glass;
+
+                // Just be sure to stay below the maximum segment number per ray
                 if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
                     rays.seg_i1[r_i] += 1;
                     traceSingleSegment0(d_x, d_y, s_i+1, r_i);
                 }
                 is_wall = true;
             },
-            else => {}
         }
     }
 }
