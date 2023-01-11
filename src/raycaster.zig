@@ -141,17 +141,20 @@ pub fn showScene() void {
             const shift = win_h * plr.getPosZ() / (d+1e-3);
 
             if (j == j1) {
-                gfx.setColor3(d_norm, d_norm, d_norm);
+                gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
             } else {
                 gfx.setColor4(d_norm*0.5, d_norm*0.5, d_norm, 0.3);
             }
-            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*0.85 + shift + tilt,
-                        @intToFloat(f32, i), win_h*0.5+h_half*0.85 + shift + tilt);
+
+            const mirror_height = 0.85;
+
+            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt,
+                        @intToFloat(f32, i), win_h*0.5+h_half*mirror_height + shift + tilt);
             if (mirror_borders == true) {
-                gfx.setColor3(d_norm, d_norm, d_norm);
+                gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
                 gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
-                            @intToFloat(f32, i), win_h*0.5-h_half*0.85 + shift + tilt);
-                gfx.addLine(@intToFloat(f32, i), win_h*0.5+h_half*0.85 + shift + tilt,
+                            @intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt);
+                gfx.addLine(@intToFloat(f32, i), win_h*0.5+h_half*mirror_height + shift + tilt,
                             @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
             }
         }
