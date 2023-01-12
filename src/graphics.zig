@@ -141,9 +141,6 @@ pub fn addVerticalLineAO(x: f32, y0: f32, y1: f32,
     c.glColor4f(col_light, col_light, col_light, 0);
     c.glVertex2f(x, y0+d_y*0.3);
 
-    c.glVertex2f(x, y0+d_y*0.3);
-    c.glVertex2f(x, y0+d_y*0.7);
-
     c.glVertex2f(x, y0+d_y*0.7);
     c.glColor4f(col_dark+d_c*0.8, col_dark+d_c*0.8, col_dark+d_c*0.8, col_alpha*0.3);
     c.glVertex2f(x, y0+d_y*0.9);
