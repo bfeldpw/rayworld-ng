@@ -180,6 +180,7 @@ pub fn showScene() void {
             //                   0.2, 0.2, 0.2, 1.0,
             //                   d_norm*0.2, d_norm*0.2, d_norm*0.2, 1.0);
 
+
             gfx.setColor4(d_norm*cell_col.r,
                           d_norm*cell_col.g,
                           d_norm*cell_col.b,
@@ -193,6 +194,8 @@ pub fn showScene() void {
                 gfx.addLine(x, win_h*0.5+h_half*mirror_height + shift + tilt,
                             x, win_h*0.5+h_half + shift + tilt);
             }
+            gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
+                                  0, d_norm*1, 0.4);
         }
     }
     gfx.endBatch();
