@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const Cell = enum {
+pub const CellType = enum {
     floor,
     wall,
     mirror,
@@ -11,8 +11,8 @@ pub const Cell = enum {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn get() *const[map_size_y][map_size_x]Cell {
-    return &map_current.celltype;
+pub fn get() *const[map_size_y][map_size_x]CellType {
+    return &map_current.cell_type;
 }
 
 pub fn getColor() *const[map_size_y][map_size_x]CellColor {
@@ -44,13 +44,13 @@ const CellColor = struct {
 /// Struct of Arrays (SoA) for all map information, that ist cells and their
 /// common attributes. Specific attributes are indexed
 const Map = struct {
-    celltype: [map_size_y][map_size_x]Cell,
+    cell_type: [map_size_y][map_size_x]CellType,
     col: [map_size_y][map_size_x]CellColor,
 };
 
 /// Currently used map, later to be loaded from file
 var map_current = Map {
-    .celltype = undefined,
+    .cell_type = undefined,
     .col = undefined,
 };
 
@@ -84,9 +84,9 @@ pub fn init() void {
     log_map.info("Initialising map", .{});
 
     // Copy tmp map and set some default values for celltypes
-    for (map_current.celltype) |*row, j| {
+    for (map_current.cell_type) |*row, j| {
         for (row.*) |*value, i| {
-            value.* = @intToEnum(Cell, map_celltype_tmp[j][i]);
+            value.* = @intToEnum(CellType, map_celltype_tmp[j][i]);
 
             switch (value.*) {
                 .floor => {

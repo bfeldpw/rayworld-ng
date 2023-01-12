@@ -124,6 +124,8 @@ pub fn showScene() void {
 
     const mirror_borders = true;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
+    const map_col = map.getColor();
+
     var i: usize = 0;
 
     gfx.startBatchLine();
@@ -146,23 +148,28 @@ pub fn showScene() void {
             const k = @intCast(usize, j);
             var d = segments.d[k];
             d *= (0.5 + 0.5 * @cos(ang_0));
-            if (d < 0.5) d = 0.5;
 
-            const d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
+            // Restrict minimum distance, i.e. maximum height drawn
+            if (d < 0.5) d = 0.5;
+            var d_norm = 2 / d; // At 2m distance, the walls are screen filling (w.r.t. height)
             const h_half = win_h * d_norm * 0.5;
+
+            // For colours, do not increase d_norm too much for distances < 2m,
+            // since colors become white, otherwise
+            if (d_norm > 1) d_norm = 1;
 
             const tilt = -win_h * plr.getTilt();
             const shift = win_h * plr.getPosZ() / (d+1e-3);
 
-            const col_r = segments.c_r[k];
-            const col_g = segments.c_g[k];
-            const col_b = segments.c_b[k];
-            const col_a = segments.c_a[k];
+            const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
 
-            gfx.setColor4(d_norm*col_r, d_norm*col_g, d_norm*col_b, col_a);
+            gfx.setColor4(d_norm*cell_col.r,
+                          d_norm*cell_col.g,
+                          d_norm*cell_col.b,
+                          cell_col.a);
 
             var mirror_height: f32 = 1.0;
-            if (segments.cell[k] == .mirror) {
+            if (segments.cell_type[k] == .mirror) {
                 mirror_height = 0.85;
             }
 
@@ -205,11 +212,9 @@ const RaySegmentData = struct {
     x1: []f32,
     y1: []f32,
     d:  []f32,
-    c_r: []f32,
-    c_g: []f32,
-    c_b: []f32,
-    c_a: []f32,
-    cell: []map.Cell,
+    cell_type: []map.CellType,
+    cell_x: []usize,
+    cell_y: []usize,
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
@@ -227,11 +232,9 @@ var segments = RaySegmentData{
     .x1 = undefined,
     .y1 = undefined,
     .d  = undefined,
-    .c_r = undefined,
-    .c_g = undefined,
-    .c_b = undefined,
-    .c_a = undefined,
-    .cell = undefined,
+    .cell_type = undefined,
+    .cell_x = undefined,
+    .cell_y = undefined,
 };
 
 var perf_mem: stats.Performance = undefined;
@@ -270,36 +273,26 @@ fn allocMemory(n: usize) !void {
         return e;
     };
     errdefer allocator.free(segments.y1);
-    segments.c_r = allocator.alloc(f32, n * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.c_r);
-    segments.c_g = allocator.alloc(f32, n * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.c_g);
-    segments.c_b = allocator.alloc(f32, n * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.c_b);
-    segments.c_a = allocator.alloc(f32, n * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.c_a);
     segments.d = allocator.alloc(f32, n * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.d);
-    segments.cell = allocator.alloc(map.Cell, n * segments_max) catch |e| {
+    segments.cell_type = allocator.alloc(map.CellType, n * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
-    errdefer allocator.free(segments.cell);
+    errdefer allocator.free(segments.cell_type);
+    segments.cell_x = allocator.alloc(usize, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.cell_x);
+    segments.cell_y = allocator.alloc(usize, n * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.cell_y);
 }
 
 fn freeMemory() void {
@@ -310,11 +303,9 @@ fn freeMemory() void {
     allocator.free(segments.x1);
     allocator.free(segments.y1);
     allocator.free(segments.d);
-    allocator.free(segments.c_r);
-    allocator.free(segments.c_g);
-    allocator.free(segments.c_b);
-    allocator.free(segments.c_a);
-    allocator.free(segments.cell);
+    allocator.free(segments.cell_type);
+    allocator.free(segments.cell_x);
+    allocator.free(segments.cell_y);
 }
 
 fn reallocRaysOnChange() !void {
@@ -419,32 +410,34 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
         const m_y = @floatToInt(usize, s_y+o_y);
         const m_x = @floatToInt(usize, s_x+o_x);
         const m_v = map.get()[m_y][m_x];
-        const m_c = map.getColor()[m_y][m_x];
 
+        // if there is any kind of contact and a the segment ends, save all
+        // common data
+        if (m_v != .floor) {
+            segments.cell_x[s_i] = m_x;
+            segments.cell_y[s_i] = m_y;
+            segments.cell_type[s_i] = m_v;
+            segments.x1[s_i] = s_x;
+            segments.y1[s_i] = s_y;
+            const s_x0 = segments.x0[s_i];
+            const s_y0 = segments.y0[s_i];
+            const s_dx = s_x - s_x0;
+            const s_dy = s_y - s_y0;
+
+            // Accumulate distances, if first segment, set
+            if (s_i > rays.seg_i0[r_i]) {
+                segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
+            } else {
+                segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
+            }
+
+            is_wall = true;
+        }
+
+        // Test if there is a collision
         switch (m_v) {
             .floor => {},
-            .wall => {
-                is_wall = true;
-                segments.x1[s_i] = s_x;
-                segments.y1[s_i] = s_y;
-                const s_x0 = segments.x0[s_i];
-                const s_y0 = segments.y0[s_i];
-                const s_dx = s_x - s_x0;
-                const s_dy = s_y - s_y0;
-
-                // Accumulate distances, if first segment, set
-                if (s_i > rays.seg_i0[r_i]) {
-                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
-                } else {
-                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
-                }
-
-                segments.c_r[s_i] = m_c.r;
-                segments.c_g[s_i] = m_c.g;
-                segments.c_b[s_i] = m_c.b;
-                segments.c_a[s_i] = m_c.a;
-                segments.cell[s_i] = .wall;
-            },
+            .wall => {},
             .mirror => {
                 if (is_contact_on_x_axis) {
                     d_y = -d_y0;
@@ -459,32 +452,12 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     segments.x0[s_i+1] = s_x;
                     segments.y0[s_i+1] = s_y;
                 }
-                segments.x1[s_i] = s_x;
-                segments.y1[s_i] = s_y;
-                const s_x0 = segments.x0[s_i];
-                const s_y0 = segments.y0[s_i];
-                const s_dx = s_x - s_x0;
-                const s_dy = s_y - s_y0;
-
-                // Accumulate distances, if first segment, set
-                if (s_i > rays.seg_i0[r_i]) {
-                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
-                } else {
-                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
-                }
-
-                segments.c_r[s_i] = m_c.r;
-                segments.c_g[s_i] = m_c.g;
-                segments.c_b[s_i] = m_c.b;
-                segments.c_a[s_i] = m_c.a;
-                segments.cell[s_i] = .mirror;
 
                 // Just be sure to stay below the maximum segment number per ray
                 if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
                     rays.seg_i1[r_i] += 1;
                     traceSingleSegment0(d_x, d_y, s_i+1, r_i);
                 }
-                is_wall = true;
             },
             .glass => {
                 d_x = d_x0;
@@ -495,32 +468,12 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     segments.x0[s_i+1] = s_x;
                     segments.y0[s_i+1] = s_y;
                 }
-                segments.x1[s_i] = s_x;
-                segments.y1[s_i] = s_y;
-                const s_x0 = segments.x0[s_i];
-                const s_y0 = segments.y0[s_i];
-                const s_dx = s_x - s_x0;
-                const s_dy = s_y - s_y0;
-
-                // Accumulate distances, if first segment, set
-                if (s_i > rays.seg_i0[r_i]) {
-                    segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
-                } else {
-                    segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
-                }
-
-                segments.c_r[s_i] = m_c.r;
-                segments.c_g[s_i] = m_c.g;
-                segments.c_b[s_i] = m_c.b;
-                segments.c_a[s_i] = m_c.a;
-                segments.cell[s_i] = .glass;
 
                 // Just be sure to stay below the maximum segment number per ray
                 if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
                     rays.seg_i1[r_i] += 1;
                     traceSingleSegment0(d_x, d_y, s_i+1, r_i);
                 }
-                is_wall = true;
             },
         }
     }
