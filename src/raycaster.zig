@@ -139,6 +139,15 @@ pub fn showScene() void {
         const s_dy0 = segments.y1[j0] - segments.y0[j0];
         const ang_0 = std.math.atan2(f32, s_dy0, s_dx0) - plr.getDir();
 
+        const tilt = -win_h * plr.getTilt();
+
+        const x = @intToFloat(f32, i);
+        gfx.addLineColor4(x, 0, x, win_h*0.5+tilt,
+                          0.3, 0.3, 0.3, 1.0,
+                          0, 0, 0, 1.0);
+        gfx.addLineColor4(x, win_h*0.5+tilt, x, win_h,
+                          0, 0, 0, 1.0,
+                          0.1, 0.1, 0.1, 1.0);
         while (j >= j0) : (j -= 1){
             // Use an optical pleasing combination of the natural lense effect due
             // to a "point" camera and the "straight line correction". This results
@@ -158,29 +167,31 @@ pub fn showScene() void {
             // since colors become white, otherwise
             if (d_norm > 1) d_norm = 1;
 
-            const tilt = -win_h * plr.getTilt();
             const shift = win_h * plr.getPosZ() / (d+1e-3);
-
             const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
-
-            gfx.setColor4(d_norm*cell_col.r,
-                          d_norm*cell_col.g,
-                          d_norm*cell_col.b,
-                          cell_col.a);
 
             var mirror_height: f32 = 1.0;
             if (segments.cell_type[k] == .mirror) {
                 mirror_height = 0.85;
             }
 
-            gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt,
-                        @intToFloat(f32, i), win_h*0.5+h_half*mirror_height + shift + tilt);
+            // gfx.setColor4(0.1, 0.1, 0.1, 1.0);
+            // gfx.addLineColor4(y, 0, y, win_h*0.5-h_half*mirror_height+shift+tilt,
+            //                   0.2, 0.2, 0.2, 1.0,
+            //                   d_norm*0.2, d_norm*0.2, d_norm*0.2, 1.0);
+
+            gfx.setColor4(d_norm*cell_col.r,
+                          d_norm*cell_col.g,
+                          d_norm*cell_col.b,
+                          cell_col.a);
+            gfx.addLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                        x, win_h*0.5+h_half*mirror_height + shift + tilt);
             if (mirror_borders == true and mirror_height < 1.0) {
                 gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
-                gfx.addLine(@intToFloat(f32, i), win_h*0.5-h_half + shift + tilt,
-                            @intToFloat(f32, i), win_h*0.5-h_half*mirror_height + shift + tilt);
-                gfx.addLine(@intToFloat(f32, i), win_h*0.5+h_half*mirror_height + shift + tilt,
-                            @intToFloat(f32, i), win_h*0.5+h_half + shift + tilt);
+                gfx.addLine(x, win_h*0.5-h_half + shift + tilt,
+                            x, win_h*0.5-h_half*mirror_height + shift + tilt);
+                gfx.addLine(x, win_h*0.5+h_half*mirror_height + shift + tilt,
+                            x, win_h*0.5+h_half + shift + tilt);
             }
         }
     }
