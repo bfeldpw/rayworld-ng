@@ -88,6 +88,38 @@ pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glVertex2f(x0, y1);
 }
 
+pub fn addVerticalLineAO(x: f32, y0: f32, y1: f32,
+                         col_dark: f32, col_light: f32, col_alpha: f32) void {
+    const d_y=y1-y0;
+    const d_c=col_light-col_dark;
+
+    c.glColor4f(col_dark, col_dark, col_dark, col_alpha);
+    c.glVertex2f(x, y0);
+    c.glColor4f(col_dark+d_c*0.5, col_dark+d_c*0.5, col_dark+d_c*0.5, col_alpha*0.8);
+    c.glVertex2f(x, y0+d_y*0.05);
+
+    c.glVertex2f(x, y0+d_y*0.05);
+    c.glColor4f(col_dark+d_c*0.8, col_dark+d_c*0.8, col_dark+d_c*0.8, col_alpha*0.3);
+    c.glVertex2f(x, y0+d_y*0.1);
+
+    c.glVertex2f(x, y0+d_y*0.1);
+    c.glColor4f(col_light, col_light, col_light, 0);
+    c.glVertex2f(x, y0+d_y*0.3);
+
+    c.glVertex2f(x, y0+d_y*0.7);
+    c.glColor4f(col_dark+d_c*0.8, col_dark+d_c*0.8, col_dark+d_c*0.8, col_alpha*0.3);
+    c.glVertex2f(x, y0+d_y*0.9);
+
+    c.glVertex2f(x, y0+d_y*0.9);
+    c.glColor4f(col_dark+d_c*0.5, col_dark+d_c*0.5, col_dark+d_c*0.5, col_alpha*0.8);
+    c.glVertex2f(x, y0+d_y*0.95);
+
+    c.glVertex2f(x, y0+d_y*0.95);
+    c.glColor4f(col_dark, col_dark, col_dark, col_alpha);
+    c.glVertex2f(x, y1);
+    c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
+}
+
 pub fn endBatch() void {
     c.glEnd();
 }
@@ -121,38 +153,6 @@ pub fn drawVerticalLine(x: f32, y0: f32, y1: f32) void {
         c.glVertex2f(x, y0);
         c.glVertex2f(x, y1);
     c.glEnd();
-}
-
-pub fn addVerticalLineAO(x: f32, y0: f32, y1: f32,
-                         col_dark: f32, col_light: f32, col_alpha: f32) void {
-    const d_y=y1-y0;
-    const d_c=col_light-col_dark;
-
-    c.glColor4f(col_dark, col_dark, col_dark, col_alpha);
-    c.glVertex2f(x, y0);
-    c.glColor4f(col_dark+d_c*0.5, col_dark+d_c*0.5, col_dark+d_c*0.5, col_alpha*0.8);
-    c.glVertex2f(x, y0+d_y*0.05);
-
-    c.glVertex2f(x, y0+d_y*0.05);
-    c.glColor4f(col_dark+d_c*0.8, col_dark+d_c*0.8, col_dark+d_c*0.8, col_alpha*0.3);
-    c.glVertex2f(x, y0+d_y*0.1);
-
-    c.glVertex2f(x, y0+d_y*0.1);
-    c.glColor4f(col_light, col_light, col_light, 0);
-    c.glVertex2f(x, y0+d_y*0.3);
-
-    c.glVertex2f(x, y0+d_y*0.7);
-    c.glColor4f(col_dark+d_c*0.8, col_dark+d_c*0.8, col_dark+d_c*0.8, col_alpha*0.3);
-    c.glVertex2f(x, y0+d_y*0.9);
-
-    c.glVertex2f(x, y0+d_y*0.9);
-    c.glColor4f(col_dark+d_c*0.5, col_dark+d_c*0.5, col_dark+d_c*0.5, col_alpha*0.8);
-    c.glVertex2f(x, y0+d_y*0.95);
-
-    c.glVertex2f(x, y0+d_y*0.95);
-    c.glColor4f(col_dark, col_dark, col_dark, col_alpha);
-    c.glVertex2f(x, y1);
-    c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
 }
 
 pub fn finishFrame() void {
