@@ -1,7 +1,9 @@
 const std = @import("std");
+const c = @import("c.zig").c;
 const gfx = @import("graphics.zig");
-const map = @import("map.zig");
+const img = @import("image_loader.zig");
 const input = @import("input.zig");
+const map = @import("map.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("perf_stats.zig");
 
@@ -24,6 +26,24 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
+    img.init();
+    defer img.deinit();
+
+    var perf_img = try stats.Performance.init("Texture");
+    perf_img.startMeasurement();
+
+    try img.loadImage("resource/wall_1024.bmp");
+    // img.releaseImage();
+    // try img.loadImage("resource/wall_64.bmp");
+
+    perf_img.stopMeasurement();
+
+    const img_0 = img.getImage();
+    const tex = gfx.createTexture(img_0.w, img_0.h, &img_0.rgb);
+    _ = tex;
+    img.releaseImage();
+    // const tex = img.initDrawTest();
+
     map.init();
 
     var perf_fps = try stats.Performance.init("Frametime");
@@ -44,12 +64,14 @@ pub fn main() !void {
         perf_ren.startMeasurement();
         rc.showScene();
         rc.showMap();
+        // img.processDrawTest(@intCast(c.GLuint, tex));
         perf_ren.stopMeasurement();
 
         gfx.finishFrame();
         perf_fps.stopMeasurement();
         perf_fps.startMeasurement();
     }
+    perf_img.printStats();
     perf_fps.printStats();
     perf_in.printStats();
     perf_rc.printStats();

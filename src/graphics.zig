@@ -50,7 +50,26 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
+pub fn createTexture(w: u32, h: u32, data: *[]u8) u32 {
+    var tex: c.GLuint = 0;
+    c.glGenTextures(1, &tex);
+    c.glBindTexture(c.GL_TEXTURE_2D, tex);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(c_int, w), @intCast(c_int,h), 0,
+                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data.*));
+    c.glBindTexture(c.GL_TEXTURE_2D, tex);
+
+    return @intCast(u32, tex);
+}
+
 pub fn startBatchLine() void {
+    c.glBegin(c.GL_LINES);
+}
+
+pub fn startBatchLineTextured() void {
+    c.glEnable(c.GL_TEXTURE_2D);
     c.glBegin(c.GL_LINES);
 }
 
@@ -88,6 +107,14 @@ pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glVertex2f(x0, y1);
 }
 
+pub fn addVerticalTexturedLine(x: f32, y0: f32, y1: f32,
+                               u: f32, v0: f32, v1: f32) void {
+    c.glTexCoord2f(u, v0);
+    c.glVertex2f(x, y0);
+    c.glTexCoord2f(u, v1);
+    c.glVertex2f(x, y1);
+}
+
 pub fn addVerticalLineAO(x: f32, y0: f32, y1: f32,
                          col_dark: f32, col_light: f32, col_alpha: f32) void {
     const d_y=y1-y0;
@@ -122,6 +149,11 @@ pub fn addVerticalLineAO(x: f32, y0: f32, y1: f32,
 
 pub fn endBatch() void {
     c.glEnd();
+}
+
+pub fn endBatchTextured() void {
+    c.glEnd();
+    c.glDisable(c.GL_TEXTURE_2D);
 }
 
 pub fn drawLine(x0: f32, y0: f32, x1: f32, y1: f32) void {

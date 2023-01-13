@@ -14,6 +14,8 @@ pub fn build(b: *std.build.Builder) !void {
     const exe = b.addExecutable("rayworld-ng", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.addIncludePath("3rdparty/libbmpread/");
+    exe.addCSourceFile("3rdparty/libbmpread/bmpread.c", &[_][]const u8{"-std=c99"});
     exe.linkLibC();
     exe.linkSystemLibrary("gl");
     exe.linkSystemLibrary("glfw");

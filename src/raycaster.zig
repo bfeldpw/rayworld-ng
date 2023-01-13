@@ -122,13 +122,14 @@ pub fn showMap() void {
 
 pub fn showScene() void {
 
-    const mirror_borders = true;
+    // const mirror_borders = true;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
     const map_col = map.getColor();
 
     var i: usize = 0;
 
-    gfx.startBatchLine();
+    gfx.startBatchLineTextured();
+    gfx.setColor4(1.0, 1.0, 1.0,1.0);
     while (i < rays.seg_i0.len) : (i += 1) {
 
         const j0 = rays.seg_i0[i];
@@ -142,12 +143,12 @@ pub fn showScene() void {
         const tilt = -win_h * plr.getTilt();
 
         const x = @intToFloat(f32, i);
-        gfx.addLineColor4(x, 0, x, win_h*0.5+tilt,
-                          0.3, 0.3, 0.3, 1.0,
-                          0, 0, 0, 1.0);
-        gfx.addLineColor4(x, win_h*0.5+tilt, x, win_h,
-                          0, 0, 0, 1.0,
-                          0.1, 0.1, 0.1, 1.0);
+        // gfx.addLineColor4(x, 0, x, win_h*0.5+tilt,
+        //                   0.3, 0.3, 0.3, 1.0,
+        //                   0, 0, 0, 1.0);
+        // gfx.addLineColor4(x, win_h*0.5+tilt, x, win_h,
+        //                   0, 0, 0, 1.0,
+        //                   0.1, 0.1, 0.1, 1.0);
         while (j >= j0) : (j -= 1){
             // Use an optical pleasing combination of the natural lense effect due
             // to a "point" camera and the "straight line correction". This results
@@ -169,6 +170,20 @@ pub fn showScene() void {
 
             const shift = win_h * plr.getPosZ() / (d+1e-3);
             const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
+            // std.log.debug("{d:.2}, {d:.2}", .{segments.x1[k] - @trunc(segments.x1[k]), segments.y1[k] - @trunc(segments.y1[k])});
+
+            var u_of_uv: f32 = 0;
+            if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
+                u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
+                if (segments.y0[k] < segments.y1[k]) {
+                    u_of_uv = 1 - u_of_uv;
+                }
+            } else {
+                u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
+                if (segments.x0[k] > segments.x1[k]) {
+                    u_of_uv = 1 - u_of_uv;
+                }
+            }
 
             var mirror_height: f32 = 1.0;
             if (segments.cell_type[k] == .mirror) {
@@ -179,20 +194,25 @@ pub fn showScene() void {
                           d_norm*cell_col.g,
                           d_norm*cell_col.b,
                           cell_col.a);
-            gfx.addLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                        x, win_h*0.5+h_half*mirror_height + shift + tilt);
-            if (mirror_borders == true and mirror_height < 1.0) {
-                gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
-                gfx.addLine(x, win_h*0.5-h_half + shift + tilt,
-                            x, win_h*0.5-h_half*mirror_height + shift + tilt);
-                gfx.addLine(x, win_h*0.5+h_half*mirror_height + shift + tilt,
-                            x, win_h*0.5+h_half + shift + tilt);
-            }
+            // gfx.setColor4(d_norm, d_norm,d_norm, cell_col.a);
+            // gfx.addLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+            //             x, win_h*0.5+h_half*mirror_height + shift + tilt);
+            gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                win_h*0.5+h_half*mirror_height + shift + tilt,
+                                        u_of_uv*0.5, 0, 1);
+                                        // @intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len), 0, 3);
+            // if (mirror_borders == true and mirror_height < 1.0) {
+            //     gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
+            //     gfx.addLine(x, win_h*0.5-h_half + shift + tilt,
+            //                 x, win_h*0.5-h_half*mirror_height + shift + tilt);
+            //     gfx.addLine(x, win_h*0.5+h_half*mirror_height + shift + tilt,
+            //                 x, win_h*0.5+h_half + shift + tilt);
+            // }
             gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
-                                  0, d_norm*1, 0.2);
+                                  0, d_norm*1, 0.7);
         }
     }
-    gfx.endBatch();
+    gfx.endBatchTextured();
 }
 
 //-----------------------------------------------------------------------------//
