@@ -306,10 +306,10 @@ pub fn finishFrame() !void {
     // frequency. Make sure not to have a negative sleep for high frame
     // times.
     const t = timer_main.read();
-    var t_s = frame_time - @intCast(i64, t);
-    // log_gfx.debug("t_current = {}, t_targed = {}, t_sleep = {}",
-                  // .{t, frame_time, t_s});
+    timer_main.reset();
+
     fps_stable_count += 1;
+    var t_s = frame_time - @intCast(i64, t);
     if (t_s < 0) {
         t_s = 0;
         log_gfx.warn("Frequency target could not be reached", .{});
@@ -330,8 +330,12 @@ pub fn finishFrame() !void {
         }
     }
 
-    if (is_sleep_enabled) std.time.sleep(@intCast(u64, t_s));
-    timer_main.reset();
+    if (is_sleep_enabled) {
+        std.time.sleep(@intCast(u64, t_s));
+        fps = 1e6 / @intToFloat(f32, @divTrunc(frame_time, 1_000));
+    } else {
+        fps = 1e6 / @intToFloat(f32, t / 1000);
+    }
 }
 
 pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
@@ -395,6 +399,10 @@ pub fn isWindowOpen() bool {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
+pub fn getFPS() f32 {
+    return fps;
+}
+
 /// Get the active glfw window
 pub fn getWindow() ?*c.GLFWwindow {
     return window;
@@ -409,10 +417,10 @@ pub fn getWindowWidth() u64 {
 }
 
 /// Set the frequency of the main loop
-pub fn setFrequency(f: f32) void {
+pub fn setFrequencyTarget(f: f32) void {
     if (f > 0.0) {
         frame_time = @floatToInt(i64, 1.0/f*1.0e9);
-        log_gfx.info("Setting graphics frequency to {d:.1} Hz", .{f});
+        log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
     } else {
         log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
         frame_time = 16_666_667;
@@ -437,6 +445,7 @@ var timer_main: std.time.Timer = undefined;
 var is_sleep_enabled: bool = true;
 var fps_drop_count: u16 = 0;
 var fps_stable_count: u64 = 0;
+var fps: f32 = 60;
 
 const lines_max = 4096*10; // 4K resolution
 
@@ -566,10 +575,10 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
 //-----------------------------------------------------------------------------//
 
 test "setFrequency" {
-    setFrequency(40);
+    setFrequencyTarget(40);
     try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
-    setFrequency(100);
+    setFrequencyTarget(100);
     try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
-    setFrequency(0);
+    setFrequencyTarget(0);
     try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
 }

@@ -21,18 +21,18 @@ pub fn init() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn processInputs() void {
+pub fn processInputs(frequency: f32) void {
     var glfw_error: bool = false;
 
     c.glfwPollEvents();
     glfw_error = glfwCheckError();
 
-    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.strafe(0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(-0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.move(0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-0.1);
-    if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(0.05);
-    if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-0.05);
+    if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS) plr.strafe(6.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS) plr.strafe(-6.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS) plr.move(6.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-6.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(3.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-3.0 / frequency);
 }
 
 //-----------------------------------------------------------------------------//

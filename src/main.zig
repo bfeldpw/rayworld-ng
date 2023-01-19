@@ -22,7 +22,7 @@ pub fn main() !void {
     try rc.init();
     defer rc.deinit();
 
-    gfx.setFrequency(60.0);
+    gfx.setFrequencyTarget(60.0);
     input.setWindow(gfx.getWindow());
     input.init();
 
@@ -41,7 +41,7 @@ pub fn main() !void {
     while (gfx.isWindowOpen()) {
 
         perf_in.startMeasurement();
-        input.processInputs();
+        input.processInputs(gfx.getFPS());
         perf_in.stopMeasurement();
 
         perf_rc.startMeasurement();
