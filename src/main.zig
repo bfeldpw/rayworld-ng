@@ -26,23 +26,10 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
-    img.init();
-    defer img.deinit();
-
     var perf_img = try stats.Performance.init("Texture");
     perf_img.startMeasurement();
-
-    try img.loadImage("resource/wall_1024.bmp");
-    // img.releaseImage();
-    // try img.loadImage("resource/wall_64.bmp");
-
+    try loadResources();
     perf_img.stopMeasurement();
-
-    const img_0 = img.getImage();
-    const tex = gfx.createTexture(img_0.w, img_0.h, &img_0.rgb);
-    _ = tex;
-    img.releaseImage();
-    // const tex = img.initDrawTest();
 
     map.init();
 
@@ -59,21 +46,65 @@ pub fn main() !void {
 
         perf_rc.startMeasurement();
         try rc.processRays(multithreading);
+        // var rc_thread = try std.Thread.spawn(.{}, rc.processRays, .{multithreading});
+        // rc_thread.join();
         perf_rc.stopMeasurement();
 
         perf_ren.startMeasurement();
-        rc.showScene();
-        rc.showMap();
-        // img.processDrawTest(@intCast(c.GLuint, tex));
+        rc.createScene();
+        try gfx.renderFrame();
+        rc.createMap();
         perf_ren.stopMeasurement();
 
-        gfx.finishFrame();
+        try gfx.finishFrame();
         perf_fps.stopMeasurement();
         perf_fps.startMeasurement();
+
     }
     perf_img.printStats();
     perf_fps.printStats();
     perf_in.printStats();
     perf_rc.printStats();
     perf_ren.printStats();
+}
+
+fn loadResources() !void {
+    img.init();
+    defer img.deinit();
+
+    // try img.loadImage("resource/wall_4096_dbg.bmp");
+    // const img_0 = img.getImage();
+    // const tex_0 = gfx.createTexture(img_0.w, img_0.h, &img_0.rgb);
+    // rc.setTex4096(tex_0);
+    // img.releaseImage();
+    // try img.loadImage("resource/wall_2048.bmp");
+    // const img_1 = img.getImage();
+    // const tex_1 = gfx.createTexture(img_1.w, img_1.h, &img_1.rgb);
+    // rc.setTex2048(tex_1);
+    // img.releaseImage();
+    try img.loadImage("resource/wall_1024.bmp");
+    const img_2 = img.getImage();
+    const tex_2 = gfx.createTexture(img_2.w, img_2.h, &img_2.rgb);
+    rc.setTex1024(tex_2);
+    img.releaseImage();
+    // try img.loadImage("resource/wall_512_dbg.bmp");
+    // const img_3 = img.getImage();
+    // const tex_3 = gfx.createTexture(img_3.w, img_3.h, &img_3.rgb);
+    // rc.setTex512(tex_3);
+    // img.releaseImage();
+    // try img.loadImage("resource/wall_256_dbg.bmp");
+    // const img_4 = img.getImage();
+    // const tex_4 = gfx.createTexture(img_4.w, img_4.h, &img_4.rgb);
+    // rc.setTex256(tex_4);
+    // img.releaseImage();
+    // try img.loadImage("resource/wall_128_dbg.bmp");
+    // const img_5 = img.getImage();
+    // const tex_5 = gfx.createTexture(img_5.w, img_5.h, &img_5.rgb);
+    // rc.setTex128(tex_5);
+    // img.releaseImage();
+    // try img.loadImage("resource/wall_64_dbg.bmp");
+    // const img_6 = img.getImage();
+    // const tex_6 = gfx.createTexture(img_6.w, img_6.h, &img_6.rgb);
+    // rc.setTex64(tex_6);
+    // img.releaseImage();
 }

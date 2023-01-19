@@ -31,32 +31,7 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn processRays(comptime multithreading: bool) !void {
-    try reallocRaysOnChange();
-
-    var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
-    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.seg_i0.len);
-
-    const split = rays.seg_i0.len / 4;
-
-    if (multithreading) {
-        var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
-        var thread_1 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{split, 2*split, @mulAdd(f32, inc_angle, @intToFloat(f32, split), angle), inc_angle});
-        var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
-        var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{3*split, rays.seg_i0.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
-        thread_0.join();
-        thread_1.join();
-        thread_2.join();
-        thread_3.join();
-    } else {
-        traceMultipleRays(0, rays.seg_i0.len, angle, inc_angle);
-    }
-}
-
-pub fn showMap() void {
+pub fn createMap() void {
     const opacity = 0.9;
     const m = map.get();
     const m_col = map.getColor();
@@ -120,16 +95,14 @@ pub fn showMap() void {
                      (x+w*@sin(d))*f, o+(y-w*@cos(d))*f);
 }
 
-pub fn showScene() void {
+pub fn createScene() void {
 
-    // const mirror_borders = true;
+    const mirror_borders = true;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
     const map_col = map.getColor();
 
     var i: usize = 0;
 
-    gfx.startBatchLineTextured();
-    gfx.setColor4(1.0, 1.0, 1.0,1.0);
     while (i < rays.seg_i0.len) : (i += 1) {
 
         const j0 = rays.seg_i0[i];
@@ -143,12 +116,10 @@ pub fn showScene() void {
         const tilt = -win_h * plr.getTilt();
 
         const x = @intToFloat(f32, i);
-        // gfx.addLineColor4(x, 0, x, win_h*0.5+tilt,
-        //                   0.3, 0.3, 0.3, 1.0,
-        //                   0, 0, 0, 1.0);
-        // gfx.addLineColor4(x, win_h*0.5+tilt, x, win_h,
-        //                   0, 0, 0, 1.0,
-        //                   0.1, 0.1, 0.1, 1.0);
+        gfx.addVerticalLineC2C(x, 0, win_h*0.5+tilt,
+                               0.3, 0, 1, 11);
+        gfx.addVerticalLineC2C(x, win_h*0.5+tilt, win_h,
+                               0, 0.1, 1, 11);
         while (j >= j0) : (j -= 1){
             // Use an optical pleasing combination of the natural lense effect due
             // to a "point" camera and the "straight line correction". This results
@@ -167,6 +138,15 @@ pub fn showScene() void {
             // For colours, do not increase d_norm too much for distances < 2m,
             // since colors become white, otherwise
             if (d_norm > 1) d_norm = 1;
+
+            // if (d > 15) gfx.setActiveTexture(tex_64) else
+            // if (d > 12) gfx.setActiveTexture(tex_128) else
+            // if (d > 9)  gfx.setActiveTexture(tex_256) else
+            // if (d > 6)  gfx.setActiveTexture(tex_512) else
+            // if (d > 3)  gfx.setActiveTexture(tex_1024) else
+            // if (d > 1)  gfx.setActiveTexture(tex_2048) else
+            //     gfx.setActiveTexture(tex_4096);
+            gfx.setActiveTexture(tex_1024);
 
             const shift = win_h * plr.getPosZ() / (d+1e-3);
             const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
@@ -188,31 +168,97 @@ pub fn showScene() void {
             var mirror_height: f32 = 1.0;
             if (segments.cell_type[k] == .mirror) {
                 mirror_height = 0.85;
+                gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                       win_h*0.5+h_half*mirror_height + shift + tilt,
+                                    // d_norm, d_norm, d_norm, cell_col.a,
+                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                    @intCast(u8, j-@intCast(i32, j0)+1));
+            } else {
+                gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                               win_h*0.5+h_half*mirror_height + shift + tilt,
+                // gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                //                        win_h*0.5+h_half*mirror_height + shift + tilt,
+                                            u_of_uv, 0, 1,
+                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                            @intCast(u8, j-@intCast(i32, j0)+1));
             }
-
-            gfx.setColor4(d_norm*cell_col.r,
-                          d_norm*cell_col.g,
-                          d_norm*cell_col.b,
-                          cell_col.a);
-            // gfx.setColor4(d_norm, d_norm,d_norm, cell_col.a);
-            // gfx.addLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-            //             x, win_h*0.5+h_half*mirror_height + shift + tilt);
-            gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                                win_h*0.5+h_half*mirror_height + shift + tilt,
-                                        u_of_uv*0.5, 0, 1);
-                                        // @intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len), 0, 3);
-            // if (mirror_borders == true and mirror_height < 1.0) {
-            //     gfx.setColor4(d_norm, d_norm, d_norm, 1.0);
-            //     gfx.addLine(x, win_h*0.5-h_half + shift + tilt,
-            //                 x, win_h*0.5-h_half*mirror_height + shift + tilt);
-            //     gfx.addLine(x, win_h*0.5+h_half*mirror_height + shift + tilt,
-            //                 x, win_h*0.5+h_half + shift + tilt);
-            // }
+            if (mirror_borders == true and mirror_height < 1.0) {
+                gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
+                                               win_h*0.5-h_half*mirror_height + shift + tilt,
+                                            u_of_uv, 0, (1-mirror_height)*0.5,
+                                            d_norm, d_norm, d_norm, 1.0,
+                                            @intCast(u8, j-@intCast(i32, j0)+1));
+                gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
+                                               win_h*0.5+h_half*mirror_height + shift + tilt,
+                                            u_of_uv, 1-(1-mirror_height)*0.5, 1,
+                                            d_norm, d_norm, d_norm, 1.0,
+                                            @intCast(u8, j-@intCast(i32, j0)+1));
+            }
             gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
-                                  0, d_norm*1, 0.7);
+                                  0, 0.5*d_norm, 0.7, @intCast(u8, j-@intCast(i32, j0)+1));
         }
     }
-    gfx.endBatchTextured();
+}
+
+pub fn processRays(comptime multithreading: bool) !void {
+    try reallocRaysOnChange();
+
+    var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
+    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.seg_i0.len);
+
+    const split = rays.seg_i0.len / 4;
+
+    if (multithreading) {
+        var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
+        var thread_1 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{split, 2*split, @mulAdd(f32, inc_angle, @intToFloat(f32, split), angle), inc_angle});
+        var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
+        var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
+                                            .{3*split, rays.seg_i0.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
+        thread_0.join();
+        thread_1.join();
+        thread_2.join();
+        thread_3.join();
+    } else {
+        traceMultipleRays(0, rays.seg_i0.len, angle, inc_angle);
+    }
+}
+
+var tex_4096: u32 = 0;
+var tex_2048: u32 = 0;
+var tex_1024: u32 = 0;
+var tex_512: u32 = 0;
+var tex_256: u32 = 0;
+var tex_128: u32 = 0;
+var tex_64: u32 = 0;
+
+pub fn setTex4096(tex: u32) void {
+    tex_4096 = tex;
+}
+
+pub fn setTex2048(tex: u32) void {
+    tex_2048 = tex;
+}
+
+pub fn setTex1024(tex: u32) void {
+    tex_1024 = tex;
+}
+
+pub fn setTex512(tex: u32) void {
+    tex_512 = tex;
+}
+
+pub fn setTex256(tex: u32) void {
+    tex_256 = tex;
+}
+
+pub fn setTex128(tex: u32) void {
+    tex_128 = tex;
+}
+
+pub fn setTex64(tex: u32) void {
+    tex_64 = tex;
 }
 
 //-----------------------------------------------------------------------------//
