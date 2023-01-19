@@ -108,10 +108,11 @@ pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
 
 pub fn addVerticalLine(x: f32, y0: f32, y1: f32,
                        r: f32, g: f32, b: f32, a: f32,
-                       d: u8) void {
+                       d0: u8) void {
 
     var value = lines.getPtr(1);
     if (value) |v| {
+        const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
         v.verts[d][i_v] = x;
         v.verts[d][i_v+1] = y0;
@@ -129,16 +130,17 @@ pub fn addVerticalLine(x: f32, y0: f32, y1: f32,
         v.i_verts[d] += 4;
         v.i_cols[d] += 8;
         v.n[d] += 2;
-        if (d > v.d_max) v.d_max = d;
+        depth_levels_active.set(d);
     }
 }
 
 /// Vertical line with gray-scale color grading and constant alpha
 pub fn addVerticalLineC2C(x: f32, y0: f32, y1: f32,
-                          c0: f32, c1: f32, a: f32, d: u8) void {
+                          c0: f32, c1: f32, a: f32, d0: u8) void {
 
     var value = lines.getPtr(1);
     if (value) |v| {
+        const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
         v.verts[d][i_v] = x;
         v.verts[d][i_v+1] = y0;
@@ -156,17 +158,18 @@ pub fn addVerticalLineC2C(x: f32, y0: f32, y1: f32,
         v.i_verts[d] += 4;
         v.i_cols[d] += 8;
         v.n[d] += 2;
-        if (d > v.d_max) v.d_max = d;
+        depth_levels_active.set(d);
     }
 }
 
 /// Vertical line with gray-scale and alpha color grading
 pub fn addVerticalLineCAlpha2Alpha(x: f32, y0: f32, y1: f32,
                                    c0: f32, c1: f32, a0: f32, a1: f32,
-                                   d: u8) void {
+                                   d0: u8) void {
 
     var value = lines.getPtr(1);
     if (value) |v| {
+        const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
         v.verts[d][i_v] = x;
         v.verts[d][i_v+1] = y0;
@@ -184,7 +187,7 @@ pub fn addVerticalLineCAlpha2Alpha(x: f32, y0: f32, y1: f32,
         v.i_verts[d] += 4;
         v.i_cols[d] += 8;
         v.n[d] += 2;
-        if (d > v.d_max) v.d_max = d;
+        depth_levels_active.set(d);
     }
 }
 
@@ -192,10 +195,11 @@ pub fn addVerticalLineCAlpha2Alpha(x: f32, y0: f32, y1: f32,
 pub fn addVerticalLineRGB2RGB(x: f32, y0: f32, y1: f32,
                               r0: f32, g0: f32, b0: f32,
                               r1: f32, g1: f32, b1: f32,
-                              a: f32, d: u8) void {
+                              a: f32, d0: u8) void {
 
     var value = lines.getPtr(1);
     if (value) |v| {
+        const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
         v.verts[d][i_v] = x;
         v.verts[d][i_v+1] = y0;
@@ -213,7 +217,7 @@ pub fn addVerticalLineRGB2RGB(x: f32, y0: f32, y1: f32,
         v.i_verts[d] += 4;
         v.i_cols[d] += 8;
         v.n[d] += 2;
-        if (d > v.d_max) v.d_max = d;
+        depth_levels_active.set(d);
     }
 }
 
@@ -221,10 +225,11 @@ pub fn addVerticalLineRGB2RGB(x: f32, y0: f32, y1: f32,
 pub fn addVerticalTexturedLine(x: f32, y0: f32, y1: f32,
                                u: f32, v0: f32, v1: f32,
                                r: f32, g: f32, b: f32, a: f32,
-                               d: u8) void {
+                               d0: u8) void {
 
     var value = lines_textured.getPtr(1);
     if (value) |v| {
+        const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
         v.verts[d][i_v] = x;
         v.verts[d][i_v+1] = y0;
@@ -248,7 +253,7 @@ pub fn addVerticalTexturedLine(x: f32, y0: f32, y1: f32,
         v.i_cols[d] += 8;
         v.i_texcs[d] += 4;
         v.n[d] += 2;
-        if (d > v.d_max) v.d_max = d;
+        depth_levels_active.set(d);
     }
 }
 
@@ -315,49 +320,42 @@ pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
 }
 
 pub fn renderFrame() !void {
-    var d0: i8 = 11;
-    while (d0 > 0) : (d0-=1){
-        var d: usize = @intCast(usize, d0);
+    var iter = depth_levels_active.iterator(.{});
+    while (iter.next()) |d| {
         c.glEnableClientState(c.GL_VERTEX_ARRAY);
         c.glEnableClientState(c.GL_COLOR_ARRAY);
         c.glEnableClientState(c.GL_TEXTURE_COORD_ARRAY);
         c.glEnable(c.GL_TEXTURE_2D);
         var value_textured = lines_textured.getPtr(1);
         if (value_textured) |v| {
-                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
-                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
-                c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.texcs[d]));
-                c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.n[d]));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                v.i_verts[d] = 0;
-                v.i_cols[d] = 0;
-                v.i_texcs[d] = 0;
-                // log_gfx.debug("Drawn {} vertices in level {} ", .{v.n[d], d});
-                v.n[d] = 0;
-            // }
-            // log_gfx.debug("Drawn {} depth levels ", .{d-1});
-            // v.d_max = 0;
+            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
+            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
+            c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.texcs[d]));
+            c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.n[d]));
+            if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            v.i_verts[d] = 0;
+            v.i_cols[d] = 0;
+            v.i_texcs[d] = 0;
+            v.n[d] = 0;
         }
         c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
         c.glDisable(c.GL_TEXTURE_2D);
         var value = lines.getPtr(1);
         if (value) |v| {
-            // var d: usize = 1;
-            // while (d <= v.d_max) : (d+=1) {
-                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
-                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
-                c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.n[d]));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                v.i_verts[d] = 0;
-                v.i_cols[d] = 0;
-                v.n[d] = 0;
-            // }
-            // v.d_max = 0;
+            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
+            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
+            c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.n[d]));
+            if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            v.i_verts[d] = 0;
+            v.i_cols[d] = 0;
+            v.n[d] = 0;
         }
         c.glDisableClientState(c.GL_VERTEX_ARRAY);
         c.glDisableClientState(c.GL_COLOR_ARRAY);
         c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
     }
+    const r = std.bit_set.Range{.start=0, .end=depth_levels-1};
+    depth_levels_active.setRangeValue(r, false);
 }
 
 pub fn setActiveTexture(tex: u32) void {
@@ -421,13 +419,14 @@ var timer_main: std.time.Timer = undefined;
 const lines_max = 4096*10; // 4K resolution
 
 const depth_levels = 20;
+var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
+
 const Lines = struct {
     verts: [depth_levels][lines_max*2*2]f32,
     cols:  [depth_levels][lines_max*2*4]f32,
     i_verts: [depth_levels]u32,
     i_cols:  [depth_levels]u32,
     n: [depth_levels]u32,
-    d_max: u8,
 };
 
 const TexturedLines = struct {
@@ -438,7 +437,6 @@ const TexturedLines = struct {
     i_cols:  [depth_levels]u32,
     i_texcs: [depth_levels]u32,
     n: [depth_levels]u32,
-    d_max: u8,
 };
 
 var lines          = std.AutoHashMap(u8, Lines).init(allocator);
@@ -446,13 +444,13 @@ var lines_textured = std.AutoHashMap(u8, TexturedLines).init(allocator);
 
 fn allocMemory() !void {
     lines.put(1, .{.verts=undefined, .cols=undefined,
-                   .i_verts=undefined, .i_cols=undefined, .n=undefined, .d_max=0}) catch |e| {
+                   .i_verts=undefined, .i_cols=undefined, .n=undefined}) catch |e| {
         log_gfx.err("Allocation error ", .{});
         return e;
     };
     errdefer lines.deinit();
     lines_textured.put(1, .{.verts=undefined, .cols=undefined, .texcs=undefined,
-                            .i_verts=undefined, .i_cols=undefined, .i_texcs=undefined, .n=undefined, .d_max=0}) catch |e| {
+                            .i_verts=undefined, .i_cols=undefined, .i_texcs=undefined, .n=undefined}) catch |e| {
         log_gfx.err("Allocation error ", .{});
         return e;
     };
