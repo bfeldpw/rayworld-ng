@@ -307,11 +307,30 @@ pub fn finishFrame() !void {
     // times.
     const t = timer_main.read();
     var t_s = frame_time - @intCast(i64, t);
+    // log_gfx.debug("t_current = {}, t_targed = {}, t_sleep = {}",
+                  // .{t, frame_time, t_s});
+    fps_stable_count += 1;
     if (t_s < 0) {
         t_s = 0;
-        log_gfx.warn("Update frequency can't be reached", .{});
+        log_gfx.warn("Frequency target could not be reached", .{});
+        fps_drop_count += 1;
+        fps_stable_count = 0;
+        if (fps_drop_count > 10) {
+            fps_drop_count = 0;
+            is_sleep_enabled = false;
+            log_gfx.info("Too many fps drops, disabling sleep, frequency target no longer valid", .{});
+        }
     }
-    std.time.sleep(@intCast(u64, t_s));
+    if (fps_stable_count > 1000) {
+        fps_drop_count = 0;
+        fps_stable_count = 0;
+        if (!is_sleep_enabled) {
+            is_sleep_enabled = true;
+            log_gfx.info("Fps stable, enabling sleep, frequency target is valid", .{});
+        }
+    }
+
+    if (is_sleep_enabled) std.time.sleep(@intCast(u64, t_s));
     timer_main.reset();
 }
 
@@ -415,6 +434,9 @@ var window_w: u64 = 640; // Window width
 var window_h: u64 = 480; // Window height
 var frame_time: i64 = @floatToInt(i64, 1.0/5.0*1.0e9);
 var timer_main: std.time.Timer = undefined;
+var is_sleep_enabled: bool = true;
+var fps_drop_count: u16 = 0;
+var fps_stable_count: u64 = 0;
 
 const lines_max = 4096*10; // 4K resolution
 
