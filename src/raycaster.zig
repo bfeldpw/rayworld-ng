@@ -108,6 +108,7 @@ pub fn createScene() void {
         const j0 = rays.seg_i0[i];
         const j1 = rays.seg_i1[i];
         var j = @intCast(i32, j1);
+        const depth_layer = @intCast(u8, j-@intCast(i32, j0)+1);
 
         const s_dx0 = segments.x1[j0] - segments.x0[j0];
         const s_dy0 = segments.y1[j0] - segments.y0[j0];
@@ -166,36 +167,44 @@ pub fn createScene() void {
             }
 
             var mirror_height: f32 = 1.0;
-            if (segments.cell_type[k] == .mirror) {
-                mirror_height = 0.85;
-                gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                                       win_h*0.5+h_half*mirror_height + shift + tilt,
-                                    // d_norm, d_norm, d_norm, cell_col.a,
-                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
-                                    @intCast(u8, j-@intCast(i32, j0)+1));
-            } else {
-                gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                                               win_h*0.5+h_half*mirror_height + shift + tilt,
-                // gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                //                        win_h*0.5+h_half*mirror_height + shift + tilt,
-                                            u_of_uv, 0, 1,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
-                                            @intCast(u8, j-@intCast(i32, j0)+1));
+            switch (segments.cell_type[k]) {
+                .mirror => {
+                    mirror_height = 0.85;
+                    gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                        win_h*0.5+h_half*mirror_height + shift + tilt,
+                                        d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                        depth_layer);
+                },
+                .glass => {
+                    gfx.addVerticalLine(x, win_h*0.5-h_half + shift + tilt,
+                                        win_h*0.5+h_half + shift + tilt,
+                                        d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                        depth_layer);
+                },
+                else => {
+                    gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                                win_h*0.5+h_half*mirror_height + shift + tilt,
+                    // gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                    //                        win_h*0.5+h_half*mirror_height + shift + tilt,
+                                                u_of_uv, 0, 1,
+                                                d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                                depth_layer);
+                },
             }
             if (mirror_borders == true and mirror_height < 1.0) {
                 gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
                                                win_h*0.5-h_half*mirror_height + shift + tilt,
                                             u_of_uv, 0, (1-mirror_height)*0.5,
                                             d_norm, d_norm, d_norm, 1.0,
-                                            @intCast(u8, j-@intCast(i32, j0)+1));
+                                            depth_layer);
                 gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                                                win_h*0.5+h_half*mirror_height + shift + tilt,
                                             u_of_uv, 1-(1-mirror_height)*0.5, 1,
                                             d_norm, d_norm, d_norm, 1.0,
-                                            @intCast(u8, j-@intCast(i32, j0)+1));
+                                            depth_layer);
             }
             gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
-                                  0, 0.5*d_norm, 0.7, @intCast(u8, j-@intCast(i32, j0)+1));
+                                  0, 0.5*d_norm, 0.7, depth_layer);
         }
     }
 }
