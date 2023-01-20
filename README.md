@@ -8,6 +8,10 @@ Simple Raycaster to learn Zig
 My first steps in Zig, importing native C with Glfw and OpenGL for learning purposes. Code might be hacky in some places, hopefully improving while learning. OpenGL fixed function pipeline is used purely out of lazyness and the fact, that a simple vertical line (maybe textured) is all that is needed for a raycasting algorithm in its most simplistic form. Might switch to core profile later, but that's secondary. Same applies for parameters and resources, for now, the map is hardcoded as are parameters (nevertheless there are parameters and not some magic numbers ;-)). Later, a map, its features, and configuration should be loaded from files, of course.
 
 ## News
+**2023-01-20** Texture mapping has been implemented. Since, as mentioned above, I was using the immediate mode ("fixed function pipeline"), this became quite taxing due to calls to OpenGL. Since I am aware of people using the integrated Intel GPU with its linux drivers, that are somewhat buggy in my experience when it comes to core profile, I tried to stay withing OpenGL <= 2.0. This lead to DrawArrays. A memory structure has been set up to store all information of primitives to be drawn for different depth layers (reflections/mirrors). A first test for "manual" mip mapping has been done as well.
+
+Getting back to the core of ray casting, all wall elements have been made slightly reflective, too. There is a maximum amount of ray bounces much lower than that of mirrors, though.
+
 **2023-01-12:** Floor and ceiling are now represented by a very simple colour grading. This will be improved, when those cells are drawn during tracing, which also allows for ground textures. Additionally, some light vertical ambient occlusion is rendered, which is a very hacky specific function blending vertical colour-graded line segments.
 
 **2023-01-11:** The basic structure to store more map attributes has been implemented. As a first test, RGBA colours are set for every cell.
