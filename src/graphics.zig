@@ -322,7 +322,7 @@ pub fn finishFrame() !void {
     var t_s = frame_time - @intCast(i64, t);
     if (t_s < 0) {
         t_s = 0;
-        log_gfx.debug("Frequency target could not be reached", .{});
+        // log_gfx.debug("Frequency target could not be reached", .{});
         fps_drop_count += 1;
         fps_stable_count = 0;
         if (fps_drop_count > 10) {
@@ -468,7 +468,7 @@ var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
 var line_statistics = stats.PerFrameCounter.init("Lines");
 var line_tex_statistics = stats.PerFrameCounter.init("Lines textured");
 
-const lines_max = 4096*10; // 4K resolution
+const lines_max = 4096*10; // 4K resolution, maximum of 10 lines in each column of a depth layer
 
 const depth_levels = 30;
 var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
