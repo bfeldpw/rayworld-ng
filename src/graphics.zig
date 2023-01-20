@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
+const stats = @import("stats.zig");
 
 //-----------------------------------------------------------------------------//
 //   Error Sets
@@ -50,6 +51,10 @@ pub fn init() !void {
 }
 
 pub fn deinit() void {
+    draw_call_statistics.printStats();
+    line_statistics.printStats();
+    line_tex_statistics.printStats();
+
     c.glfwDestroyWindow(window);
     log_gfx.info("Destroying window", .{});
     c.glfwTerminate();
@@ -131,6 +136,7 @@ pub fn addVerticalLine(x: f32, y0: f32, y1: f32,
         v.i_cols[d] += 8;
         v.n[d] += 2;
         depth_levels_active.set(d);
+        line_statistics.inc();
     }
 }
 
@@ -159,6 +165,7 @@ pub fn addVerticalLineC2C(x: f32, y0: f32, y1: f32,
         v.i_cols[d] += 8;
         v.n[d] += 2;
         depth_levels_active.set(d);
+        line_statistics.inc();
     }
 }
 
@@ -188,6 +195,7 @@ pub fn addVerticalLineCAlpha2Alpha(x: f32, y0: f32, y1: f32,
         v.i_cols[d] += 8;
         v.n[d] += 2;
         depth_levels_active.set(d);
+        line_statistics.inc();
     }
 }
 
@@ -218,6 +226,7 @@ pub fn addVerticalLineRGB2RGB(x: f32, y0: f32, y1: f32,
         v.i_cols[d] += 8;
         v.n[d] += 2;
         depth_levels_active.set(d);
+        line_statistics.inc();
     }
 }
 
@@ -254,6 +263,8 @@ pub fn addVerticalTexturedLine(x: f32, y0: f32, y1: f32,
         v.i_texcs[d] += 4;
         v.n[d] += 2;
         depth_levels_active.set(d);
+        line_statistics.inc();
+        line_tex_statistics.inc();
     }
 }
 
@@ -306,13 +317,12 @@ pub fn finishFrame() !void {
     // frequency. Make sure not to have a negative sleep for high frame
     // times.
     const t = timer_main.read();
-    timer_main.reset();
 
     fps_stable_count += 1;
     var t_s = frame_time - @intCast(i64, t);
     if (t_s < 0) {
         t_s = 0;
-        log_gfx.warn("Frequency target could not be reached", .{});
+        log_gfx.debug("Frequency target could not be reached", .{});
         fps_drop_count += 1;
         fps_stable_count = 0;
         if (fps_drop_count > 10) {
@@ -321,7 +331,7 @@ pub fn finishFrame() !void {
             log_gfx.info("Too many fps drops, disabling sleep, frequency target no longer valid", .{});
         }
     }
-    if (fps_stable_count > 1000) {
+    if (fps_stable_count > 100) {
         fps_drop_count = 0;
         fps_stable_count = 0;
         if (!is_sleep_enabled) {
@@ -336,6 +346,7 @@ pub fn finishFrame() !void {
     } else {
         fps = 1e6 / @intToFloat(f32, t / 1000);
     }
+    timer_main.reset();
 }
 
 pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
@@ -360,6 +371,7 @@ pub fn renderFrame() !void {
             v.i_cols[d] = 0;
             v.i_texcs[d] = 0;
             v.n[d] = 0;
+            draw_call_statistics.inc();
         }
         c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
         c.glDisable(c.GL_TEXTURE_2D);
@@ -372,6 +384,7 @@ pub fn renderFrame() !void {
             v.i_verts[d] = 0;
             v.i_cols[d] = 0;
             v.n[d] = 0;
+            draw_call_statistics.inc();
         }
         c.glDisableClientState(c.GL_VERTEX_ARRAY);
         c.glDisableClientState(c.GL_COLOR_ARRAY);
@@ -379,6 +392,10 @@ pub fn renderFrame() !void {
     }
     const r = std.bit_set.Range{.start=0, .end=depth_levels-1};
     depth_levels_active.setRangeValue(r, false);
+
+    draw_call_statistics.finishFrame();
+    line_statistics.finishFrame();
+    line_tex_statistics.finishFrame();
 }
 
 pub fn setActiveTexture(tex: u32) void {
@@ -447,9 +464,13 @@ var fps_drop_count: u16 = 0;
 var fps_stable_count: u64 = 0;
 var fps: f32 = 60;
 
+var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
+var line_statistics = stats.PerFrameCounter.init("Lines");
+var line_tex_statistics = stats.PerFrameCounter.init("Lines textured");
+
 const lines_max = 4096*10; // 4K resolution
 
-const depth_levels = 20;
+const depth_levels = 30;
 var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
 
 const Lines = struct {

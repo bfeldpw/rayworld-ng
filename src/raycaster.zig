@@ -1,7 +1,7 @@
 const std = @import("std");
 const gfx = @import("graphics.zig");
 const map = @import("map.zig");
-const stats = @import("perf_stats.zig");
+const stats = @import("stats.zig");
 const plr = @import("player.zig");
 
 //-----------------------------------------------------------------------------//

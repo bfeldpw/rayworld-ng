@@ -5,7 +5,7 @@ const img = @import("image_loader.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const rc = @import("raycaster.zig");
-const stats = @import("perf_stats.zig");
+const stats = @import("stats.zig");
 
 const multithreading = true;
 
