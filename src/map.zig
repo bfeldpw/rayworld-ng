@@ -96,22 +96,26 @@ pub fn init() void {
                     map_current.col[j][i].a = 1.0;
                 },
                 .wall => {
-                    map_current.col[j][i].r = 1.0;
-                    map_current.col[j][i].g = 1.0;
-                    map_current.col[j][i].b = 1.0;
-                    map_current.col[j][i].a = 1.0;
+                    // map_current.col[j][i].r = 1.0;
+                    // map_current.col[j][i].g = 1.0;
+                    // map_current.col[j][i].b = 1.0;
+                    // map_current.col[j][i].a = 1.0;
+                    map_current.col[j][i].r = 0.6;
+                    map_current.col[j][i].g = 0.6;
+                    map_current.col[j][i].b = 0.6;
+                    map_current.col[j][i].a = 0.925;
                 },
                 .mirror => {
                     map_current.col[j][i].r = 0.5;
                     map_current.col[j][i].g = 0.5;
                     map_current.col[j][i].b = 1.0;
-                    map_current.col[j][i].a = 0.1;
+                    map_current.col[j][i].a = 0.01;
                 },
                 .glass => {
                     map_current.col[j][i].r = 0.5;
                     map_current.col[j][i].g = 1.0;
                     map_current.col[j][i].b = 0.5;
-                    map_current.col[j][i].a = 0.5;
+                    map_current.col[j][i].a = 0.05;
                 },
             }
         }

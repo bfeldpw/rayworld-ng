@@ -66,19 +66,21 @@ pub fn createMap() void {
     }
     gfx.endBatch();
 
-
     var i: usize = 0;
 
-    gfx.setColor4(0.0, 0.0, 1.0, 0.5);
+    gfx.setColor4(0.0, 0.0, 1.0, 0.1);
     gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
         if (i % 10 == 0) {
-            var j = rays.seg_i0[i];
-            const j0 = rays.seg_i1[i];
+            var j = @intCast(i32, rays.seg_i1[i]);
+            const j0 = rays.seg_i0[i];
 
-            while (j <= j0) : (j += 1) {
-                gfx.addLine(segments.x0[j]*f, o+segments.y0[j]*f,
-                            segments.x1[j]*f, o+segments.y1[j]*f);
+            while (j >= j0) : (j -= 1) {
+                const color_grade = 0.3*@intToFloat(f32, @intCast(usize, j)-j0);
+                gfx.setColor4(0.0, 1-color_grade, 1.0, 0.2*(1-color_grade));
+                const k = @intCast(usize, j);
+                gfx.addLine(segments.x0[k]*f, o+segments.y0[k]*f,
+                            segments.x1[k]*f, o+segments.y1[k]*f);
             }
         }
     }
@@ -89,7 +91,7 @@ pub fn createMap() void {
     const w = 0.1;
     const h = 0.5;
     const d = plr.getDir();
-    gfx.setColor4(0.0, 1.0, 0.0, 0.7);
+    gfx.setColor4(0.0, 0.7, 0.0, 1.0);
     gfx.drawTriangle((x-w*@sin(d))*f, o+(y+w*@cos(d))*f,
                      (x+h*@cos(d))*f, o+(y+h*@sin(d))*f,
                      (x+w*@sin(d))*f, o+(y-w*@cos(d))*f);
@@ -169,7 +171,7 @@ pub fn createScene() void {
             var mirror_height: f32 = 1.0;
             switch (segments.cell_type[k]) {
                 .mirror => {
-                    mirror_height = 0.85;
+                    // mirror_height = 0.85;
                     gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
                                         win_h*0.5+h_half*mirror_height + shift + tilt,
                                         d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
@@ -182,29 +184,35 @@ pub fn createScene() void {
                                         depth_layer);
                 },
                 else => {
-                    gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                                                win_h*0.5+h_half*mirror_height + shift + tilt,
-                    // gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                    //                        win_h*0.5+h_half*mirror_height + shift + tilt,
-                                                u_of_uv, 0, 1,
+                    // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                    //                             win_h*0.5+h_half*mirror_height + shift + tilt,
+                    gfx.addVerticalLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
+                                           win_h*0.5+h_half*mirror_height + shift + tilt,
+                                                // u_of_uv, 0, 1,
                                                 d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
                                                 depth_layer);
                 },
             }
             if (mirror_borders == true and mirror_height < 1.0) {
-                gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
-                                               win_h*0.5-h_half*mirror_height + shift + tilt,
-                                            u_of_uv, 0, (1-mirror_height)*0.5,
-                                            d_norm, d_norm, d_norm, 1.0,
-                                            depth_layer);
-                gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
-                                               win_h*0.5+h_half*mirror_height + shift + tilt,
-                                            u_of_uv, 1-(1-mirror_height)*0.5, 1,
-                                            d_norm, d_norm, d_norm, 1.0,
-                                            depth_layer);
+                // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
+                //                                win_h*0.5-h_half*mirror_height + shift + tilt,
+                gfx.addVerticalLine(x, win_h*0.5-h_half + shift + tilt,
+                                       win_h*0.5-h_half*mirror_height + shift + tilt,
+                                        // u_of_uv, 0, (1-mirror_height)*0.5,
+                                    d_norm, d_norm, d_norm, 1.0,
+                                    depth_layer);
+                // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
+                //                                win_h*0.5+h_half*mirror_height + shift + tilt,
+                gfx.addVerticalLine(x, win_h*0.5+h_half + shift + tilt,
+                                       win_h*0.5+h_half*mirror_height + shift + tilt,
+                                            // u_of_uv, 1-(1-mirror_height)*0.5, 1,
+                                    d_norm, d_norm, d_norm, 1.0,
+                                    depth_layer);
             }
-            gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
-                                  0, 0.5*d_norm, 0.7, depth_layer);
+            if (j == j0) {
+                gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift+tilt, win_h*0.5+h_half+shift+tilt,
+                                      0, 0.5*d_norm, 0.4, depth_layer);
+            }
         }
     }
 }
@@ -490,8 +498,10 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
             }
         }
 
-        const m_y = @floatToInt(usize, s_y+o_y);
-        const m_x = @floatToInt(usize, s_x+o_x);
+        var m_y = @floatToInt(usize, s_y+o_y);
+        if (m_y > map.get().len-1) m_y = map.get().len-1;
+        var m_x = @floatToInt(usize, s_x+o_x);
+        if (m_x > map.get()[0].len-1) m_x = map.get()[0].len-1;
         const m_v = map.get()[m_y][m_x];
 
         // if there is any kind of contact and a the segment ends, save all
@@ -520,7 +530,27 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
         // Test if there is a collision
         switch (m_v) {
             .floor => {},
-            .wall => {},
+            .wall => {
+                if (is_contact_on_x_axis) {
+                    d_y = -d_y0;
+                    d_x = d_x0;
+                } else {
+                    d_x = -d_x0;
+                    d_y = d_y0;
+                }
+                // Only prepare next segment if not already the last segment of the
+                // last ray!
+                if (s_i+1 < rays.seg_i0.len * segments_max) {
+                    segments.x0[s_i+1] = s_x;
+                    segments.y0[s_i+1] = s_y;
+                }
+
+                // Just be sure to stay below the maximum segment number per ray
+                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 3) {
+                    rays.seg_i1[r_i] += 1;
+                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
+                }
+            },
             .mirror => {
                 if (is_contact_on_x_axis) {
                     d_y = -d_y0;
