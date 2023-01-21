@@ -82,13 +82,6 @@ const Map = struct {
 };
 
 /// Currently used map, later to be loaded from file
-// var map_current = Map {
-//     .cell_type = undefined,
-//     .col = undefined,
-//     .i_attr = undefined,
-//     .attr_mirror = undefined,
-//     .attr_wall = undefined,
-// };
 var map_current: *Map = undefined;
 
 /// Temporary celltypes for convenience as long as maps are hardcoded here.
