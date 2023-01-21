@@ -41,6 +41,10 @@ pub fn getResolution() u32 {
 
 const log_map = std.log.scoped(.map);
 
+var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
+// var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
+
 const res = 1; // resolution of blocks in meter
 const map_size_y = 18;
 const map_size_x = 20;
@@ -78,13 +82,14 @@ const Map = struct {
 };
 
 /// Currently used map, later to be loaded from file
-var map_current = Map {
-    .cell_type = undefined,
-    .col = undefined,
-    .i_attr = undefined,
-    .attr_mirror = undefined,
-    .attr_wall = undefined,
-};
+// var map_current = Map {
+//     .cell_type = undefined,
+//     .col = undefined,
+//     .i_attr = undefined,
+//     .attr_mirror = undefined,
+//     .attr_wall = undefined,
+// };
+var map_current: *Map = undefined;
 
 /// Temporary celltypes for convenience as long as maps are hardcoded here.
 /// This map will be copied over to that currently used in the init function.
@@ -112,8 +117,14 @@ const map_celltype_tmp = [map_size_y][map_size_x]u8 {
 /// This function initialises the map by copying and setting attributes as
 /// long as maps are hardcoded here. Later, map data should be loaded from
 /// file.
-pub fn init() void {
+pub fn init() !void {
     log_map.info("Initialising map", .{});
+
+    map_current = allocator.create(Map) catch |e| {
+        log_map.err("Allocation error: {}", .{e});
+        return e;
+    };
+    errdefer allocator.destroy(map_current);
 
     // Copy tmp map and set some default values for celltypes
     for (map_current.cell_type) |*row, j| {
@@ -186,4 +197,11 @@ pub fn init() void {
     map_current.attr_mirror[1].canvas_bottom= 0.6;
     map_current.attr_mirror[1].opacity = 0.3;
     map_current.attr_mirror[1].opacity_canvas = 0.925;
+}
+
+pub fn deinit() void {
+    allocator.destroy(map_current);
+
+    const leaked = gpa.deinit();
+    if (leaked) log_map.err("Memory leaked in GeneralPurposeAllocator", .{});
 }

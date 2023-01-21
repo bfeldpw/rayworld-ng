@@ -556,7 +556,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
 
                 // Just be sure to stay below the maximum segment number per ray
-                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 3) {
+                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 2) {
                     rays.seg_i1[r_i] += 1;
                     traceSingleSegment0(d_x, d_y, s_i+1, r_i);
                 }

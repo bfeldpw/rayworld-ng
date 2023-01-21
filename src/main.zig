@@ -31,7 +31,8 @@ pub fn main() !void {
     try loadResources();
     perf_img.stopMeasurement();
 
-    map.init();
+    try map.init();
+    defer map.deinit();
 
     var perf_fps = try stats.Performance.init("Frametime");
     var perf_in = try stats.Performance.init("Input");
