@@ -57,7 +57,8 @@ const MirrorAttributes = struct {
     col_r: f32,
     col_g: f32,
     col_b: f32,
-    height: f32,
+    canvas_top: f32,
+    canvas_bottom: f32,
     opacity: f32,
     opacity_canvas: f32,
 };
@@ -147,7 +148,8 @@ pub fn init() void {
                     map_current.attr_mirror[0].col_r = 0.0;
                     map_current.attr_mirror[0].col_g = 0.0;
                     map_current.attr_mirror[0].col_b = 1.0;
-                    map_current.attr_mirror[0].height = 0.85;
+                    map_current.attr_mirror[0].canvas_top= 0.075;
+                    map_current.attr_mirror[0].canvas_bottom= 0.075;
                     map_current.attr_mirror[0].opacity = 0.1;
                     map_current.attr_mirror[0].opacity_canvas = 0.925;
                 },
@@ -177,7 +179,11 @@ pub fn init() void {
     map_current.col[8][8].b = 0.6;
     map_current.col[8][8].a = 0.3;
     map_current.i_attr[8][8] = 1;
-    map_current.attr_mirror[1].height = 0.5;
-    map_current.attr_mirror[1].opacity = 0.01;
+    map_current.attr_mirror[1].col_r = 0.0;
+    map_current.attr_mirror[1].col_g = 1.0;
+    map_current.attr_mirror[1].col_b = 1.0;
+    map_current.attr_mirror[1].canvas_top= 0.2;
+    map_current.attr_mirror[1].canvas_bottom= 0.6;
+    map_current.attr_mirror[1].opacity = 0.3;
     map_current.attr_mirror[1].opacity_canvas = 0.925;
 }
