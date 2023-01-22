@@ -9,11 +9,14 @@ const stats = @import("stats.zig");
 
 const multithreading = true;
 
-pub const scope_levels = [_]std.log.ScopeLevel{
-    // .{ .scope = .gfx, .level = .debug },
-    .{ .scope = .input, .level = .info },
-    .{ .scope = .plr, .level = .info },
-    // .{ .scope = .stats, .level = .info },
+pub const std_options = struct {
+    // pub const log_level = .warn;
+    pub const log_scope_levels = &[_]std.log.ScopeLevel{
+        // .{ .scope = .gfx, .level = .debug },
+        .{ .scope = .input, .level = .info },
+        .{ .scope = .plr, .level = .info },
+        // .{ .scope = .stats, .level = .info },
+    };
 };
 
 pub fn main() !void {
