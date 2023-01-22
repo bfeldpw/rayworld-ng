@@ -168,14 +168,15 @@ pub fn createScene() void {
 
             switch (segments.cell_type[k]) {
                 .mirror => {
-                    const i_attr = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const col_r = map.getAttributesMirror()[i_attr].col_r;
-                    const col_g = map.getAttributesMirror()[i_attr].col_g;
-                    const col_b = map.getAttributesMirror()[i_attr].col_b;
-                    const canvas_top = map.getAttributesMirror()[i_attr].canvas_top;
-                    const canvas_bottom = map.getAttributesMirror()[i_attr].canvas_bottom;
-                    const opacity = map.getAttributesMirror()[i_attr].opacity;
-                    const opacity_canvas = map.getAttributesMirror()[i_attr].opacity_canvas;
+                    const i_attr_color = map.getAttributeColorIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const col_r = map.getAttributesColor(i_attr_color).col_r;
+                    const col_g = map.getAttributesColor(i_attr_color).col_g;
+                    const col_b = map.getAttributesColor(i_attr_color).col_b;
+                    const opacity = map.getAttributesColor(i_attr_color).opacity;
+                    const i_attr_canvas = map.getAttributeCanvasIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const canvas_top = map.getAttributesCanvas(i_attr_canvas).canvas_top;
+                    const canvas_bottom = map.getAttributesCanvas(i_attr_canvas).canvas_bottom;
+                    const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
                     const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
                     const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
                     gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
@@ -188,22 +189,53 @@ pub fn createScene() void {
                         gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
                                                win_h*0.5-h_half_top + shift_and_tilt,
                                                 // u_of_uv, 0, (1-mirror_height)*0.5,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, opacity_canvas,
+                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
                                             depth_layer);
                         // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                         //                                win_h*0.5+h_half*mirror_height + shift + tilt,
                         gfx.addVerticalLine(x, win_h*0.5+h_half + shift_and_tilt,
                                             win_h*0.5+h_half_bottom + shift_and_tilt,
                                                     // u_of_uv, 1-(1-mirror_height)*0.5, 1,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, opacity_canvas,
+                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
                                             depth_layer);
                     }
                 },
                 .glass => {
-                    gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                        win_h*0.5+h_half + shift_and_tilt,
-                                        d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                    // gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
+                    //                     win_h*0.5+h_half + shift_and_tilt,
+                    //                     d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                    //                     depth_layer);
+                    const i_attr_color = map.getAttributeColorIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const col_r = map.getAttributesColor(i_attr_color).col_r;
+                    const col_g = map.getAttributesColor(i_attr_color).col_g;
+                    const col_b = map.getAttributesColor(i_attr_color).col_b;
+                    const opacity = map.getAttributesColor(i_attr_color).opacity;
+                    const i_attr_canvas = map.getAttributeCanvasIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const canvas_top = map.getAttributesCanvas(i_attr_canvas).canvas_top;
+                    const canvas_bottom = map.getAttributesCanvas(i_attr_canvas).canvas_bottom;
+                    const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
+                    const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
+                    const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
+                    gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
+                                           win_h*0.5 + h_half_bottom + shift_and_tilt,
+                                        d_norm*col_r, d_norm*col_g, d_norm*col_b, opacity,
                                         depth_layer);
+                    if (canvas_bottom+canvas_top > 0.0) {
+                        // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
+                        //                                win_h*0.5-h_half*mirror_height + shift + tilt,
+                        gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
+                                               win_h*0.5-h_half_top + shift_and_tilt,
+                                                // u_of_uv, 0, (1-mirror_height)*0.5,
+                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                            depth_layer);
+                        // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
+                        //                                win_h*0.5+h_half*mirror_height + shift + tilt,
+                        gfx.addVerticalLine(x, win_h*0.5+h_half + shift_and_tilt,
+                                            win_h*0.5+h_half_bottom + shift_and_tilt,
+                                                    // u_of_uv, 1-(1-mirror_height)*0.5, 1,
+                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                            depth_layer);
+                    }
                 },
                 else => {
                     // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,

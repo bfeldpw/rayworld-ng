@@ -11,27 +11,39 @@ pub const CellType = enum {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn get() *const[map_size_y][map_size_x]CellType {
+pub inline fn get() *const[map_size_y][map_size_x]CellType {
     return &map_current.cell_type;
 }
 
-pub fn getAttributeIndex() *const[map_size_y][map_size_x]usize {
+pub inline fn getAttributeIndex() *const[map_size_y][map_size_x]usize {
     return &map_current.i_attr;
 }
 
-pub fn getAttributesMirror() *const[map_size_y*map_size_x]MirrorAttributes {
-    return &map_current.attr_mirror;
+pub inline fn getAttributeCanvasIndex() *const[map_size_y][map_size_x]usize {
+    return &map_current.i_attr_canvas;
 }
 
-pub fn getAttributesWall() *const[map_size_y*map_size_x]WallAttributes {
+pub inline fn getAttributeColorIndex() *const[map_size_y][map_size_x]usize {
+    return &map_current.i_attr_color;
+}
+
+pub inline fn getAttributesCanvas(index: usize) *const AttribCanvas {
+    return &map_current.attr_canvas[index];
+}
+
+pub inline fn getAttributesColor(index: usize) *const AttribColor {
+    return &map_current.attr_color[index];
+}
+
+pub inline fn getAttributesWall() *const[map_size_y*map_size_x]WallAttributes {
     return &map_current.attr_wall;
 }
 
-pub fn getColor() *const[map_size_y][map_size_x]CellColor {
+pub inline fn getColor() *const[map_size_y][map_size_x]CellColor {
     return &map_current.col;
 }
 
-pub fn getResolution() u32 {
+pub inline fn getResolution() u32 {
     return res;
 }
 
@@ -49,7 +61,8 @@ const res = 1; // resolution of blocks in meter
 const map_size_y = 18;
 const map_size_x = 20;
 
-/// Base color of each cell
+/// Base color of each cell. This also applies to a canvas
+/// of a mirror or glass
 const CellColor = struct {
     r: f32,
     g: f32,
@@ -57,14 +70,17 @@ const CellColor = struct {
     a: f32,
 };
 
-const MirrorAttributes = struct {
+const AttribCanvas = struct {
+    canvas_top: f32,
+    canvas_bottom: f32,
+    canvas_opacity: f32,
+};
+
+const AttribColor = struct {
     col_r: f32,
     col_g: f32,
     col_b: f32,
-    canvas_top: f32,
-    canvas_bottom: f32,
-    opacity: f32,
-    opacity_canvas: f32,
+    opacity: f32, // i.e. alpha channel
 };
 
 const WallAttributes = struct {
@@ -77,7 +93,10 @@ const Map = struct {
     cell_type: [map_size_y][map_size_x]CellType,
     col: [map_size_y][map_size_x]CellColor,
     i_attr: [map_size_y][map_size_x]usize, // Index to specific cell attributes
-    attr_mirror: [map_size_y*map_size_x]MirrorAttributes, // Size should be dynamic later, therefore the index
+    i_attr_canvas: [map_size_y][map_size_x]usize,
+    i_attr_color: [map_size_y][map_size_x]usize,
+    attr_canvas: [map_size_y*map_size_x]AttribCanvas,
+    attr_color: [map_size_y*map_size_x]AttribColor,
     attr_wall: [map_size_y*map_size_x]WallAttributes, // Size should be dynamic later, therefore the index
 };
 
@@ -119,6 +138,29 @@ pub fn init() !void {
     };
     errdefer allocator.destroy(map_current);
 
+    // Attributes
+    // Default attributes color
+    // -- mirror
+    map_current.attr_color[0].col_r = 0.0;
+    map_current.attr_color[0].col_g = 0.0;
+    map_current.attr_color[0].col_b = 1.0;
+    map_current.attr_color[0].opacity = 0.1;
+    // -- glass
+    map_current.attr_color[1].col_r = 0.5;
+    map_current.attr_color[1].col_g = 1.0;
+    map_current.attr_color[1].col_b = 0.5;
+    map_current.attr_color[1].opacity = 0.1;
+
+    // Default attributes canvas
+    // -- miror
+    map_current.attr_canvas[0].canvas_top = 0.075;
+    map_current.attr_canvas[0].canvas_bottom = 0.075;
+    map_current.attr_canvas[0].canvas_opacity = 0.925;
+    // -- glass
+    map_current.attr_canvas[1].canvas_top = 0.1;
+    map_current.attr_canvas[1].canvas_bottom = 0.1;
+    map_current.attr_canvas[1].canvas_opacity = 0.925;
+
     // Copy tmp map and set some default values for celltypes
     for (map_current.cell_type) |*row, j| {
         for (row.*) |*value, i| {
@@ -132,10 +174,6 @@ pub fn init() !void {
                     map_current.col[j][i].a = 1.0;
                 },
                 .wall => {
-                    // map_current.col[j][i].r = 1.0;
-                    // map_current.col[j][i].g = 1.0;
-                    // map_current.col[j][i].b = 1.0;
-                    // map_current.col[j][i].a = 1.0;
                     map_current.col[j][i].r = 0.6;
                     map_current.col[j][i].g = 0.6;
                     map_current.col[j][i].b = 0.6;
@@ -148,20 +186,16 @@ pub fn init() !void {
                     map_current.col[j][i].g = 0.6;
                     map_current.col[j][i].b = 0.6;
                     map_current.col[j][i].a = 1.0;
-                    map_current.i_attr[j][i] = 0;
-                    map_current.attr_mirror[0].col_r = 0.0;
-                    map_current.attr_mirror[0].col_g = 0.0;
-                    map_current.attr_mirror[0].col_b = 1.0;
-                    map_current.attr_mirror[0].canvas_top= 0.075;
-                    map_current.attr_mirror[0].canvas_bottom= 0.075;
-                    map_current.attr_mirror[0].opacity = 0.1;
-                    map_current.attr_mirror[0].opacity_canvas = 0.925;
+                    map_current.i_attr_color[j][i] = 0;
+                    map_current.i_attr_canvas[j][i] = 0;
                 },
                 .glass => {
-                    map_current.col[j][i].r = 0.5;
-                    map_current.col[j][i].g = 1.0;
-                    map_current.col[j][i].b = 0.5;
-                    map_current.col[j][i].a = 0.05;
+                    map_current.col[j][i].r = 0.6;
+                    map_current.col[j][i].g = 0.6;
+                    map_current.col[j][i].b = 0.6;
+                    map_current.col[j][i].a = 1.0;
+                    map_current.i_attr_color[j][i] = 1;
+                    map_current.i_attr_canvas[j][i] = 1;
                 },
             }
         }
@@ -181,15 +215,16 @@ pub fn init() !void {
     map_current.col[8][8].r = 0.6;
     map_current.col[8][8].g = 0.6;
     map_current.col[8][8].b = 0.6;
-    map_current.col[8][8].a = 0.3;
-    map_current.i_attr[8][8] = 1;
-    map_current.attr_mirror[1].col_r = 0.0;
-    map_current.attr_mirror[1].col_g = 1.0;
-    map_current.attr_mirror[1].col_b = 1.0;
-    map_current.attr_mirror[1].canvas_top= 0.2;
-    map_current.attr_mirror[1].canvas_bottom= 0.6;
-    map_current.attr_mirror[1].opacity = 0.3;
-    map_current.attr_mirror[1].opacity_canvas = 0.925;
+    map_current.col[8][8].a = 1.0;
+    map_current.i_attr_color[8][8] = 2;
+    map_current.attr_color[2].col_r = 0.0;
+    map_current.attr_color[2].col_g = 1.0;
+    map_current.attr_color[2].col_b = 1.0;
+    map_current.attr_color[2].opacity = 0.3;
+    map_current.i_attr_canvas[8][8] = 2;
+    map_current.attr_canvas[2].canvas_top = 0.2;
+    map_current.attr_canvas[2].canvas_bottom = 0.6;
+    map_current.attr_canvas[2].canvas_opacity = 0.925;
 }
 
 pub fn deinit() void {
