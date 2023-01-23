@@ -428,20 +428,24 @@ pub fn isWindowOpen() bool {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn getFPS() f32 {
+pub inline fn getAspect() f32 {
+    return aspect;
+}
+
+pub inline fn getFPS() f32 {
     return fps;
 }
 
 /// Get the active glfw window
-pub fn getWindow() ?*c.GLFWwindow {
+pub inline fn getWindow() ?*c.GLFWwindow {
     return window;
 }
 
-pub fn getWindowHeight() u64 {
+pub inline fn getWindowHeight() u64 {
     return window_h;
 }
 
-pub fn getWindowWidth() u64 {
+pub inline fn getWindowWidth() u64 {
     return window_w;
 }
 
@@ -469,6 +473,7 @@ const allocator = gpa.allocator();
 var window: ?*c.GLFWwindow = null;
 var window_w: u64 = 640; // Window width
 var window_h: u64 = 480; // Window height
+var aspect: f32 = 640/480;
 var frame_time: i64 = @floatToInt(i64, 1.0/5.0*1.0e9);
 var timer_main: std.time.Timer = undefined;
 var is_sleep_enabled: bool = true;
@@ -554,6 +559,8 @@ fn initGLFW() !void {
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
     errdefer c.glfwDestroyWindow(window);
 
+    aspect = @intToFloat(f32, window_w) / @intToFloat(f32, window_h);
+
     c.glfwMakeContextCurrent(window);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
 
@@ -586,6 +593,7 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     _ = win;
     window_w = @intCast(u64, w);
     window_h = @intCast(u64, h);
+    aspect = @intToFloat(f32, window_w) / @intToFloat(f32, window_h);
     c.glViewport(0, 0, w, h);
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();

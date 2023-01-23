@@ -3,6 +3,7 @@ const c = @import("c.zig").c;
 const gfx = @import("graphics.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
+const plr = @import("player.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
 
@@ -44,6 +45,9 @@ pub fn main() !void {
         perf_in.startMeasurement();
         input.processInputs(gfx.getFPS());
         perf_in.stopMeasurement();
+
+        var aspect = gfx.getAspect();
+        plr.setFOV(aspect*std.math.degreesToRadians(f32, 90.0)/1.73);
 
         perf_rc.startMeasurement();
         try rc.processRays(multithreading);

@@ -46,32 +46,39 @@ pub fn turn(d: f32) void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn getDir() f32 {
+pub inline fn getDir() f32 {
     return dir;
 }
 
-pub fn getFOV() f32 {
+pub inline fn getFOV() f32 {
     return fov;
 }
 
-pub fn getPosX() f32 {
+pub inline fn getPosX() f32 {
     return pos_x;
 }
 
-pub fn getPosY() f32 {
+pub inline fn getPosY() f32 {
     return pos_y;
 }
 
-pub fn getPosZ() f32 {
+pub inline fn getPosZ() f32 {
     return pos_z;
 }
 
-pub fn getTilt() f32 {
+pub inline fn getTilt() f32 {
     return tilt;
 }
 
-pub fn setDir(d: f32) void {
+pub inline fn setDir(d: f32) void {
     dir = d;
+}
+
+pub inline fn setFOV(f: f32) void {
+    if (f != fov) {
+        fov = f;
+        log_plr.info("New setting, FOV = {d:.1}°", .{std.math.radiansToDegrees(f32, fov)});
+    }
 }
 
 //-----------------------------------------------------------------------------//
@@ -80,7 +87,7 @@ pub fn setDir(d: f32) void {
 
 const log_plr = std.log.scoped(.plr);
 
-const fov = std.math.degreesToRadians(f32, 90.0);
+var fov = std.math.degreesToRadians(f32, 90.0);
 var dir: f32 = 0.0;
 var pos_x: f32 = 2.5;
 var pos_y: f32 = 2.5;
