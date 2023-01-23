@@ -10,7 +10,6 @@ const stats = @import("stats.zig");
 const multithreading = true;
 
 pub const std_options = struct {
-    // pub const log_level = .warn;
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
         // .{ .scope = .gfx, .level = .debug },
         .{ .scope = .input, .level = .info },
@@ -76,39 +75,8 @@ fn loadResources() !void {
     img.init();
     defer img.deinit();
 
-    // try img.loadImage("resource/wall_4096_dbg.bmp");
-    // const img_0 = img.getImage();
-    // const tex_0 = gfx.createTexture(img_0.w, img_0.h, &img_0.rgb);
-    // rc.setTex4096(tex_0);
-    // img.releaseImage();
-    // try img.loadImage("resource/wall_2048.bmp");
-    // const img_1 = img.getImage();
-    // const tex_1 = gfx.createTexture(img_1.w, img_1.h, &img_1.rgb);
-    // rc.setTex2048(tex_1);
-    // img.releaseImage();
-    try img.loadImage("resource/wall_1024.bmp");
-    const img_2 = img.getImage();
-    const tex_2 = gfx.createTexture(img_2.w, img_2.h, &img_2.rgb);
-    rc.setTex1024(tex_2);
+    const image = try img.loadImage("resource/metal_01_1024_bfeld.jpg");
+    const tex = gfx.createTexture(image.width, image.height, &image.data);
+    rc.setTex1024(tex);
     img.releaseImage();
-    // try img.loadImage("resource/wall_512_dbg.bmp");
-    // const img_3 = img.getImage();
-    // const tex_3 = gfx.createTexture(img_3.w, img_3.h, &img_3.rgb);
-    // rc.setTex512(tex_3);
-    // img.releaseImage();
-    // try img.loadImage("resource/wall_256_dbg.bmp");
-    // const img_4 = img.getImage();
-    // const tex_4 = gfx.createTexture(img_4.w, img_4.h, &img_4.rgb);
-    // rc.setTex256(tex_4);
-    // img.releaseImage();
-    // try img.loadImage("resource/wall_128_dbg.bmp");
-    // const img_5 = img.getImage();
-    // const tex_5 = gfx.createTexture(img_5.w, img_5.h, &img_5.rgb);
-    // rc.setTex128(tex_5);
-    // img.releaseImage();
-    // try img.loadImage("resource/wall_64_dbg.bmp");
-    // const img_6 = img.getImage();
-    // const tex_6 = gfx.createTexture(img_6.w, img_6.h, &img_6.rgb);
-    // rc.setTex64(tex_6);
-    // img.releaseImage();
 }

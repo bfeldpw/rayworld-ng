@@ -1,4 +1,5 @@
 const std = @import("std");
+const zstbi = @import("libs/zstbi/build.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     // Standard target options allows the person running `zig build` to choose
@@ -14,11 +15,14 @@ pub fn build(b: *std.build.Builder) !void {
     const exe = b.addExecutable("rayworld-ng", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    exe.addIncludePath("3rdparty/libbmpread/");
-    exe.addCSourceFile("3rdparty/libbmpread/bmpread.c", &[_][]const u8{"-std=c99"});
+    exe.addPackage(zstbi.pkg);
+    zstbi.link(exe);
     exe.linkLibC();
     exe.linkSystemLibrary("gl");
     exe.linkSystemLibrary("glfw");
+    if (mode == std.builtin.Mode.ReleaseSafe) {
+        exe.strip = true;
+    }
     exe.install();
     exe.emit_docs = .emit;
 

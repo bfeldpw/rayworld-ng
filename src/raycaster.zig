@@ -108,8 +108,8 @@ pub fn createScene() void {
 
         const j0 = rays.seg_i0[i];
         const j1 = rays.seg_i1[i];
-        var j = @intCast(i32, j1);
-        const depth_layer = @intCast(u8, j-@intCast(i32, j0)+1);
+        var j = j1;
+        const depth_layer = @intCast(u8, j-j0+1);
 
         const s_dx0 = segments.x1[j0] - segments.x0[j0];
         const s_dy0 = segments.y1[j0] - segments.y0[j0];
@@ -186,16 +186,16 @@ pub fn createScene() void {
                     if (canvas_bottom+canvas_top > 0.0) {
                         // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
                         //                                win_h*0.5-h_half*mirror_height + shift + tilt,
-                        gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
+                        gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
                                                win_h*0.5-h_half_top + shift_and_tilt,
-                                                // u_of_uv, 0, (1-mirror_height)*0.5,
+                                                u_of_uv, 0, canvas_top,
                                             d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
                                             depth_layer);
                         // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                         //                                win_h*0.5+h_half*mirror_height + shift + tilt,
-                        gfx.addVerticalLine(x, win_h*0.5+h_half + shift_and_tilt,
+                        gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
                                             win_h*0.5+h_half_bottom + shift_and_tilt,
-                                                    // u_of_uv, 1-(1-mirror_height)*0.5, 1,
+                                                    u_of_uv, 1, 1-canvas_bottom,
                                             d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
                                             depth_layer);
                     }
@@ -223,18 +223,18 @@ pub fn createScene() void {
                     if (canvas_bottom+canvas_top > 0.0) {
                         // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
                         //                                win_h*0.5-h_half*mirror_height + shift + tilt,
-                        gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                               win_h*0.5-h_half_top + shift_and_tilt,
-                                                // u_of_uv, 0, (1-mirror_height)*0.5,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                            depth_layer);
+                        gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
+                                                       win_h*0.5-h_half_top + shift_and_tilt,
+                                                    u_of_uv, 0, canvas_top,
+                                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                                    depth_layer);
                         // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                         //                                win_h*0.5+h_half*mirror_height + shift + tilt,
-                        gfx.addVerticalLine(x, win_h*0.5+h_half + shift_and_tilt,
-                                            win_h*0.5+h_half_bottom + shift_and_tilt,
-                                                    // u_of_uv, 1-(1-mirror_height)*0.5, 1,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                            depth_layer);
+                        gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
+                                                       win_h*0.5+h_half_bottom + shift_and_tilt,
+                                                    u_of_uv, 1, 1-canvas_bottom,
+                                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                                    depth_layer);
                     }
                 },
                 else => {
@@ -243,9 +243,9 @@ pub fn createScene() void {
                     const i_opacity = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
                     const opacity = map.getAttributesWall()[i_opacity].opacity;
 
-                    gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
+                    gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
                                            win_h*0.5+h_half + shift_and_tilt,
-                                                // u_of_uv, 0, 1,
+                                                u_of_uv, 0, 1,
                                                 d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, opacity,
                                                 // d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
                                                 depth_layer);
@@ -254,6 +254,7 @@ pub fn createScene() void {
             if (j == j0) {
                 gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
                                       0, 0.5*d_norm, 0.4, depth_layer);
+                break;
             }
         }
     }

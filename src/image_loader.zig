@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
+const zstbi = @import("zstbi");
 
 //-----------------------------------------------------------------------------//
 //   Error Sets
@@ -15,9 +16,12 @@ const ImageError = error{
 //-----------------------------------------------------------------------------//
 
 pub fn init() void {
+    zstbi.init(allocator);
 }
 
 pub fn deinit() void {
+    zstbi.deinit();
+
     // Allocated memory has to be freed with release after usage. This is typical
     // for Open GL textures. After reading and handing over to GL, the source
     // memory might be directly released
@@ -30,17 +34,13 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn getImage() *Image {
-    return &img;
-}
-
 //-----------------------------------------------------------------------------//
 //   Processing
 //-----------------------------------------------------------------------------//
 
 /// Tries to load the bmp at the given location. If an image has been loaded
 /// before, releaseImage needs to be called first
-pub fn loadImage(name: []const u8) !void {
+pub fn loadImage(name: [:0]const u8) !*zstbi.Image {
 
     if (is_image_already_loaded) {
         log_img.warn("Image {s} loaded since previous image memory hasn't been released",
@@ -49,38 +49,19 @@ pub fn loadImage(name: []const u8) !void {
     } else {
         log_img.info("Loading image {s}", .{name});
 
-        var bitmap: c.bmpread_t = undefined;
-
-        const success = c.bmpread(@ptrCast([*c]const u8, name), c.BMPREAD_TOP_DOWN, &bitmap);
-        if (success == 0) {
-            log_img.err("Error loading file {s}", .{name});
-            return ImageError.ImageLoadingFailed;
-        }
-
-        img.w = @intCast(u16, bitmap.width);
-        img.h = @intCast(u16, bitmap.height);
-        img.rgb = allocator.alloc(u8, @intCast(u32, img.w)*img.h*3) catch |e| {
-            log_img.err("Allocation error ", .{});
-            c.bmpread_free(&bitmap);
-            return e;
-        };
-
-        // copy data over to zig allocator
-        for (img.rgb) |_, i| {
-            img.rgb[i] = bitmap.rgb_data[i];
-        }
-
-        // free memory allocated by c library
-        c.bmpread_free(&bitmap);
-
         is_image_already_loaded = true;
+        img = try zstbi.Image.init(name, 3);
+        // var img0 = try zstbi.Image.init(name, 3);
+        // defer img0.deinit();
+        // img = img0.resize(2000, 1333);
+        return &img;
     }
 }
 
 /// Release allocated memory for image. Image should be handed over before
 /// calling release
 pub fn releaseImage() void {
-    allocator.free(img.rgb);
+    img.deinit();
     is_image_already_loaded = false;
 }
 
@@ -91,9 +72,8 @@ pub fn initDrawTest() c.GLuint {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, img.w, img.h, 0,
-                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, img.rgb));
-
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @truncate(u16, img.width), @truncate(u16, img.height), 0,
+                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, img.data));
     return tex;
 }
 
@@ -137,17 +117,7 @@ const log_img = std.log.scoped(.img);
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
-const Image = struct {
-    w: u16,
-    h: u16,
-    rgb: []u8,
-};
-
-var img = Image {
-    .w = 0,
-    .h = 0,
-    .rgb = undefined,
-};
+var img: zstbi.Image = undefined;
 
 /// For now, only one image is stored. After loading, it should be handed over,
 /// e.g. as a texture for GL. Then, memory can be released to load another image

@@ -143,23 +143,23 @@ pub fn init() !void {
     // -- mirror
     map_current.attr_color[0].col_r = 0.0;
     map_current.attr_color[0].col_g = 0.0;
-    map_current.attr_color[0].col_b = 1.0;
-    map_current.attr_color[0].opacity = 0.1;
+    map_current.attr_color[0].col_b = 0.8;
+    map_current.attr_color[0].opacity = 0.02;
     // -- glass
-    map_current.attr_color[1].col_r = 0.5;
-    map_current.attr_color[1].col_g = 1.0;
-    map_current.attr_color[1].col_b = 0.5;
-    map_current.attr_color[1].opacity = 0.1;
+    map_current.attr_color[1].col_r = 0.2;
+    map_current.attr_color[1].col_g = 0.8;
+    map_current.attr_color[1].col_b = 0.2;
+    map_current.attr_color[1].opacity = 0.05;
 
     // Default attributes canvas
     // -- miror
     map_current.attr_canvas[0].canvas_top = 0.075;
     map_current.attr_canvas[0].canvas_bottom = 0.075;
-    map_current.attr_canvas[0].canvas_opacity = 0.925;
+    map_current.attr_canvas[0].canvas_opacity = 0.8;
     // -- glass
     map_current.attr_canvas[1].canvas_top = 0.1;
     map_current.attr_canvas[1].canvas_bottom = 0.1;
-    map_current.attr_canvas[1].canvas_opacity = 0.925;
+    map_current.attr_canvas[1].canvas_opacity = 0.8;
 
     // Copy tmp map and set some default values for celltypes
     for (map_current.cell_type) |*row, j| {
@@ -174,25 +174,25 @@ pub fn init() !void {
                     map_current.col[j][i].a = 1.0;
                 },
                 .wall => {
-                    map_current.col[j][i].r = 0.6;
-                    map_current.col[j][i].g = 0.6;
-                    map_current.col[j][i].b = 0.6;
+                    map_current.col[j][i].r = 1.0;
+                    map_current.col[j][i].g = 1.0;
+                    map_current.col[j][i].b = 1.0;
                     map_current.col[j][i].a = 1.0;
                     map_current.i_attr[j][i] = 0;
-                    map_current.attr_wall[0].opacity = 0.925;
+                    map_current.attr_wall[0].opacity = 0.8;
                 },
                 .mirror => {
-                    map_current.col[j][i].r = 0.6;
-                    map_current.col[j][i].g = 0.6;
-                    map_current.col[j][i].b = 0.6;
+                    map_current.col[j][i].r = 1.0;
+                    map_current.col[j][i].g = 1.0;
+                    map_current.col[j][i].b = 1.0;
                     map_current.col[j][i].a = 1.0;
                     map_current.i_attr_color[j][i] = 0;
                     map_current.i_attr_canvas[j][i] = 0;
                 },
                 .glass => {
-                    map_current.col[j][i].r = 0.6;
-                    map_current.col[j][i].g = 0.6;
-                    map_current.col[j][i].b = 0.6;
+                    map_current.col[j][i].r = 1.0;
+                    map_current.col[j][i].g = 1.0;
+                    map_current.col[j][i].b = 1.0;
                     map_current.col[j][i].a = 1.0;
                     map_current.i_attr_color[j][i] = 1;
                     map_current.i_attr_canvas[j][i] = 1;
@@ -212,19 +212,19 @@ pub fn init() !void {
     map_current.col[0][5].g = 1.0;
     map_current.col[0][5].b = 0.9;
     map_current.col[0][5].a = 1.0;
-    map_current.col[8][8].r = 0.6;
-    map_current.col[8][8].g = 0.6;
-    map_current.col[8][8].b = 0.6;
+    map_current.col[8][8].r = 1.0;
+    map_current.col[8][8].g = 1.0;
+    map_current.col[8][8].b = 1.0;
     map_current.col[8][8].a = 1.0;
     map_current.i_attr_color[8][8] = 2;
     map_current.attr_color[2].col_r = 0.0;
-    map_current.attr_color[2].col_g = 1.0;
-    map_current.attr_color[2].col_b = 1.0;
-    map_current.attr_color[2].opacity = 0.3;
+    map_current.attr_color[2].col_g = 0.8;
+    map_current.attr_color[2].col_b = 0.8;
+    map_current.attr_color[2].opacity = 0.02;
     map_current.i_attr_canvas[8][8] = 2;
     map_current.attr_canvas[2].canvas_top = 0.2;
     map_current.attr_canvas[2].canvas_bottom = 0.6;
-    map_current.attr_canvas[2].canvas_opacity = 0.925;
+    map_current.attr_canvas[2].canvas_opacity = 0.8;
 }
 
 pub fn deinit() void {
