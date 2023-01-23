@@ -91,7 +91,7 @@ fn isColliding(x: f32, y: f32) bool {
     const map_x = @floatToInt(u32, x) / map.getResolution();
     const map_y = @floatToInt(u32, y) / map.getResolution();
 
-    const map_v = map.get().*[map_y][map_x];
+    const map_v = map.get()[map_y][map_x];
     log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2}° -> map={}",
                   .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), map_v});
 

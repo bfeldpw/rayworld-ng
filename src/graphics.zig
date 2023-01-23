@@ -33,21 +33,6 @@ pub fn init() !void {
             v.* = 0;
         }
     }
-    var value_textured = lines_textured.getPtr(1);
-    if (value_textured) |val| {
-        for (val.i_verts) |*v| {
-            v.* = 0;
-        }
-        for (val.i_cols) |*v| {
-            v.* = 0;
-        }
-        for (val.i_texcs) |*v| {
-            v.* = 0;
-        }
-        for (val.n) |*v| {
-            v.* = 0;
-        }
-    }
 }
 
 pub fn deinit() void {
@@ -70,7 +55,7 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn createTexture(w: u32, h: u32, data: *[]u8) u32 {
+pub fn createTexture(w: u32, h: u32, data: *[]u8) !u32 {
     var tex: c.GLuint = 0;
     c.glGenTextures(1, &tex);
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
@@ -83,7 +68,30 @@ pub fn createTexture(w: u32, h: u32, data: *[]u8) u32 {
 
     log_gfx.debug("Texture generated with ID={}", .{tex});
 
-    return @intCast(u32, tex);
+    const t = @intCast(u32, tex);
+    lines_textured.put(t, .{.verts=undefined, .cols=undefined, .texcs=undefined,
+                          .i_verts=undefined, .i_cols=undefined, .i_texcs=undefined, .n=undefined}) catch |e| {
+        log_gfx.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer lines_textured.deinit();
+
+    var value_textured = lines_textured.getPtr(t);
+    if (value_textured) |val| {
+        for (val.i_verts) |*v| {
+            v.* = 0;
+        }
+        for (val.i_cols) |*v| {
+            v.* = 0;
+        }
+        for (val.i_texcs) |*v| {
+            v.* = 0;
+        }
+        for (val.n) |*v| {
+            v.* = 0;
+        }
+    }
+    return t;
 }
 
 pub fn startBatchLine() void {
@@ -234,9 +242,9 @@ pub fn addVerticalLineRGB2RGB(x: f32, y0: f32, y1: f32,
 pub fn addVerticalTexturedLine(x: f32, y0: f32, y1: f32,
                                u: f32, v0: f32, v1: f32,
                                r: f32, g: f32, b: f32, a: f32,
-                               d0: u8) void {
+                               d0: u8, t: u32) void {
 
-    var value = lines_textured.getPtr(1);
+    var value = lines_textured.getPtr(t);
     if (value) |v| {
         const d = depth_levels-d0-1;
         const i_v = v.i_verts[d];
@@ -311,7 +319,7 @@ pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
 
 pub fn finishFrame() !void {
     c.glfwSwapBuffers(window);
-    c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
+    c.glClear(c.GL_COLOR_BUFFER_BIT);
 
     // Sleep if time step (frame_time) is lower than that of the targeted
     // frequency. Make sure not to have a negative sleep for high frame
@@ -354,24 +362,28 @@ pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
 }
 
 pub fn renderFrame() !void {
+
     var iter = depth_levels_active.iterator(.{});
     while (iter.next()) |d| {
         c.glEnableClientState(c.GL_VERTEX_ARRAY);
         c.glEnableClientState(c.GL_COLOR_ARRAY);
         c.glEnableClientState(c.GL_TEXTURE_COORD_ARRAY);
         c.glEnable(c.GL_TEXTURE_2D);
-        var value_textured = lines_textured.getPtr(1);
-        if (value_textured) |v| {
-            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
-            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
-            c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.texcs[d]));
-            c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.n[d]));
-            if (!glCheckError()) return GraphicsError.OpenGLFailed;
-            v.i_verts[d] = 0;
-            v.i_cols[d] = 0;
-            v.i_texcs[d] = 0;
-            v.n[d] = 0;
-            draw_call_statistics.inc();
+        var iter_tex = lines_textured.iterator();
+        while (iter_tex.next()) |v| {
+            if (v.value_ptr.n[d] > 0) {
+                setActiveTexture(v.key_ptr.*);
+                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.verts[d]));
+                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.cols[d]));
+                c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.texcs[d]));
+                c.glDrawArrays(c.GL_LINES, 0, @intCast(c_int, v.value_ptr.n[d]));
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                v.value_ptr.i_verts[d] = 0;
+                v.value_ptr.i_cols[d] = 0;
+                v.value_ptr.i_texcs[d] = 0;
+                v.value_ptr.n[d] = 0;
+                draw_call_statistics.inc();
+            }
         }
         c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
         c.glDisable(c.GL_TEXTURE_2D);
@@ -492,7 +504,7 @@ const TexturedLines = struct {
 };
 
 var lines          = std.AutoHashMap(u8, Lines).init(allocator);
-var lines_textured = std.AutoHashMap(u8, TexturedLines).init(allocator);
+var lines_textured = std.AutoHashMap(u32, TexturedLines).init(allocator);
 
 fn allocMemory() !void {
     lines.put(1, .{.verts=undefined, .cols=undefined,
@@ -501,12 +513,6 @@ fn allocMemory() !void {
         return e;
     };
     errdefer lines.deinit();
-    lines_textured.put(1, .{.verts=undefined, .cols=undefined, .texcs=undefined,
-                            .i_verts=undefined, .i_cols=undefined, .i_texcs=undefined, .n=undefined}) catch |e| {
-        log_gfx.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer lines_textured.deinit();
 }
 
 fn freeMemory() void {

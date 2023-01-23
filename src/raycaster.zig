@@ -109,7 +109,6 @@ pub fn createScene() void {
         const j0 = rays.seg_i0[i];
         const j1 = rays.seg_i1[i];
         var j = j1;
-        const depth_layer = @intCast(u8, j-j0+1);
 
         const s_dx0 = segments.x1[j0] - segments.x0[j0];
         const s_dy0 = segments.y1[j0] - segments.y0[j0];
@@ -123,6 +122,8 @@ pub fn createScene() void {
         gfx.addVerticalLineC2C(x, win_h*0.5+tilt, win_h,
                                0, 0.1, 1, 11);
         while (j >= j0) : (j -= 1){
+
+            const depth_layer = @intCast(u8, j-j0+1);
             // Use an optical pleasing combination of the natural lense effect due
             // to a "point" camera and the "straight line correction". This results
             // in little dynamic changes when rotating the camera (instead of just)
@@ -140,15 +141,6 @@ pub fn createScene() void {
             // For colours, do not increase d_norm too much for distances < 2m,
             // since colors become white, otherwise
             if (d_norm > 1) d_norm = 1;
-
-            // if (d > 15) gfx.setActiveTexture(tex_64) else
-            // if (d > 12) gfx.setActiveTexture(tex_128) else
-            // if (d > 9)  gfx.setActiveTexture(tex_256) else
-            // if (d > 6)  gfx.setActiveTexture(tex_512) else
-            // if (d > 3)  gfx.setActiveTexture(tex_1024) else
-            // if (d > 1)  gfx.setActiveTexture(tex_2048) else
-            //     gfx.setActiveTexture(tex_4096);
-            gfx.setActiveTexture(tex_1024);
 
             const shift_and_tilt = win_h * plr.getPosZ() / (d+1e-3) + tilt;
             const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
@@ -179,6 +171,8 @@ pub fn createScene() void {
                     const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
                     const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
                     const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
+                    const i_wall = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const tex_id = map.getAttributesWall()[i_wall].tex_id;
                     gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
                                            win_h*0.5 + h_half_bottom + shift_and_tilt,
                                         d_norm*col_r, d_norm*col_g, d_norm*col_b, opacity,
@@ -190,14 +184,14 @@ pub fn createScene() void {
                                                win_h*0.5-h_half_top + shift_and_tilt,
                                                 u_of_uv, 0, canvas_top,
                                             d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                            depth_layer);
+                                                depth_layer, tex_id);
                         // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                         //                                win_h*0.5+h_half*mirror_height + shift + tilt,
                         gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
                                             win_h*0.5+h_half_bottom + shift_and_tilt,
                                                     u_of_uv, 1, 1-canvas_bottom,
                                             d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                            depth_layer);
+                                                    depth_layer, tex_id);
                     }
                 },
                 .glass => {
@@ -216,6 +210,8 @@ pub fn createScene() void {
                     const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
                     const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
                     const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
+                    const i_wall = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
+                    const tex_id = map.getAttributesWall()[i_wall].tex_id;
                     gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
                                            win_h*0.5 + h_half_bottom + shift_and_tilt,
                                         d_norm*col_r, d_norm*col_g, d_norm*col_b, opacity,
@@ -227,14 +223,14 @@ pub fn createScene() void {
                                                        win_h*0.5-h_half_top + shift_and_tilt,
                                                     u_of_uv, 0, canvas_top,
                                                     d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                                    depth_layer);
+                                                    depth_layer, tex_id);
                         // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
                         //                                win_h*0.5+h_half*mirror_height + shift + tilt,
                         gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
                                                        win_h*0.5+h_half_bottom + shift_and_tilt,
                                                     u_of_uv, 1, 1-canvas_bottom,
                                                     d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                                    depth_layer);
+                                                    depth_layer, tex_id);
                     }
                 },
                 else => {
@@ -242,13 +238,15 @@ pub fn createScene() void {
                     //                             win_h*0.5+h_half*mirror_height + shift + tilt,
                     const i_opacity = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
                     const opacity = map.getAttributesWall()[i_opacity].opacity;
+                    const tex_id = map.getAttributesWall()[i_opacity].tex_id;
+                    // log_ray.debug("Tex-ID: {}", .{tex_id});
 
                     gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
                                            win_h*0.5+h_half + shift_and_tilt,
                                                 u_of_uv, 0, 1,
                                                 d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, opacity,
                                                 // d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
-                                                depth_layer);
+                                                depth_layer, tex_id);
                 },
             }
             if (j == j0) {

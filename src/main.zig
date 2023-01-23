@@ -1,7 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const gfx = @import("graphics.zig");
-const img = @import("image_loader.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const rc = @import("raycaster.zig");
@@ -13,6 +12,7 @@ pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
         // .{ .scope = .gfx, .level = .debug },
         .{ .scope = .input, .level = .info },
+        .{ .scope = .map, .level = .debug },
         .{ .scope = .plr, .level = .info },
         // .{ .scope = .stats, .level = .info },
     };
@@ -28,13 +28,11 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
-    var perf_img = try stats.Performance.init("Texture");
-    perf_img.startMeasurement();
-    try loadResources();
-    perf_img.stopMeasurement();
-
+    var perf_map = try stats.Performance.init("Map");
+    perf_map.startMeasurement();
     try map.init();
     defer map.deinit();
+    perf_map.stopMeasurement();
 
     var perf_fps = try stats.Performance.init("Frametime");
     var perf_in = try stats.Performance.init("Input");
@@ -64,19 +62,10 @@ pub fn main() !void {
         perf_fps.startMeasurement();
 
     }
-    perf_img.printStats();
+    perf_map.printStats();
     perf_fps.printStats();
     perf_in.printStats();
     perf_rc.printStats();
     perf_ren.printStats();
 }
 
-fn loadResources() !void {
-    img.init();
-    defer img.deinit();
-
-    const image = try img.loadImage("resource/metal_01_1024_bfeld.jpg");
-    const tex = gfx.createTexture(image.width, image.height, &image.data);
-    rc.setTex1024(tex);
-    img.releaseImage();
-}
