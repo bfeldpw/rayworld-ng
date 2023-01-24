@@ -110,9 +110,8 @@ pub fn createScene() void {
         const j1 = rays.seg_i1[i];
         var j = j1;
 
-        const s_dx0 = segments.x1[j0] - segments.x0[j0];
-        const s_dy0 = segments.y1[j0] - segments.y0[j0];
-        const ang_0 = std.math.atan2(f32, s_dy0, s_dx0) - plr.getDir();
+        // Angle between current ray and player direction
+        const ang_0 = (@intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len)-0.5) * plr.getFOV();
 
         const tilt = -win_h * plr.getTilt();
 
