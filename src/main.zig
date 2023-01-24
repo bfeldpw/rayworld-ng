@@ -8,6 +8,7 @@ const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
 
 const multithreading = true;
+const room_height = 2.70; // meter
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
@@ -47,7 +48,7 @@ pub fn main() !void {
         perf_in.stopMeasurement();
 
         var aspect = gfx.getAspect();
-        plr.setFOV(aspect*std.math.degreesToRadians(f32, 90.0)/1.73);
+        plr.setFOV(room_height*aspect*std.math.degreesToRadians(f32, 22.5));
 
         perf_rc.startMeasurement();
         try rc.processRays(multithreading);
