@@ -480,6 +480,7 @@ inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
 }
 
 fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
+
     const Axis = enum { x, y };
 
     var a: Axis = .y;           // primary axis for stepping
@@ -567,9 +568,26 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
             is_wall = true;
         }
 
-        // Test if there is a collision
+        // Prepare next segment
         switch (m_v) {
             .floor => {},
+            .wall, .mirror, .glass => {
+                // Only prepare next segment if not already the last segment of the
+                // last ray!
+                if (s_i+1 < rays.seg_i0.len * segments_max) {
+                    segments.x0[s_i+1] = s_x;
+                    segments.y0[s_i+1] = s_y;
+                }
+            }
+        }
+
+        var reflection_limit: u8 = 0;
+
+        // React to cell type
+        switch (m_v) {
+            .floor => {
+                reflection_limit = 0; // Default value, but just to be sure in case of changes
+            },
             .wall => {
                 if (is_contact_on_x_axis) {
                     d_y = -d_y0;
@@ -578,18 +596,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     d_x = -d_x0;
                     d_y = d_y0;
                 }
-                // Only prepare next segment if not already the last segment of the
-                // last ray!
-                if (s_i+1 < rays.seg_i0.len * segments_max) {
-                    segments.x0[s_i+1] = s_x;
-                    segments.y0[s_i+1] = s_y;
-                }
 
-                // Just be sure to stay below the maximum segment number per ray
-                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 0) {
-                    rays.seg_i1[r_i] += 1;
-                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
-                }
+                reflection_limit = 2;
             },
             .mirror => {
                 if (is_contact_on_x_axis) {
@@ -599,18 +607,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     d_x = -d_x0;
                     d_y = d_y0;
                 }
-                // Only prepare next segment if not already the last segment of the
-                // last ray!
-                if (s_i+1 < rays.seg_i0.len * segments_max) {
-                    segments.x0[s_i+1] = s_x;
-                    segments.y0[s_i+1] = s_y;
-                }
 
-                // Just be sure to stay below the maximum segment number per ray
-                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
-                    rays.seg_i1[r_i] += 1;
-                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
-                }
+                reflection_limit = segments_max-1;
             },
             .glass => {
                 const n = 1.46;
@@ -630,19 +628,13 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                     if (d_y0 < 0) d_y = -d_y;
                 }
 
-                // Only prepare next segment if not already the last segment of the
-                // last ray!
-                if (s_i+1 < rays.seg_i0.len * segments_max) {
-                    segments.x0[s_i+1] = s_x;
-                    segments.y0[s_i+1] = s_y;
-                }
-
-                // Just be sure to stay below the maximum segment number per ray
-                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < segments_max-1) {
-                    rays.seg_i1[r_i] += 1;
-                    traceSingleSegment0(d_x, d_y, s_i+1, r_i);
-                }
+                reflection_limit = segments_max-1;
             },
+        }
+        // Just be sure to stay below the maximum segment number per ray
+        if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < reflection_limit) {
+            rays.seg_i1[r_i] += 1;
+            traceSingleSegment0(d_x, d_y, s_i+1, r_i);
         }
     }
 }
