@@ -71,13 +71,17 @@ pub fn createMap() void {
     gfx.setColor4(0.0, 0.0, 1.0, 0.1);
     gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
-        if (i % 10 == 0) {
+        if (i % 4 == 0) {
             var j = @intCast(i32, rays.seg_i1[i]);
             const j0 = rays.seg_i0[i];
 
             while (j >= j0) : (j -= 1) {
-                const color_grade = 0.5*@intToFloat(f32, @intCast(usize, j)-j0);
-                gfx.setColor4(0.0, 1-color_grade, 1.0, 0.2*(1-color_grade));
+                const color_grade = 0.2*@intToFloat(f32, @intCast(usize, j)-j0);
+                if (j == j0) {
+                    gfx.setColor4(0.0, 0.0, 1.0, 0.5);
+                } else {
+                    gfx.setColor4(0.0, 1-color_grade, 1.0, 0.2*(1-color_grade));
+                }
                 const k = @intCast(usize, j);
                 gfx.addLine(segments.x0[k]*f, o+segments.y0[k]*f,
                             segments.x1[k]*f, o+segments.y1[k]*f);
