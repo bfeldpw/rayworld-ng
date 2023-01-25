@@ -549,8 +549,9 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
 
         // if there is any kind of contact and a the segment ends, save all
         // common data
-        if (m_v != .floor or (m_v == .floor and c_prev == .glass)) {
-        // if (m_v != .floor) {
+        if ((m_v != .floor or (m_v == .floor and c_prev == .glass)) and
+                (!((m_v == .glass) and (c_prev == .glass)))) {
+
             if (c_prev == .glass and m_v == .floor) {
                 segments.cell_x[s_i] = segments.cell_x[s_i-1];
                 segments.cell_y[s_i] = segments.cell_y[s_i-1];
@@ -669,23 +670,26 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
             },
             .glass => {
                 const n = 1.46;
-                if (is_contact_on_x_axis) {
-                    const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
-                    const beta = std.math.asin(std.math.sin(alpha / n));
-                    d_x = @sin(beta);
-                    d_y = @cos(beta);
-                    if (d_x0 < 0) d_x = -d_x;
-                    if (d_y0 < 0) d_y = -d_y;
+                if (cell_type_prev != .glass) {
+                    if (is_contact_on_x_axis) {
+                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+                        const beta = std.math.asin(std.math.sin(alpha / n));
+                        d_x = @sin(beta);
+                        d_y = @cos(beta);
+                        if (d_x0 < 0) d_x = -d_x;
+                        if (d_y0 < 0) d_y = -d_y;
+                    } else {
+                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+                        const beta = std.math.asin(std.math.sin(alpha / n));
+                        d_y = @sin(beta);
+                        d_x = @cos(beta);
+                        if (d_x0 < 0) d_x = -d_x;
+                        if (d_y0 < 0) d_y = -d_y;
+                    }
+                    reflection_limit = segments_max-1;
                 } else {
-                    const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
-                    const beta = std.math.asin(std.math.sin(alpha / n));
-                    d_y = @sin(beta);
-                    d_x = @cos(beta);
-                    if (d_x0 < 0) d_x = -d_x;
-                    if (d_y0 < 0) d_y = -d_y;
+                    reflection_limit = 0;
                 }
-
-                reflection_limit = segments_max-1;
                 cell_type_prev = .glass;
             },
         }
