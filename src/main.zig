@@ -8,7 +8,15 @@ const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
 
 const multithreading = true;
-const room_height = 2.0; // meter
+
+const ScalePreference = enum {
+    room_height,
+    player_fov,
+};
+
+var scale_by = ScalePreference.player_fov;
+var room_height: f32 = 2.0; // meter
+var player_fov: f32 = 90; // degrees
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
@@ -47,8 +55,7 @@ pub fn main() !void {
         input.processInputs(gfx.getFPS());
         perf_in.stopMeasurement();
 
-        var aspect = gfx.getAspect();
-        plr.setFOV(room_height*aspect*std.math.degreesToRadians(f32, 22.5));
+        adjustFovOnAspectChange(); // Polling for now, should be event triggered
 
         perf_rc.startMeasurement();
         try rc.processRays(multithreading);
@@ -74,3 +81,13 @@ pub fn main() !void {
     perf_ren.printStats();
 }
 
+fn adjustFovOnAspectChange() void {
+    var aspect = gfx.getAspect();
+    if (scale_by == .room_height) {
+        plr.setFOV(room_height*aspect*std.math.degreesToRadians(f32, 22.5));
+        player_fov = std.math.degreesToRadians(f32, plr.getFOV());
+    } else { // scale_by == player_fov
+        plr.setFOV(std.math.degreesToRadians(f32, player_fov));
+        room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
+    }
+}
