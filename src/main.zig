@@ -14,7 +14,7 @@ const ScalePreference = enum {
     player_fov,
 };
 
-var scale_by = ScalePreference.player_fov;
+var scale_by = ScalePreference.room_height;
 var room_height: f32 = 2.0; // meter
 var player_fov: f32 = 90; // degrees
 
@@ -22,7 +22,7 @@ pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
         // .{ .scope = .gfx, .level = .debug },
         .{ .scope = .input, .level = .info },
-        .{ .scope = .map, .level = .debug },
+        // .{ .scope = .map, .level = .debug },
         .{ .scope = .plr, .level = .info },
         // .{ .scope = .stats, .level = .info },
     };
@@ -82,7 +82,7 @@ pub fn main() !void {
 }
 
 fn adjustFovOnAspectChange() void {
-    var aspect = gfx.getAspect();
+    const aspect = gfx.getAspect();
     if (scale_by == .room_height) {
         plr.setFOV(room_height*aspect*std.math.degreesToRadians(f32, 22.5));
         player_fov = std.math.degreesToRadians(f32, plr.getFOV());
