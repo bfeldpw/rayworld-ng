@@ -466,8 +466,8 @@ pub fn setFrequencyTarget(f: f32) void {
 
 const log_gfx = std.log.scoped(.gfx);
 
-var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
-// var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+// var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 var window: ?*c.GLFWwindow = null;

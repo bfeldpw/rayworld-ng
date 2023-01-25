@@ -76,7 +76,7 @@ pub fn createMap() void {
             const j0 = rays.seg_i0[i];
 
             while (j >= j0) : (j -= 1) {
-                const color_grade = 0.3*@intToFloat(f32, @intCast(usize, j)-j0);
+                const color_grade = 0.5*@intToFloat(f32, @intCast(usize, j)-j0);
                 gfx.setColor4(0.0, 1-color_grade, 1.0, 0.2*(1-color_grade));
                 const k = @intCast(usize, j);
                 gfx.addLine(segments.x0[k]*f, o+segments.y0[k]*f,
@@ -476,10 +476,12 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
 inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
     var d_x = @cos(angle);      // direction x
     var d_y = @sin(angle);      // direction y
-    traceSingleSegment0(d_x, d_y, s_i, r_i);
+    traceSingleSegment0(d_x, d_y, s_i, r_i, .floor);
 }
 
-fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
+fn traceSingleSegment0(d_x0: f32, d_y0: f32,
+                       s_i: usize, r_i: usize,
+                       c_prev: map.CellType) void {
 
     const Axis = enum { x, y };
 
@@ -547,10 +549,17 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
 
         // if there is any kind of contact and a the segment ends, save all
         // common data
-        if (m_v != .floor) {
-            segments.cell_x[s_i] = m_x;
-            segments.cell_y[s_i] = m_y;
-            segments.cell_type[s_i] = m_v;
+        if (m_v != .floor or (m_v == .floor and c_prev == .glass)) {
+        // if (m_v != .floor) {
+            if (c_prev == .glass and m_v == .floor) {
+                segments.cell_x[s_i] = segments.cell_x[s_i-1];
+                segments.cell_y[s_i] = segments.cell_y[s_i-1];
+                segments.cell_type[s_i] = segments.cell_type[s_i-1];
+            } else {
+                segments.cell_x[s_i] = m_x;
+                segments.cell_y[s_i] = m_y;
+                segments.cell_type[s_i] = m_v;
+            }
             segments.x1[s_i] = s_x;
             segments.y1[s_i] = s_y;
             const s_x0 = segments.x0[s_i];
@@ -565,12 +574,23 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
             }
 
-            is_wall = true;
+            if (m_v != .floor) is_wall = true;
+            if (m_v == .floor and c_prev == .glass) is_wall = true;
         }
 
         // Prepare next segment
+        var cell_type_prev = c_prev;
         switch (m_v) {
-            .floor => {},
+            .floor => {
+                if (cell_type_prev == .glass) {
+                    // Only prepare next segment if not already the last segment of the
+                    // last ray!
+                    if (s_i+1 < rays.seg_i0.len * segments_max) {
+                        segments.x0[s_i+1] = s_x;
+                        segments.y0[s_i+1] = s_y;
+                    }
+                }
+            },
             .wall, .mirror, .glass => {
                 // Only prepare next segment if not already the last segment of the
                 // last ray!
@@ -581,12 +601,47 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
             }
         }
 
-        var reflection_limit: u8 = 0;
-
         // React to cell type
+        var reflection_limit: u8 = 0;
         switch (m_v) {
             .floor => {
-                reflection_limit = 0; // Default value, but just to be sure in case of changes
+                if (cell_type_prev == .glass) {
+                    const n = 1.0/1.46;
+                    const refl = std.math.asin(@as(f32,n));
+                    if (is_contact_on_x_axis) {
+                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+                        if (alpha > refl) {
+                            d_y = -d_y0;
+                            d_x = d_x0;
+                            cell_type_prev = .glass;
+                        } else {
+                            const beta = std.math.asin(std.math.sin(alpha / n));
+                            d_x = @sin(beta);
+                            d_y = @cos(beta);
+                            if (d_x0 < 0) d_x = -d_x;
+                            if (d_y0 < 0) d_y = -d_y;
+                            cell_type_prev = .floor;
+                        }
+                    } else {
+                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+                        if (alpha > refl) {
+                            d_y = d_y0;
+                            d_x = -d_x0;
+                            cell_type_prev = .glass;
+                        } else {
+                            const beta = std.math.asin(std.math.sin(alpha / n));
+                            d_y = @sin(beta);
+                            d_x = @cos(beta);
+                            if (d_x0 < 0) d_x = -d_x;
+                            if (d_y0 < 0) d_y = -d_y;
+                            cell_type_prev = .floor;
+                        }
+                    }
+                    reflection_limit = segments_max-1;
+                } else {
+                    reflection_limit = 0; // Default value, but just to be sure in case of changes
+                    cell_type_prev = .floor;
+                }
             },
             .wall => {
                 if (is_contact_on_x_axis) {
@@ -598,6 +653,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
 
                 reflection_limit = 2;
+                cell_type_prev = .wall;
             },
             .mirror => {
                 if (is_contact_on_x_axis) {
@@ -609,6 +665,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
 
                 reflection_limit = segments_max-1;
+                cell_type_prev = .mirror;
             },
             .glass => {
                 const n = 1.46;
@@ -629,12 +686,13 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
 
                 reflection_limit = segments_max-1;
+                cell_type_prev = .glass;
             },
         }
         // Just be sure to stay below the maximum segment number per ray
         if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < reflection_limit) {
             rays.seg_i1[r_i] += 1;
-            traceSingleSegment0(d_x, d_y, s_i+1, r_i);
+            traceSingleSegment0(d_x, d_y, s_i+1, r_i, cell_type_prev);
         }
     }
 }
@@ -650,6 +708,8 @@ test "raycaster" {
     freeMemory();
     try init();
     defer deinit();
+    try map.init();
+    defer map.deinit();
     try processRays(false);
     try processRays(true);
 }
