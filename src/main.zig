@@ -8,7 +8,7 @@ const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
 
 const multithreading = true;
-const room_height = 2.70; // meter
+const room_height = 2.0; // meter
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{

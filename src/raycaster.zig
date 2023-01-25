@@ -586,7 +586,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
 
                 // Just be sure to stay below the maximum segment number per ray
-                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 2) {
+                if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < 0) {
                     rays.seg_i1[r_i] += 1;
                     traceSingleSegment0(d_x, d_y, s_i+1, r_i);
                 }
@@ -613,8 +613,23 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) void {
                 }
             },
             .glass => {
-                d_x = d_x0;
-                d_y = d_y0;
+                const n = 1.46;
+                if (is_contact_on_x_axis) {
+                    const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+                    const beta = std.math.asin(std.math.sin(alpha / n));
+                    d_x = @sin(beta);
+                    d_y = @cos(beta);
+                    if (d_x0 < 0) d_x = -d_x;
+                    if (d_y0 < 0) d_y = -d_y;
+                } else {
+                    const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+                    const beta = std.math.asin(std.math.sin(alpha / n));
+                    d_y = @sin(beta);
+                    d_x = @cos(beta);
+                    if (d_x0 < 0) d_x = -d_x;
+                    if (d_y0 < 0) d_y = -d_y;
+                }
+
                 // Only prepare next segment if not already the last segment of the
                 // last ray!
                 if (s_i+1 < rays.seg_i0.len * segments_max) {
