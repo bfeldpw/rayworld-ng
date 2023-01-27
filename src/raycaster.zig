@@ -480,12 +480,12 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
 inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
     var d_x = @cos(angle);      // direction x
     var d_y = @sin(angle);      // direction y
-    traceSingleSegment0(d_x, d_y, s_i, r_i, .floor);
+    traceSingleSegment0(d_x, d_y, s_i, r_i, .floor, segments_max-1);
 }
 
 fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                        s_i: usize, r_i: usize,
-                       c_prev: map.CellType) void {
+                       c_prev: map.CellType, s_lim: u8) void {
 
     const Axis = enum { x, y };
 
@@ -585,29 +585,17 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
 
         // Prepare next segment
         var cell_type_prev = c_prev;
-        switch (m_v) {
-            .floor => {
-                if (cell_type_prev == .glass) {
-                    // Only prepare next segment if not already the last segment of the
-                    // last ray!
-                    if (s_i+1 < rays.seg_i0.len * segments_max) {
-                        segments.x0[s_i+1] = s_x;
-                        segments.y0[s_i+1] = s_y;
-                    }
-                }
-            },
-            .wall, .mirror, .glass => {
-                // Only prepare next segment if not already the last segment of the
-                // last ray!
-                if (s_i+1 < rays.seg_i0.len * segments_max) {
-                    segments.x0[s_i+1] = s_x;
-                    segments.y0[s_i+1] = s_y;
-                }
-            }
+        var prepare_next_segment: bool = true;
+        if (m_v == .floor and cell_type_prev != .glass) prepare_next_segment = false;
+        // Only prepare next segment if not already the last segment of the
+        // last ray!
+        if (prepare_next_segment and s_i+1 < rays.seg_i0.len * segments_max) {
+            segments.x0[s_i+1] = s_x;
+            segments.y0[s_i+1] = s_y;
         }
 
         // React to cell type
-        var reflection_limit: u8 = 0;
+        var new_segments_limit: u8 = 0;
         switch (m_v) {
             .floor => {
                 if (cell_type_prev == .glass) {
@@ -642,9 +630,9 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                             cell_type_prev = .floor;
                         }
                     }
-                    reflection_limit = segments_max-1;
+                    new_segments_limit = @min(s_lim, segments_max-1);
                 } else {
-                    reflection_limit = 0; // Default value, but just to be sure in case of changes
+                    new_segments_limit = 0;
                     cell_type_prev = .floor;
                 }
             },
@@ -657,7 +645,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                     d_y = d_y0;
                 }
 
-                reflection_limit = 2;
+                new_segments_limit = @min(s_lim, 2);
                 cell_type_prev = .wall;
             },
             .mirror => {
@@ -669,7 +657,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                     d_y = d_y0;
                 }
 
-                reflection_limit = segments_max-1;
+                new_segments_limit = @min(s_lim, segments_max-1);
                 cell_type_prev = .mirror;
             },
             .glass => {
@@ -690,17 +678,17 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                         if (d_x0 < 0) d_x = -d_x;
                         if (d_y0 < 0) d_y = -d_y;
                     }
-                    reflection_limit = segments_max-1;
+                    new_segments_limit = @min(s_lim, segments_max-1);
                 } else {
-                    reflection_limit = 0;
+                    new_segments_limit = 0;
                 }
                 cell_type_prev = .glass;
             },
         }
         // Just be sure to stay below the maximum segment number per ray
-        if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < reflection_limit) {
+        if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < new_segments_limit) {
             rays.seg_i1[r_i] += 1;
-            traceSingleSegment0(d_x, d_y, s_i+1, r_i, cell_type_prev);
+            traceSingleSegment0(d_x, d_y, s_i+1, r_i, cell_type_prev, new_segments_limit);
         }
     }
 }
