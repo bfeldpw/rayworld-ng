@@ -49,13 +49,7 @@ pub fn createMap() void {
                 .floor => {
                     gfx.setColor4(0.2+0.1*c.r, 0.2+0.1*c.g, 0.2+0.1*c.b, opacity);
                 },
-                .wall => {
-                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
-                },
-                .mirror => {
-                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
-                },
-                .glass => {
+                .wall, .mirror, .glass, .pillar => {
                     gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
                 },
             }
@@ -551,10 +545,157 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
         if (m_x > map.get()[0].len-1) m_x = map.get()[0].len-1;
         const m_v = map.get()[m_y][m_x];
 
+        var cell_type_prev = c_prev;
+        var finish_segment: bool = true;
+        var prepare_next_segment: bool = true;
+
+        // React to cell type
+        var new_segments_limit: u8 = 0;
+        switch (m_v) {
+            .floor => {
+                if (cell_type_prev == .glass) {
+                    const n = 1.0/1.46;
+                    const refl = std.math.asin(@as(f32,n));
+                    if (is_contact_on_x_axis) {
+                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+                        // total inner reflection?
+                        if (alpha > refl) {
+                            d_y = -d_y0;
+                            d_x = d_x0;
+                            cell_type_prev = .glass;
+                        } else {
+                            const beta = std.math.asin(std.math.sin(alpha / n));
+                            d_x = @sin(beta);
+                            d_y = @cos(beta);
+                            if (d_x0 < 0) d_x = -d_x;
+                            if (d_y0 < 0) d_y = -d_y;
+                            cell_type_prev = .floor;
+                        }
+                    } else { // !is_contact_on_x_axis
+                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+                        // total inner reflection?
+                        if (alpha > refl) {
+                            d_y = d_y0;
+                            d_x = -d_x0;
+                            cell_type_prev = .glass;
+                        } else {
+                            const beta = std.math.asin(std.math.sin(alpha / n));
+                            d_y = @sin(beta);
+                            d_x = @cos(beta);
+                            if (d_x0 < 0) d_x = -d_x;
+                            if (d_y0 < 0) d_y = -d_y;
+                            cell_type_prev = .floor;
+                        }
+                    }
+                    finish_segment = true;
+                    prepare_next_segment = true;
+                    new_segments_limit = @min(s_lim, segments_max-1);
+                } else {
+                    finish_segment = false;
+                    prepare_next_segment = false;
+                    new_segments_limit = 0;
+                    cell_type_prev = .floor;
+                }
+            },
+            .wall => {
+                if (is_contact_on_x_axis) {
+                    d_y = -d_y0;
+                    d_x = d_x0;
+                } else {
+                    d_x = -d_x0;
+                    d_y = d_y0;
+                }
+
+                finish_segment = true;
+                prepare_next_segment = true;
+                new_segments_limit = @min(s_lim, 2);
+                cell_type_prev = .wall;
+            },
+            .mirror => {
+                if (is_contact_on_x_axis) {
+                    d_y = -d_y0;
+                    d_x = d_x0;
+                } else {
+                    d_x = -d_x0;
+                    d_y = d_y0;
+                }
+
+                finish_segment = true;
+                prepare_next_segment = true;
+                new_segments_limit = @min(s_lim, segments_max-1);
+                cell_type_prev = .mirror;
+            },
+            .glass => {
+                const n = 1.46;
+                if (cell_type_prev != .glass) {
+                    if (is_contact_on_x_axis) {
+                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+                        const beta = std.math.asin(std.math.sin(alpha / n));
+                        d_x = @sin(beta);
+                        d_y = @cos(beta);
+                        if (d_x0 < 0) d_x = -d_x;
+                        if (d_y0 < 0) d_y = -d_y;
+                    } else { // !is_contact_on_x_axis
+                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+                        const beta = std.math.asin(std.math.sin(alpha / n));
+                        d_y = @sin(beta);
+                        d_x = @cos(beta);
+                        if (d_x0 < 0) d_x = -d_x;
+                        if (d_y0 < 0) d_y = -d_y;
+                    }
+                    finish_segment = true;
+                    prepare_next_segment = true;
+                    new_segments_limit = @min(s_lim, segments_max-1);
+                } else {
+                    finish_segment = false;
+                    prepare_next_segment = false;
+                    new_segments_limit = 0;
+                }
+                cell_type_prev = .glass;
+            },
+            .pillar => {
+                const e_x = @intToFloat(f32, m_x)+0.5 - plr.getPosX();
+                const e_y = @intToFloat(f32, m_y)+0.5 - plr.getPosY();
+                // log_ray.debug("d_cx = {d:.2}, d_cy = {d:.2}", .{e_x, e_y});
+                const e_norm_sqr = e_x*e_x+e_y*e_y;
+                const c_a = e_x * d_x0 + d_y0 * e_y;
+                const r = 0.3;
+                const w = r*r - (e_norm_sqr - c_a*c_a);
+                is_wall = false;
+                if (w > 0) {
+                    const d_p = c_a - @sqrt(w);
+                    if (d_p > 0) {
+                        segments.x1[s_i] = d_x0 * d_p;
+                        segments.y1[s_i] = d_y0 * d_p;
+                        segments.d[s_i] = d_p;
+                        segments.cell_x[s_i] = m_x;
+                        segments.cell_y[s_i] = m_y;
+                        segments.cell_type[s_i] = m_v;
+
+                        // Accumulate distances, if first segment, set
+                        if (s_i > rays.seg_i0[r_i]) {
+                            segments.d[s_i] = segments.d[s_i-1] + d_p;
+                        } else {
+                            segments.d[s_i] = d_p;
+                        }
+                        // finish_segment = false;
+                        // prepare_next_segment = false;
+                        is_wall = true;
+                    }
+                }
+                cell_type_prev = .pillar;
+                new_segments_limit = 0;
+                finish_segment = false;
+                prepare_next_segment = false;
+            }
+        }
+
+        if (finish_segment == true) is_wall = true;
         // if there is any kind of contact and a the segment ends, save all
         // common data
-        if ((m_v != .floor or (m_v == .floor and c_prev == .glass)) and
-                (!((m_v == .glass) and (c_prev == .glass)))) {
+        // if ((m_v != .floor or (m_v == .floor and c_prev == .glass)) and
+        //         (!((m_v == .glass) and (c_prev == .glass)))) {
+        if (finish_segment == true) {
 
             if (c_prev == .glass and m_v == .floor) {
                 segments.cell_x[s_i] = segments.cell_x[s_i-1];
@@ -579,14 +720,12 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
             }
 
-            if (m_v != .floor) is_wall = true;
-            if (m_v == .floor and c_prev == .glass) is_wall = true;
+            // if (m_v != .floor) is_wall = true;
+            // if (m_v == .floor and c_prev == .glass) is_wall = true;
         }
 
         // Prepare next segment
-        var cell_type_prev = c_prev;
-        var prepare_next_segment: bool = true;
-        if (m_v == .floor and cell_type_prev != .glass) prepare_next_segment = false;
+        // if (m_v == .floor and c_prev != .glass) prepare_next_segment = false;
         // Only prepare next segment if not already the last segment of the
         // last ray!
         if (prepare_next_segment and s_i+1 < rays.seg_i0.len * segments_max) {
@@ -594,97 +733,6 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
             segments.y0[s_i+1] = s_y;
         }
 
-        // React to cell type
-        var new_segments_limit: u8 = 0;
-        switch (m_v) {
-            .floor => {
-                if (cell_type_prev == .glass) {
-                    const n = 1.0/1.46;
-                    const refl = std.math.asin(@as(f32,n));
-                    if (is_contact_on_x_axis) {
-                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
-                        if (alpha > refl) {
-                            d_y = -d_y0;
-                            d_x = d_x0;
-                            cell_type_prev = .glass;
-                        } else {
-                            const beta = std.math.asin(std.math.sin(alpha / n));
-                            d_x = @sin(beta);
-                            d_y = @cos(beta);
-                            if (d_x0 < 0) d_x = -d_x;
-                            if (d_y0 < 0) d_y = -d_y;
-                            cell_type_prev = .floor;
-                        }
-                    } else {
-                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
-                        if (alpha > refl) {
-                            d_y = d_y0;
-                            d_x = -d_x0;
-                            cell_type_prev = .glass;
-                        } else {
-                            const beta = std.math.asin(std.math.sin(alpha / n));
-                            d_y = @sin(beta);
-                            d_x = @cos(beta);
-                            if (d_x0 < 0) d_x = -d_x;
-                            if (d_y0 < 0) d_y = -d_y;
-                            cell_type_prev = .floor;
-                        }
-                    }
-                    new_segments_limit = @min(s_lim, segments_max-1);
-                } else {
-                    new_segments_limit = 0;
-                    cell_type_prev = .floor;
-                }
-            },
-            .wall => {
-                if (is_contact_on_x_axis) {
-                    d_y = -d_y0;
-                    d_x = d_x0;
-                } else {
-                    d_x = -d_x0;
-                    d_y = d_y0;
-                }
-
-                new_segments_limit = @min(s_lim, 2);
-                cell_type_prev = .wall;
-            },
-            .mirror => {
-                if (is_contact_on_x_axis) {
-                    d_y = -d_y0;
-                    d_x = d_x0;
-                } else {
-                    d_x = -d_x0;
-                    d_y = d_y0;
-                }
-
-                new_segments_limit = @min(s_lim, segments_max-1);
-                cell_type_prev = .mirror;
-            },
-            .glass => {
-                const n = 1.46;
-                if (cell_type_prev != .glass) {
-                    if (is_contact_on_x_axis) {
-                        const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
-                        const beta = std.math.asin(std.math.sin(alpha / n));
-                        d_x = @sin(beta);
-                        d_y = @cos(beta);
-                        if (d_x0 < 0) d_x = -d_x;
-                        if (d_y0 < 0) d_y = -d_y;
-                    } else {
-                        const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
-                        const beta = std.math.asin(std.math.sin(alpha / n));
-                        d_y = @sin(beta);
-                        d_x = @cos(beta);
-                        if (d_x0 < 0) d_x = -d_x;
-                        if (d_y0 < 0) d_y = -d_y;
-                    }
-                    new_segments_limit = @min(s_lim, segments_max-1);
-                } else {
-                    new_segments_limit = 0;
-                }
-                cell_type_prev = .glass;
-            },
-        }
         // Just be sure to stay below the maximum segment number per ray
         if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < new_segments_limit) {
             rays.seg_i1[r_i] += 1;
