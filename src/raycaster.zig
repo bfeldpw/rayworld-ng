@@ -625,8 +625,10 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 cell_type_prev = .glass;
             },
             .pillar => {
-                const e_x = @intToFloat(f32, m_x)+0.5 - plr.getPosX();
-                const e_y = @intToFloat(f32, m_y)+0.5 - plr.getPosY();
+                // const e_x = @intToFloat(f32, m_x)+0.5 - plr.getPosX();
+                // const e_y = @intToFloat(f32, m_y)+0.5 - plr.getPosY();
+                const e_x = @intToFloat(f32, m_x)+0.5 - s_x;
+                const e_y = @intToFloat(f32, m_y)+0.5 - s_y;
                 // log_ray.debug("d_cx = {d:.2}, d_cy = {d:.2}", .{e_x, e_y});
                 const e_norm_sqr = e_x*e_x+e_y*e_y;
                 const c_a = e_x * d_x0 + d_y0 * e_y;
@@ -643,11 +645,18 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                         segments.cell_y[s_i] = m_y;
                         segments.cell_type[s_i] = m_v;
 
+                        segments.x1[s_i] = s_x + d_x0 * d_p;
+                        segments.y1[s_i] = s_y + d_y0 * d_p;
+
+                        const s_x0 = segments.x0[s_i];
+                        const s_y0 = segments.y0[s_i];
+                        const s_dx = s_x - s_x0;
+                        const s_dy = s_y - s_y0;
                         // Accumulate distances, if first segment, set
                         if (s_i > rays.seg_i0[r_i]) {
-                            segments.d[s_i] = segments.d[s_i-1] + d_p;
+                            segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy) + d_p;
                         } else {
-                            segments.d[s_i] = d_p;
+                            segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy) + d_p;
                         }
                         // finish_segment = false;
                         // prepare_next_segment = false;
