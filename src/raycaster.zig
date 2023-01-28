@@ -477,15 +477,12 @@ inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
     traceSingleSegment0(d_x, d_y, s_i, r_i, .floor, segments_max-1);
 }
 
+const Axis = enum { x, y };
+
 fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                        s_i: usize, r_i: usize,
                        c_prev: map.CellType, s_lim: u8) void {
 
-    const Axis = enum { x, y };
-
-    var a: Axis = .y;           // primary axis for stepping
-    var sign_x: f32 = 1;
-    var sign_y: f32 = 1;
     var is_wall: bool = false;
     var s_x = segments.x0[s_i]; // segment pos x
     var s_y = segments.y0[s_i]; // segment pos y
@@ -494,50 +491,24 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
     const g_x = d_y/d_x;        // gradient/derivative of the segment for direction x
     const g_y = d_x/d_y;        // gradient/derivative of the segment for direction y
 
+    var sign_x: f32 = 1;
+    var sign_y: f32 = 1;
+
+    var a: Axis = .y;           // primary axis for stepping
     if (@fabs(d_x) > @fabs(d_y)) a = .x;
     if (d_x < 0) sign_x = -1;
     if (d_y < 0) sign_y = -1;
 
     while (!is_wall) {
-        if (sign_x == 1) {
-            d_x = @trunc(s_x+1) - s_x;
-        } else {
-            d_x = @ceil(s_x-1) - s_x;
-        }
-        if (sign_y == 1) {
-            d_y = @trunc(s_y+1) - s_y;
-        } else {
-            d_y = @ceil(s_y-1) - s_y;
-        }
 
         var o_x: f32 = 0;
         var o_y: f32 = 0;
-        var is_contact_on_x_axis: bool = false;
-        if (a == .x) {
-            if (@fabs(d_x * g_x) < @fabs(d_y)) {
-                s_x += d_x;
-                s_y += @fabs(d_x * g_x) * sign_y;
-                if (sign_x == -1) o_x = -0.5;
-                // default: is_contact_on_y_axis = false;
-            } else {
-                s_x += @fabs(d_y * g_y) * sign_x;
-                s_y += d_y;
-                if (sign_y == -1) o_y = -0.5;
-                is_contact_on_x_axis = true;
-            }
-        } else { // (a == .y)
-            if (@fabs(d_y * g_y) < @fabs(d_x)) {
-                s_x += @fabs(d_y * g_y) * sign_x;
-                s_y += d_y;
-                if (sign_y == -1) o_y = -0.5;
-                is_contact_on_x_axis = true;
-            } else {
-                s_x += d_x;
-                s_y += @fabs(d_x * g_x) * sign_y;
-                if (sign_x == -1) o_x = -0.5;
-                // default: is_contact_on_y_axis = false;
-            }
-        }
+        var contact_axis: Axis = .x;
+
+        advanceToNextCell(&d_x, &d_y, &s_x, &s_y,
+                          &o_x, &o_y, &sign_x, &sign_y,
+                          &a, &contact_axis,
+                          g_x, g_y);
 
         var m_y = @floatToInt(usize, s_y+o_y);
         if (m_y > map.get().len-1) m_y = map.get().len-1;
@@ -556,7 +527,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 if (cell_type_prev == .glass) {
                     const n = 1.0/1.46;
                     const refl = std.math.asin(@as(f32,n));
-                    if (is_contact_on_x_axis) {
+                    if (contact_axis == .x) {
                         const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
                         // total inner reflection?
                         if (alpha > refl) {
@@ -571,7 +542,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                             if (d_y0 < 0) d_y = -d_y;
                             cell_type_prev = .floor;
                         }
-                    } else { // !is_contact_on_x_axis
+                    } else { // contact_axis == .y
                         const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
                         // total inner reflection?
                         if (alpha > refl) {
@@ -598,7 +569,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 }
             },
             .wall => {
-                if (is_contact_on_x_axis) {
+                if (contact_axis == .x) {
                     d_y = -d_y0;
                     d_x = d_x0;
                 } else {
@@ -612,7 +583,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 cell_type_prev = .wall;
             },
             .mirror => {
-                if (is_contact_on_x_axis) {
+                if (contact_axis == .x) {
                     d_y = -d_y0;
                     d_x = d_x0;
                 } else {
@@ -628,7 +599,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
             .glass => {
                 const n = 1.46;
                 if (cell_type_prev != .glass) {
-                    if (is_contact_on_x_axis) {
+                    if (contact_axis == .x) {
                         const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
                         const beta = std.math.asin(std.math.sin(alpha / n));
                         d_x = @sin(beta);
@@ -737,6 +708,51 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
         if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < new_segments_limit) {
             rays.seg_i1[r_i] += 1;
             traceSingleSegment0(d_x, d_y, s_i+1, r_i, cell_type_prev, new_segments_limit);
+        }
+    }
+}
+
+inline fn advanceToNextCell(d_x: *f32, d_y: *f32,
+                            s_x: *f32, s_y: *f32,
+                            o_x: *f32, o_y: *f32,
+                            sign_x: *f32, sign_y: *f32,
+                            a: *Axis,
+                            contact_axis: *Axis,
+                            g_x: f32, g_y: f32) void {
+    if (sign_x.* == 1) {
+        d_x.* = @trunc(s_x.*+1) - s_x.*;
+    } else {
+        d_x.* = @ceil(s_x.*-1) - s_x.*;
+    }
+    if (sign_y.* == 1) {
+        d_y.* = @trunc(s_y.*+1) - s_y.*;
+    } else {
+        d_y.* = @ceil(s_y.*-1) - s_y.*;
+    }
+
+    if (a.* == .x) {
+        if (@fabs(d_x.* * g_x) < @fabs(d_y.*)) {
+            s_x.* += d_x.*;
+            s_y.* += @fabs(d_x.* * g_x) * sign_y.*;
+            if (sign_x.* == -1) o_x.* = -0.5;
+            contact_axis.* = .y;
+        } else {
+            s_x.* += @fabs(d_y.* * g_y) * sign_x.*;
+            s_y.* += d_y.*;
+            if (sign_y.* == -1) o_y.* = -0.5;
+            contact_axis.* = .x;
+        }
+    } else { // (a == .y)
+        if (@fabs(d_y.* * g_y) < @fabs(d_x.*)) {
+            s_x.* += @fabs(d_y.* * g_y) * sign_x.*;
+            s_y.* += d_y.*;
+            if (sign_y.* == -1) o_y.* = -0.5;
+            contact_axis.* = .x;
+        } else {
+            s_x.* += d_x.*;
+            s_y.* += @fabs(d_x.* * g_x) * sign_y.*;
+            if (sign_x.* == -1) o_x.* = -0.5;
+            contact_axis.* = .y;
         }
     }
 }
