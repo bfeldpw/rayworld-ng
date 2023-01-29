@@ -53,6 +53,7 @@ pub fn main() !void {
 
         perf_in.startMeasurement();
         input.processInputs(gfx.getFPS());
+        rc.scatter_f = input.scatter_f;
         perf_in.stopMeasurement();
 
         adjustFovOnAspectChange(); // Polling for now, should be event triggered

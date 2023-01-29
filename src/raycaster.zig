@@ -478,11 +478,14 @@ inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
 }
 
 const Axis = enum { x, y };
+pub var scatter_f: f32 = 0;
 
 fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                        s_i: usize, r_i: usize,
                        c_prev: map.CellType, s_lim: u8) void {
 
+    const hsh = std.hash.Murmur3_32;
+    var scatter: f32 = 0.0;
     var is_wall: bool = false;
     var s_x = segments.x0[s_i]; // segment pos x
     var s_y = segments.y0[s_i]; // segment pos y
@@ -569,12 +572,13 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 }
             },
             .wall => {
+                scatter = 1.0 - 2.0 * @intToFloat(f32, hsh.hashUint32(@intCast(u32, r_i)))/std.math.maxInt(u32);
                 if (contact_axis == .x) {
                     d_y = -d_y0;
-                    d_x = d_x0;
+                    d_x = d_x0+scatter*scatter_f;
                 } else {
                     d_x = -d_x0;
-                    d_y = d_y0;
+                    d_y = d_y0+scatter*scatter_f;
                 }
 
                 finish_segment = true;
@@ -625,11 +629,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 cell_type_prev = .glass;
             },
             .pillar => {
-                // const e_x = @intToFloat(f32, m_x)+0.5 - plr.getPosX();
-                // const e_y = @intToFloat(f32, m_y)+0.5 - plr.getPosY();
                 const e_x = @intToFloat(f32, m_x)+0.5 - s_x;
                 const e_y = @intToFloat(f32, m_y)+0.5 - s_y;
-                // log_ray.debug("d_cx = {d:.2}, d_cy = {d:.2}", .{e_x, e_y});
                 const e_norm_sqr = e_x*e_x+e_y*e_y;
                 const c_a = e_x * d_x0 + d_y0 * e_y;
                 const r = 0.3;
@@ -670,11 +671,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
             }
         }
 
-        if (finish_segment == true) is_wall = true;
         // if there is any kind of contact and a the segment ends, save all
         // common data
-        // if ((m_v != .floor or (m_v == .floor and c_prev == .glass)) and
-        //         (!((m_v == .glass) and (c_prev == .glass)))) {
         if (finish_segment == true) {
 
             if (c_prev == .glass and m_v == .floor) {
@@ -700,8 +698,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
             }
 
-            // if (m_v != .floor) is_wall = true;
-            // if (m_v == .floor and c_prev == .glass) is_wall = true;
+            is_wall = true;
         }
 
         // Prepare next segment

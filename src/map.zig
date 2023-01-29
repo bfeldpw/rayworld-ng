@@ -43,16 +43,16 @@ pub fn init() !void {
     // -- miror
     map_current.attr_canvas[0].canvas_top = 0.075;
     map_current.attr_canvas[0].canvas_bottom = 0.075;
-    map_current.attr_canvas[0].canvas_opacity = 0.8;
+    map_current.attr_canvas[0].canvas_opacity = 0.9;
     // -- glass
     map_current.attr_canvas[1].canvas_top = 0.0;
     map_current.attr_canvas[1].canvas_bottom = 0.0;
     map_current.attr_canvas[1].canvas_opacity = 1.0;
 
     // Default attributes wall
-    map_current.attr_wall[0].opacity = 0.8;
+    map_current.attr_wall[0].opacity = 0.9;
     map_current.attr_wall[0].tex_id = 0;
-    map_current.attr_wall[1].opacity = 0.8;
+    map_current.attr_wall[1].opacity = 0.9;
     map_current.attr_wall[1].tex_id = 0;
 
     // Copy tmp map and set some default values for celltypes
@@ -119,9 +119,10 @@ pub fn init() !void {
     map_current.i_attr_canvas[8][8] = 2;
     map_current.attr_canvas[2].canvas_top = 0.2;
     map_current.attr_canvas[2].canvas_bottom = 0.6;
-    map_current.attr_canvas[2].canvas_opacity = 0.8;
+    map_current.attr_canvas[2].canvas_opacity = 0.9;
 
     map_current.i_attr[5][0] = 1;
+    map_current.i_attr[17][10] = 1;
 
     try loadResources();
 }
@@ -257,14 +258,14 @@ fn loadResources() !void {
     defer img.deinit();
 
     {
-        const image = try img.loadImage("resource/metal_01_1024_bfeld.jpg");
+        const image = try img.loadImage("resource/metal_01_1024x2048_bfeld.jpg");
         const tex = try gfx.createTexture(image.width, image.height, &image.data);
         map_current.attr_wall[0].tex_id = tex;
         log_map.debug("Creating wall attribute with texture ID={}", .{tex});
         img.releaseImage();
     }
     {
-        const image = try img.loadImage("resource/metal_01-1_1024_bfeld.jpg");
+        const image = try img.loadImage("resource/metal_01-1_1024x2048_bfeld.jpg");
         const tex = try gfx.createTexture(image.width, image.height, &image.data);
         map_current.attr_wall[1].tex_id = tex;
         log_map.debug("Creating wall attribute with texture ID={}", .{tex});
