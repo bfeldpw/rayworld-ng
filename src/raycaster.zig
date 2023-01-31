@@ -16,6 +16,10 @@ pub fn init() !void {
     try allocMemory(640);
 
     perf_mem.stopMeasurement();
+
+    cpus = try std.Thread.getCpuCount();
+    if (cpus > threads_max) cpus = threads_max;
+    log_ray.info("Utilising {} logical cpu cores for multithreading", .{cpus});
 }
 
 pub fn deinit() void {
@@ -261,20 +265,31 @@ pub fn processRays(comptime multithreading: bool) !void {
     var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
     const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.seg_i0.len);
 
-    const split = rays.seg_i0.len / 4;
+    const split = rays.seg_i0.len / cpus;
 
     if (multithreading) {
-        var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
-        var thread_1 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{split, 2*split, @mulAdd(f32, inc_angle, @intToFloat(f32, split), angle), inc_angle});
-        var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
-        var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
-                                            .{3*split, rays.seg_i0.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
-        thread_0.join();
-        thread_1.join();
-        thread_2.join();
-        thread_3.join();
+        var cpu: u8 = 0;
+        while (cpu < cpus) : (cpu += 1) {
+            var last = (cpu+1)*split;
+            if (cpu == cpus-1) last = rays.seg_i0.len;
+            // log_ray.debug("begin = {}, end = {}", .{cpu*split, last});
+            threads[cpu] = try std.Thread.spawn(.{}, traceMultipleRays,
+                                                .{cpu*split, last,
+                                                  @mulAdd(f32, inc_angle, @intToFloat(f32, cpu*split), angle),
+                                                  inc_angle});
+        }
+
+        // var thread_0 = try std.Thread.spawn(.{}, traceMultipleRays, .{0, split, angle, inc_angle});
+        // var thread_1 = try std.Thread.spawn(.{}, traceMultipleRays,
+        //                                     .{split, 2*split, @mulAdd(f32, inc_angle, @intToFloat(f32, split), angle), inc_angle});
+        // var thread_2 = try std.Thread.spawn(.{}, traceMultipleRays,
+        //                                     .{2*split, 3*split, @mulAdd(f32, inc_angle, @intToFloat(f32, 2*split), angle), inc_angle});
+        // var thread_3 = try std.Thread.spawn(.{}, traceMultipleRays,
+        //                                     .{3*split, rays.seg_i0.len, @mulAdd(f32, inc_angle, @intToFloat(f32, 3*split), angle), inc_angle});
+        cpu = 0;
+        while (cpu < cpus) : (cpu += 1) {
+            threads[cpu].join();
+        }
     } else {
         traceMultipleRays(0, rays.seg_i0.len, angle, inc_angle);
     }
@@ -287,6 +302,10 @@ pub fn processRays(comptime multithreading: bool) !void {
 const segments_max = 10;
 
 const log_ray = std.log.scoped(.ray);
+
+var cpus: usize = 4;
+const threads_max = 64;
+var threads: [threads_max]std.Thread = undefined;
 
 // var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
