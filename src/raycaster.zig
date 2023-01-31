@@ -280,42 +280,6 @@ pub fn processRays(comptime multithreading: bool) !void {
     }
 }
 
-var tex_4096: u32 = 0;
-var tex_2048: u32 = 0;
-var tex_1024: u32 = 0;
-var tex_512: u32 = 0;
-var tex_256: u32 = 0;
-var tex_128: u32 = 0;
-var tex_64: u32 = 0;
-
-pub fn setTex4096(tex: u32) void {
-    tex_4096 = tex;
-}
-
-pub fn setTex2048(tex: u32) void {
-    tex_2048 = tex;
-}
-
-pub fn setTex1024(tex: u32) void {
-    tex_1024 = tex;
-}
-
-pub fn setTex512(tex: u32) void {
-    tex_512 = tex;
-}
-
-pub fn setTex256(tex: u32) void {
-    tex_256 = tex;
-}
-
-pub fn setTex128(tex: u32) void {
-    tex_128 = tex;
-}
-
-pub fn setTex64(tex: u32) void {
-    tex_64 = tex;
-}
-
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
@@ -514,8 +478,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                           g_x, g_y);
 
         var m_y = @floatToInt(usize, s_y+o_y);
-        if (m_y > map.get().len-1) m_y = map.get().len-1;
         var m_x = @floatToInt(usize, s_x+o_x);
+        if (m_y > map.get().len-1) m_y = map.get().len-1;
         if (m_x > map.get()[0].len-1) m_x = map.get()[0].len-1;
         const m_v = map.get()[m_y][m_x];
 
