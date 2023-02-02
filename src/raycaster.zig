@@ -38,7 +38,6 @@ pub fn deinit() void {
 
 pub fn createMap() void {
     const m = map.get();
-    const m_col = map.getColor();
     const map_cells_y = @intToFloat(f32, map.get().len);
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
     const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
@@ -47,7 +46,7 @@ pub fn createMap() void {
     gfx.startBatchQuads();
     for (m) |y,j| {
         for (y) |cell,i| {
-            const c = m_col[j][i];
+            const c = map.getColor(j, i);
             switch (cell) {
                 .floor => {
                     gfx.setColor4(0.2+0.1*c.r, 0.2+0.1*c.g, 0.2+0.1*c.b, cfg.rc.map_display_opacity);
@@ -106,7 +105,6 @@ pub fn createMap() void {
 pub fn createScene() void {
 
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
-    const map_col = map.getColor();
 
     var i: usize = 0;
 
@@ -148,7 +146,6 @@ pub fn createScene() void {
             if (d_norm > 1) d_norm = 1;
 
             const shift_and_tilt = win_h * plr.getPosZ() / (d+1e-3) + tilt;
-            const cell_col = map_col[segments.cell_y[k]][segments.cell_x[k]];
 
             var u_of_uv: f32 = 0;
             if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
@@ -163,94 +160,59 @@ pub fn createScene() void {
                 }
             }
 
+            const m_x = segments.cell_x[k];
+            const m_y = segments.cell_y[k];
+            const col = map.getColor(m_y, m_x);
+            const canvas = map.getCanvas(m_y, m_x);
+            const tex_id = map.getTextureID(m_y, m_x).id;
+
             switch (segments.cell_type[k]) {
                 .mirror => {
-                    const i_attr_color = map.getAttributeColorIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const col_r = map.getAttributesColor(i_attr_color).col_r;
-                    const col_g = map.getAttributesColor(i_attr_color).col_g;
-                    const col_b = map.getAttributesColor(i_attr_color).col_b;
-                    const opacity = map.getAttributesColor(i_attr_color).opacity;
-                    const i_attr_canvas = map.getAttributeCanvasIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const canvas_top = map.getAttributesCanvas(i_attr_canvas).canvas_top;
-                    const canvas_bottom = map.getAttributesCanvas(i_attr_canvas).canvas_bottom;
-                    const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
-                    const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
-                    const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
-                    const i_wall = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const tex_id = map.getAttributesWall()[i_wall].tex_id;
+                    const h_half_top = h_half*@mulAdd(f32, -2, canvas.top, 1); // h_half*(1-2*canvas_top);
+                    const h_half_bottom = h_half*@mulAdd(f32, -2, canvas.bottom, 1); // h_half*(1-2*canvas_bottom);
                     gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
                                            win_h*0.5 + h_half_bottom + shift_and_tilt,
-                                        d_norm*col_r, d_norm*col_g, d_norm*col_b, opacity,
+                                        d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
                                         depth_layer);
-                    if (canvas_bottom+canvas_top > 0.0) {
-                        // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
-                        //                                win_h*0.5-h_half*mirror_height + shift + tilt,
+                    if (canvas.bottom+canvas.top > 0.0) {
                         gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                               win_h*0.5-h_half_top + shift_and_tilt,
-                                                u_of_uv, 0, canvas_top,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
-                                                depth_layer, tex_id);
-                        // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
-                        //                                win_h*0.5+h_half*mirror_height + shift + tilt,
+                                                       win_h*0.5-h_half_top + shift_and_tilt,
+                                                    u_of_uv, 0, canvas.top,
+                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
+                                                    depth_layer, tex_id);
                         gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
-                                            win_h*0.5+h_half_bottom + shift_and_tilt,
-                                                    u_of_uv, 1, 1-canvas_bottom,
-                                            d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                                       win_h*0.5+h_half_bottom + shift_and_tilt,
+                                                    u_of_uv, 1, 1-canvas.bottom,
+                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                                     depth_layer, tex_id);
                     }
                 },
                 .glass => {
-                    // gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
-                    //                     win_h*0.5+h_half + shift_and_tilt,
-                    //                     d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
-                    //                     depth_layer);
-                    const i_attr_color = map.getAttributeColorIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const col_r = map.getAttributesColor(i_attr_color).col_r;
-                    const col_g = map.getAttributesColor(i_attr_color).col_g;
-                    const col_b = map.getAttributesColor(i_attr_color).col_b;
-                    const opacity = map.getAttributesColor(i_attr_color).opacity;
-                    const i_attr_canvas = map.getAttributeCanvasIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const canvas_top = map.getAttributesCanvas(i_attr_canvas).canvas_top;
-                    const canvas_bottom = map.getAttributesCanvas(i_attr_canvas).canvas_bottom;
-                    const canvas_opacity = map.getAttributesCanvas(i_attr_canvas).canvas_opacity;
-                    const h_half_top = h_half*@mulAdd(f32, -2, canvas_top, 1); // h_half*(1-2*canvas_top);
-                    const h_half_bottom = h_half*@mulAdd(f32, -2, canvas_bottom, 1); // h_half*(1-2*canvas_bottom);
-                    const i_wall = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const tex_id = map.getAttributesWall()[i_wall].tex_id;
-                    gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
-                                           win_h*0.5 + h_half_bottom + shift_and_tilt,
-                                        d_norm*col_r, d_norm*col_g, d_norm*col_b, opacity,
-                                        depth_layer);
-                    if (canvas_bottom+canvas_top > 0.0) {
-                        // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift + tilt,
-                        //                                win_h*0.5-h_half*mirror_height + shift + tilt,
+                    const h_half_top = h_half*@mulAdd(f32, -2, canvas.top, 1); // h_half*(1-2*canvas_top);
+                    const h_half_bottom = h_half*@mulAdd(f32, -2, canvas.bottom, 1); // h_half*(1-2*canvas_bottom);
+                    gfx.addVerticalTexturedLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
+                                                win_h*0.5 + h_half_bottom + shift_and_tilt,
+                                                u_of_uv, 0, 1,
+                                                d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                                depth_layer, tex_id);
+                    if (canvas.bottom+canvas.top > 0.0) {
                         gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
                                                        win_h*0.5-h_half_top + shift_and_tilt,
-                                                    u_of_uv, 0, canvas_top,
-                                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                                    u_of_uv, 0, canvas.top,
+                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                                     depth_layer, tex_id);
-                        // gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift + tilt,
-                        //                                win_h*0.5+h_half*mirror_height + shift + tilt,
                         gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
                                                        win_h*0.5+h_half_bottom + shift_and_tilt,
-                                                    u_of_uv, 1, 1-canvas_bottom,
-                                                    d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, canvas_opacity,
+                                                    u_of_uv, 1, 1-canvas.bottom,
+                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                                     depth_layer, tex_id);
                     }
                 },
                 else => {
-                    // gfx.addVerticalTexturedLine(x, win_h*0.5-h_half*mirror_height + shift + tilt,
-                    //                             win_h*0.5+h_half*mirror_height + shift + tilt,
-                    const i_opacity = map.getAttributeIndex()[segments.cell_y[k]][segments.cell_x[k]];
-                    const opacity = map.getAttributesWall()[i_opacity].opacity;
-                    const tex_id = map.getAttributesWall()[i_opacity].tex_id;
-                    // log_ray.debug("Tex-ID: {}", .{tex_id});
-
                     gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                           win_h*0.5+h_half + shift_and_tilt,
+                                                   win_h*0.5+h_half + shift_and_tilt,
                                                 u_of_uv, 0, 1,
-                                                d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, opacity,
-                                                // d_norm*cell_col.r, d_norm*cell_col.g, d_norm*cell_col.b, cell_col.a,
+                                                d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
                                                 depth_layer, tex_id);
                 },
             }
@@ -358,43 +320,45 @@ fn allocMemory(n: usize) !void {
     };
     errdefer allocator.free(rays.seg_i1);
 
+    const s = cfg.rc.segments_splits_max;
+
     // Allocate memory for segment data
-    segments.x0 = allocator.alloc(f32, n * segments_max) catch |e| {
+    segments.x0 = allocator.alloc(f32, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.x0);
-    segments.y0 = allocator.alloc(f32, n * segments_max) catch |e| {
+    segments.y0 = allocator.alloc(f32, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.y0);
-    segments.x1 = allocator.alloc(f32, n * segments_max) catch |e| {
+    segments.x1 = allocator.alloc(f32, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.x1);
-    segments.y1 = allocator.alloc(f32, n * segments_max) catch |e| {
+    segments.y1 = allocator.alloc(f32, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.y1);
-    segments.d = allocator.alloc(f32, n * segments_max) catch |e| {
+    segments.d = allocator.alloc(f32, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.d);
-    segments.cell_type = allocator.alloc(map.CellType, n * segments_max) catch |e| {
+    segments.cell_type = allocator.alloc(map.CellType, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.cell_type);
-    segments.cell_x = allocator.alloc(usize, n * segments_max) catch |e| {
+    segments.cell_x = allocator.alloc(usize, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
     errdefer allocator.free(segments.cell_x);
-    segments.cell_y = allocator.alloc(usize, n * segments_max) catch |e| {
+    segments.cell_y = allocator.alloc(usize, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
@@ -509,6 +473,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
         switch (m_v) {
             .floor => {
                 contact_status = resolveContactFloor(&d_x, &d_y, &contact_status.cell_type_prev,
+                                                     m_x, m_y,
                                                      contact_axis, s_lim, d_x0, d_y0);
             },
             .wall => {
@@ -518,7 +483,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                 contact_status = resolveContactMirror(&d_x, &d_y, contact_axis, s_lim, d_x0, d_y0);
             },
             .glass => {
-                contact_status = resolveContactGlass(&d_x, &d_y, contact_status.cell_type_prev,
+                contact_status = resolveContactGlass(&d_x, &d_y, m_x, m_y,
+                                                     contact_status.cell_type_prev,
                                                      contact_axis, s_lim, d_x0, d_y0);
             },
             .pillar => {
@@ -580,11 +546,12 @@ inline fn advanceToNextCell(d_x: *f32, d_y: *f32,
 
 inline fn resolveContactFloor(d_x: *f32, d_y: *f32,
                               cell_type_prev: *map.CellType,
+                              m_x: usize, m_y: usize,
                               contact_axis: Axis,
                               s_lim: u8,
                               d_x0: f32, d_y0: f32) ContactStatus {
     if (cell_type_prev.* == .glass) {
-        const n = 1.0/1.46;
+        const n = 1.0 / map.getGlass(m_y, m_x).n;
         const refl = std.math.asin(@as(f32,n));
         if (contact_axis == .x) {
             const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
@@ -671,11 +638,12 @@ inline fn resolveContactMirror(d_x: *f32, d_y: *f32,
 }
 
 inline fn resolveContactGlass(d_x: *f32, d_y: *f32,
+                              m_x: usize, m_y: usize,
                               cell_type_prev: map.CellType,
                               contact_axis: Axis,
                               s_lim: u8,
                               d_x0: f32, d_y0: f32) ContactStatus {
-    const n = 1.46;
+    const n = map.getGlass(m_y, m_x).n;
     if (cell_type_prev != .glass) {
         if (contact_axis == .x) {
             const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
