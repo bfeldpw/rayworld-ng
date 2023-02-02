@@ -1,22 +1,12 @@
 const std = @import("std");
 const c = @import("c.zig").c;
+const cfg = @import("config.zig");
 const gfx = @import("graphics.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
-
-const multithreading = true;
-
-const ScalePreference = enum {
-    room_height,
-    player_fov,
-};
-
-var scale_by = ScalePreference.room_height;
-var room_height: f32 = 2.0; // meter
-var player_fov: f32 = 90; // degrees
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
@@ -34,7 +24,7 @@ pub fn main() !void {
     try rc.init();
     defer rc.deinit();
 
-    gfx.setFrequencyTarget(60.0);
+    gfx.setFpsTarget(cfg.gfx.fps_target);
     input.setWindow(gfx.getWindow());
     input.init();
 
@@ -59,7 +49,7 @@ pub fn main() !void {
         adjustFovOnAspectChange(); // Polling for now, should be event triggered
 
         perf_rc.startMeasurement();
-        try rc.processRays(multithreading);
+        try rc.processRays(cfg.multithreading);
         // var rc_thread = try std.Thread.spawn(.{}, rc.processRays, .{multithreading});
         // rc_thread.join();
         perf_rc.stopMeasurement();
@@ -84,11 +74,11 @@ pub fn main() !void {
 
 fn adjustFovOnAspectChange() void {
     const aspect = gfx.getAspect();
-    if (scale_by == .room_height) {
-        plr.setFOV(room_height*aspect*std.math.degreesToRadians(f32, 22.5));
-        player_fov = std.math.degreesToRadians(f32, plr.getFOV());
+    if (cfg.gfx.scale_by == .room_height) {
+        plr.setFOV(cfg.gfx.room_height*aspect*std.math.degreesToRadians(f32, 22.5));
+        cfg.gfx.player_fov = std.math.degreesToRadians(f32, plr.getFOV());
     } else { // scale_by == player_fov
-        plr.setFOV(std.math.degreesToRadians(f32, player_fov));
-        room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
+        plr.setFOV(std.math.degreesToRadians(f32, cfg.player_fov));
+        cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
 }

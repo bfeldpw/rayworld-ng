@@ -450,7 +450,7 @@ pub inline fn getWindowWidth() u64 {
 }
 
 /// Set the frequency of the main loop
-pub fn setFrequencyTarget(f: f32) void {
+pub fn setFpsTarget(f: f32) void {
     if (f > 0.0) {
         frame_time = @floatToInt(i64, 1.0/f*1.0e9);
         log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
@@ -610,10 +610,10 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
 //-----------------------------------------------------------------------------//
 
 test "setFrequency" {
-    setFrequencyTarget(40);
+    setFpsTarget(40);
     try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
-    setFrequencyTarget(100);
+    setFpsTarget(100);
     try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
-    setFrequencyTarget(0);
+    setFpsTarget(0);
     try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
 }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const cfg = @import("config.zig");
 const gfx = @import("graphics.zig");
 const map = @import("map.zig");
 const stats = @import("stats.zig");
@@ -18,7 +19,7 @@ pub fn init() !void {
     perf_mem.stopMeasurement();
 
     cpus = try std.Thread.getCpuCount();
-    if (cpus > threads_max) cpus = threads_max;
+    if (cpus > cfg.rc.threads_max) cpus = cfg.rc.threads_max;
     log_ray.info("Utilising {} logical cpu cores for multithreading", .{cpus});
 }
 
@@ -36,13 +37,11 @@ pub fn deinit() void {
 //-----------------------------------------------------------------------------//
 
 pub fn createMap() void {
-    const opacity = 0.9;
     const m = map.get();
     const m_col = map.getColor();
     const map_cells_y = @intToFloat(f32, map.get().len);
-    const map_vis_y = 0.3;
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
-    const f = win_h * map_vis_y / map_cells_y; // scale factor cell -> px
+    const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
     const o = win_h-f*map_cells_y; // y-offset for map drawing in px
 
     gfx.startBatchQuads();
@@ -51,10 +50,10 @@ pub fn createMap() void {
             const c = m_col[j][i];
             switch (cell) {
                 .floor => {
-                    gfx.setColor4(0.2+0.1*c.r, 0.2+0.1*c.g, 0.2+0.1*c.b, opacity);
+                    gfx.setColor4(0.2+0.1*c.r, 0.2+0.1*c.g, 0.2+0.1*c.b, cfg.rc.map_display_opacity);
                 },
                 .wall, .mirror, .glass, .pillar => {
-                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, opacity);
+                    gfx.setColor4(0.3+0.3*c.r, 0.3+0.3*c.g, 0.3+0.3*c.b, cfg.rc.map_display_opacity);
                 },
             }
 
@@ -69,12 +68,17 @@ pub fn createMap() void {
     gfx.setColor4(0.0, 0.0, 1.0, 0.1);
     gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
-        if (i % 4 == 0) {
+        if (i % cfg.rc.map_display_every_nth_line == 0) {
             var j = @intCast(i32, rays.seg_i1[i]);
             const j0 = rays.seg_i0[i];
 
+            if (j-@intCast(i32, j0) > cfg.rc.map_display_reflections_max) {
+                j = @intCast(i32, j0) + cfg.rc.map_display_reflections_max;
+            }
+            const color_step = 1.0 / @intToFloat(f32, cfg.rc.map_display_reflections_max+1);
+
             while (j >= j0) : (j -= 1) {
-                const color_grade = 0.2*@intToFloat(f32, @intCast(usize, j)-j0);
+                const color_grade = color_step*@intToFloat(f32, @intCast(usize, j)-j0);
                 if (j == j0) {
                     gfx.setColor4(0.0, 0.0, 1.0, 0.5);
                 } else {
@@ -290,13 +294,12 @@ pub fn processRays(comptime multithreading: bool) !void {
 //   Internal
 //-----------------------------------------------------------------------------//
 
-const segments_max = 10;
+const segments_max = cfg.rc.segments_max;
 
 const log_ray = std.log.scoped(.ray);
 
 var cpus: usize = 4;
-const threads_max = 64;
-var threads: [threads_max]std.Thread = undefined;
+var threads: [cfg.rc.threads_max]std.Thread = undefined;
 
 // var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
