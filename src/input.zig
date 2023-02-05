@@ -33,8 +33,6 @@ pub fn processInputs(frequency: f32) void {
     if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-6.0 / frequency);
     if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(3.0 / frequency);
     if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-3.0 / frequency);
-    if (c.glfwGetKey(window, c.GLFW_KEY_F3) == c.GLFW_PRESS) scatter_f -= 0.001;
-    if (c.glfwGetKey(window, c.GLFW_KEY_F4) == c.GLFW_PRESS) scatter_f += 0.001;
 }
 
 //-----------------------------------------------------------------------------//
@@ -61,8 +59,6 @@ fn glfwCheckError() bool {
     }
     return true;
 }
-
-pub var scatter_f: f32 = 0.0;
 
 fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.C) void {
     _ = win;
