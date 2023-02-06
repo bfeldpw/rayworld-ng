@@ -228,11 +228,18 @@ pub fn createScene() void {
                     }
                 },
                 else => {
-                    gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                                   win_h*0.5+h_half + shift_and_tilt,
-                                                u_of_uv, 0, 1,
-                                                d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
-                                                depth_layer, tex_id);
+                    if (map.getTextureID(m_y, m_x).id != 0) {
+                        gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
+                                                    win_h*0.5+h_half + shift_and_tilt,
+                                                    u_of_uv, 0, 1,
+                                                    d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                                    depth_layer, tex_id);
+                    } else {
+                        gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
+                                               win_h*0.5+h_half + shift_and_tilt,
+                                            d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                            depth_layer);
+                    }
                 },
             }
             if (j == j0) {
@@ -513,8 +520,9 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
                                                      contact_axis, s_lim, d_x0, d_y0);
             },
             .pillar => {
-                contact_status = resolveContactPillar(m_x, m_y, m_v,
-                                                      s_x, s_y, d_x0, d_y0,
+                contact_status = resolveContactPillar(&d_x, &d_y, &s_x, &s_y,
+                                                      m_x, m_y, m_v, s_lim,
+                                                      d_x0, d_y0,
                                                       s_i, r_i);
             }
         }
@@ -786,44 +794,56 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32,
     }
 }
 
-inline fn resolveContactPillar(m_x: usize, m_y: usize, m_v: map.CellType,
-                               s_x: f32, s_y: f32,
+inline fn resolveContactPillar(d_x: *f32, d_y: *f32,
+                               s_x: *f32, s_y: *f32,
+                               m_x: usize, m_y: usize, m_v: map.CellType,
+                               s_lim: u8,
                                d_x0: f32, d_y0: f32,
                                s_i: usize, r_i: usize) ContactStatus {
-    const e_x = @intToFloat(f32, m_x)+0.5 - s_x;
-    const e_y = @intToFloat(f32, m_y)+0.5 - s_y;
+    const pillar = map.getPillar(m_y, m_x);
+    const e_x = @intToFloat(f32, m_x) + pillar.center_x - s_x.*;
+    const e_y = @intToFloat(f32, m_y) + pillar.center_y - s_y.*;
     const e_norm_sqr = e_x*e_x+e_y*e_y;
     const c_a = e_x * d_x0 + d_y0 * e_y;
-    const r = map.getPillar(m_y, m_x).radius;
+    const r = pillar.radius;
     const w = r*r - (e_norm_sqr - c_a*c_a);
-    var fin_seg: bool = false;
     if (w >= 0) {
         const d_p = c_a - @sqrt(w);
         if (d_p >= 0) {
-            segments.x1[s_i] = d_x0 * d_p;
-            segments.y1[s_i] = d_y0 * d_p;
             segments.d[s_i] = d_p;
             segments.cell_x[s_i] = m_x;
             segments.cell_y[s_i] = m_y;
             segments.cell_type[s_i] = m_v;
 
-            segments.x1[s_i] = s_x + d_x0 * d_p;
-            segments.y1[s_i] = s_y + d_y0 * d_p;
+            segments.x1[s_i] = s_x.* + d_x0 * d_p;
+            segments.y1[s_i] = s_y.* + d_y0 * d_p;
+
+            const r_x = (d_x0*d_p - e_x) / r;
+            const r_y = (d_y0*d_p - e_y) / r;
+            d_x.* = 2*(-e_x*r_x - e_y*r_y) * r_x - d_x0*d_p;
+            d_y.* = 2*(-e_x*r_x - e_y*r_y) * r_y - d_y0*d_p;
 
             const s_x0 = segments.x0[s_i];
             const s_y0 = segments.y0[s_i];
-            const s_dx = s_x - s_x0;
-            const s_dy = s_y - s_y0;
+            const s_dx = s_x.* - s_x0;
+            const s_dy = s_y.* - s_y0;
             // Accumulate distances, if first segment, set
             if (s_i > rays.seg_i0[r_i]) {
                 segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy) + d_p;
             } else {
                 segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy) + d_p;
             }
-            fin_seg = true;
+
+            s_x.* += d_x0*d_p;
+            s_y.* += d_y0*d_p;
+
+            return .{.finish_segment = true,
+                     .prepare_next_segment = true,
+                     .new_segments_limit = @min(s_lim, map.getReflection(m_y, m_x).limit),
+                     .cell_type_prev = .pillar};
         }
     }
-    return .{.finish_segment = fin_seg,
+    return .{.finish_segment = false,
              .prepare_next_segment = false,
              .new_segments_limit = 0,
              .cell_type_prev = .pillar};
@@ -860,20 +880,19 @@ inline fn proceedPostContact(contact_status: ContactStatus,
         } else {
             segments.d[s_i] = @sqrt(s_dx*s_dx + s_dy*s_dy);
         }
-
-        // Prepare next segment
-        // Only prepare next segment if not already the last segment of the
-        // last ray!
-        if (contact_status.prepare_next_segment and s_i+1 < rays.seg_i0.len * segments_max) {
-            // Just be sure to stay below the maximum segment number per ray
-            if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_status.new_segments_limit) {
-                if (r_i % 1 == 0) {
-                segments.x0[s_i+1] = s_x;
-                segments.y0[s_i+1] = s_y;
-                rays.seg_i1[r_i] += 1;
-                    traceSingleSegment0(d_x, d_y, s_i+1, r_i, contact_status.cell_type_prev, n_prev, contact_status.new_segments_limit);
-            }}
-        }
+    }
+    // Prepare next segment
+    // Only prepare next segment if not already the last segment of the
+    // last ray!
+    if (contact_status.prepare_next_segment and s_i+1 < rays.seg_i0.len * segments_max) {
+        // Just be sure to stay below the maximum segment number per ray
+        if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_status.new_segments_limit) {
+            if (r_i % 1 == 0) {
+            segments.x0[s_i+1] = s_x;
+            segments.y0[s_i+1] = s_y;
+            rays.seg_i1[r_i] += 1;
+                traceSingleSegment0(d_x, d_y, s_i+1, r_i, contact_status.cell_type_prev, n_prev, contact_status.new_segments_limit);
+        }}
     }
 }
 

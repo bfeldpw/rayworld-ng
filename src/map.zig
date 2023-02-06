@@ -1,4 +1,5 @@
 const std = @import("std");
+const cfg = @import("config.zig");
 const gfx = @import("graphics.zig");
 const img = @import("image_loader.zig");
 
@@ -126,6 +127,8 @@ const AttribGlass = struct {
 
 const AttribPillar = struct {
     radius: f32 = 0.3,
+    center_x: f32 = 0.5,
+    center_y: f32 = 0.5,
 };
 
 const AttribReflection = struct {
@@ -259,14 +262,17 @@ fn fillMap() !void {
     try attribute_components.glass.append(.{.n = 1.20});
 
     // Default attributes pillar
-    try attribute_components.pillar.append(.{.radius = 0.1});
-    try attribute_components.pillar.append(.{.radius = 0.3});
-    try attribute_components.pillar.append(.{.radius = 0.5});
+    try attribute_components.pillar.append(.{.radius = 0.1, .center_x = 0.5, .center_y = 0.8});
+    try attribute_components.pillar.append(.{.radius = 0.3, .center_x = 0.5, .center_y = 0.5});
+    try attribute_components.pillar.append(.{.radius = 0.5, .center_x = 0.5, .center_y = 0.5});
 
     // Default attributes reflection
     try attribute_components.reflection.append(.{.limit = 0, .diffusion = 0.0});
     try attribute_components.reflection.append(.{.limit = 2, .diffusion = 0.05});
     try attribute_components.reflection.append(.{.limit = 2, .diffusion = 0.001});
+    // -- pillar as mirror
+    try attribute_components.reflection.append(.{.limit = cfg.rc.segments_max, .diffusion = 0.0});
+
 
     // Default attributes texture
     try attribute_components.texture.append(.{.id = 0});
@@ -292,7 +298,7 @@ fn fillMap() !void {
                     map_current.i_texture[j][i] = 0;
                     map_current.i_wall[j][i] = 0;
                 },
-                .wall, .wall_thin, .pillar  => {
+                .wall, .wall_thin => {
                     map_current.i_canvas[j][i] = 0;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
@@ -316,12 +322,23 @@ fn fillMap() !void {
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
+                .pillar  => {
+                    map_current.i_canvas[j][i] = 0;
+                    map_current.i_color[j][i] = 1;
+                    map_current.i_glass[j][i] = 0;
+                    map_current.i_reflection[j][i] = 1;
+                    map_current.i_texture[j][i] = 1;
+                    map_current.i_wall[j][i] = 0;
+                },
             }
         }
     }
     map_current.i_glass[22][4] = 1;
     map_current.i_texture[6][10] = 3;
+    map_current.i_color[11][7] = 2;
     map_current.i_pillar[11][7] = 2;
+    map_current.i_reflection[11][7] = 3;
+    map_current.i_texture[11][7] = 0;
     map_current.i_pillar[18][6] = 0;
     map_current.i_pillar[18][9] = 0;
 }
