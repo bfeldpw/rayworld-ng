@@ -132,7 +132,7 @@ const AttribPillar = struct {
 };
 
 const AttribReflection = struct {
-    limit: u8,
+    limit: i8,
     diffusion: f32,
 };
 
@@ -267,10 +267,9 @@ fn fillMap() !void {
     try attribute_components.pillar.append(.{.radius = 0.5, .center_x = 0.5, .center_y = 0.5});
 
     // Default attributes reflection
-    try attribute_components.reflection.append(.{.limit = 0, .diffusion = 0.0});
-    try attribute_components.reflection.append(.{.limit = 2, .diffusion = 0.05});
-    try attribute_components.reflection.append(.{.limit = 2, .diffusion = 0.001});
-    // -- pillar as mirror
+    // -- wall
+    try attribute_components.reflection.append(.{.limit = 2, .diffusion = 0.02});
+    // -- floor, mirror, glass, pillar (as mirror)
     try attribute_components.reflection.append(.{.limit = cfg.rc.segments_max, .diffusion = 0.0});
 
 
@@ -291,18 +290,18 @@ fn fillMap() !void {
             map_current.i_pillar[j][i] = 1;
             switch (value.*) {
                 .floor => {
-                    map_current.i_canvas[j][i] = 0;
+                    map_current.i_canvas[j][i] = 1;
                     map_current.i_color[j][i] = 0;
                     map_current.i_glass[j][i] = 0;
-                    map_current.i_reflection[j][i] = 0;
+                    map_current.i_reflection[j][i] = 1;
                     map_current.i_texture[j][i] = 0;
                     map_current.i_wall[j][i] = 0;
                 },
                 .wall, .wall_thin => {
-                    map_current.i_canvas[j][i] = 0;
+                    map_current.i_canvas[j][i] = 1;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
-                    map_current.i_reflection[j][i] = 1;
+                    map_current.i_reflection[j][i] = 0;
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
@@ -310,7 +309,7 @@ fn fillMap() !void {
                     map_current.i_canvas[j][i] = 0;
                     map_current.i_color[j][i] = 2;
                     map_current.i_glass[j][i] = 0;
-                    map_current.i_reflection[j][i] = 2;
+                    map_current.i_reflection[j][i] = 1;
                     map_current.i_texture[j][i] = 0;
                     map_current.i_wall[j][i] = 0;
                 },
@@ -318,15 +317,15 @@ fn fillMap() !void {
                     map_current.i_canvas[j][i] = 1;
                     map_current.i_color[j][i] = 3;
                     map_current.i_glass[j][i] = 0;
-                    map_current.i_reflection[j][i] = 0;
+                    map_current.i_reflection[j][i] = 1;
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
                 .pillar  => {
-                    map_current.i_canvas[j][i] = 0;
+                    map_current.i_canvas[j][i] = 1;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
-                    map_current.i_reflection[j][i] = 1;
+                    map_current.i_reflection[j][i] = 0;
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
@@ -335,9 +334,10 @@ fn fillMap() !void {
     }
     map_current.i_glass[22][4] = 1;
     map_current.i_texture[6][10] = 3;
+    map_current.i_canvas[11][7] = 0;
     map_current.i_color[11][7] = 2;
     map_current.i_pillar[11][7] = 2;
-    map_current.i_reflection[11][7] = 3;
+    map_current.i_reflection[11][7] = 1;
     map_current.i_texture[11][7] = 0;
     map_current.i_pillar[18][6] = 0;
     map_current.i_pillar[18][9] = 0;
