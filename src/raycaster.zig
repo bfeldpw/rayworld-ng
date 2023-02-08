@@ -147,21 +147,34 @@ pub fn createScene() void {
 
             const shift_and_tilt = win_h * plr.getPosZ() / (d+1e-3) + tilt;
 
-            var u_of_uv: f32 = 0;
-            if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
-                u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
-                if (segments.y0[k] < segments.y1[k]) {
-                    u_of_uv = 1 - u_of_uv;
-                }
-            } else {
-                u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
-                if (segments.x0[k] > segments.x1[k]) {
-                    u_of_uv = 1 - u_of_uv;
-                }
-            }
-
             const m_x = segments.cell_x[k];
             const m_y = segments.cell_y[k];
+
+            var u_of_uv: f32 = 0;
+            if (segments.cell_type[k] != .pillar) {
+                if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
+                    u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
+                    if (segments.y0[k] < segments.y1[k]) {
+                        u_of_uv = 1 - u_of_uv;
+                    }
+                } else {
+                    u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
+                    if (segments.x0[k] > segments.x1[k]) {
+                        u_of_uv = 1 - u_of_uv;
+                    }
+                }
+            } else {
+                const p_x = segments.x1[k] - @intToFloat(f32, m_x);
+                const p_y = segments.y1[k] - @intToFloat(f32, m_y);
+                const dir_x = p_x - map.getPillar(m_y, m_x).center_x;
+                const dir_y = p_y - map.getPillar(m_y, m_x).center_y;
+                var angle = std.math.atan2(f32, dir_y, dir_x);
+                if (angle < 0) angle += 2.0*std.math.pi;
+                if (angle > 2.0*std.math.pi) angle -= 2.0*std.math.pi;
+                const circ = 2.0 * std.math.pi;
+                u_of_uv = 1.0 - angle / circ;
+            }
+
             const col = map.getColor(m_y, m_x);
             const canvas = map.getCanvas(m_y, m_x);
             const tex_id = map.getTextureID(m_y, m_x).id;

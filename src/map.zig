@@ -338,7 +338,6 @@ fn fillMap() !void {
     map_current.i_color[11][7] = 2;
     map_current.i_pillar[11][7] = 2;
     map_current.i_reflection[11][7] = 1;
-    map_current.i_texture[11][7] = 0;
     map_current.i_pillar[18][6] = 0;
     map_current.i_pillar[18][9] = 0;
 }
