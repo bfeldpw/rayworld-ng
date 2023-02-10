@@ -91,8 +91,8 @@ pub inline fn getResolution() u32 {
 
 const log_map = std.log.scoped(.map);
 
-// var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){} else
+                                    std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 const res = 1; // resolution of blocks in meter

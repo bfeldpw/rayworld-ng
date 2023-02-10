@@ -217,8 +217,8 @@ pub fn createScene() void {
                 }
             }
             if (j == j0) {
-                gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
-                                      0, 0.5*d_norm, 0.4, depth_layer);
+            //     gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
+            //                           0, 0.5*d_norm, 0.4, depth_layer);
                 break;
             }
         }
@@ -263,8 +263,8 @@ const log_ray = std.log.scoped(.ray);
 var cpus: usize = 4;
 var threads: [cfg.rc.threads_max]std.Thread = undefined;
 
-// var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){} else
+                                    std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 /// Struct of arrays (SOA) to store ray data

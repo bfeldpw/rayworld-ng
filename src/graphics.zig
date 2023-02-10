@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
+const cfg = @import("config.zig");
 const stats = @import("stats.zig");
 
 //-----------------------------------------------------------------------------//
@@ -466,8 +467,8 @@ pub fn setFpsTarget(f: f32) void {
 
 const log_gfx = std.log.scoped(.gfx);
 
-// var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){} else
+                                    std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 var window: ?*c.GLFWwindow = null;
@@ -485,23 +486,23 @@ var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
 var line_statistics = stats.PerFrameCounter.init("Lines");
 var line_tex_statistics = stats.PerFrameCounter.init("Lines textured");
 
-const lines_max = 4096*10; // 4K resolution, maximum of 10 lines in each column of a depth layer
+const lines_max = 4096*8; // 4K resolution, maximum of 10 lines in each column of a depth layer
 
-const depth_levels = 30;
+const depth_levels = 16;
 var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
 
 const Lines = struct {
-    verts: [depth_levels][lines_max*2*2]f32,
-    cols:  [depth_levels][lines_max*2*4]f32,
+    verts: [depth_levels][lines_max*2]f32,
+    cols:  [depth_levels][lines_max*4]f32,
     i_verts: [depth_levels]u32,
     i_cols:  [depth_levels]u32,
     n: [depth_levels]u32,
 };
 
 const TexturedLines = struct {
-    verts: [depth_levels][lines_max*2*2]f32,
-    cols:  [depth_levels][lines_max*2*4]f32,
-    texcs: [depth_levels][lines_max*2*2]f32,
+    verts: [depth_levels][lines_max*2]f32,
+    cols:  [depth_levels][lines_max*4]f32,
+    texcs: [depth_levels][lines_max*2]f32,
     i_verts: [depth_levels]u32,
     i_cols:  [depth_levels]u32,
     i_texcs: [depth_levels]u32,

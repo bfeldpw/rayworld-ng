@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
+const cfg = @import ("config.zig");
 const zstbi = @import("zstbi");
 
 //-----------------------------------------------------------------------------//
@@ -113,8 +114,8 @@ pub fn processDrawTest(tex: c.GLuint) void {
 
 const log_img = std.log.scoped(.img);
 
-// var gpa = std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){};
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){} else
+                                    std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 var img: zstbi.Image = undefined;

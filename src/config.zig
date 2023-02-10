@@ -1,4 +1,5 @@
 pub const multithreading = true;
+pub const debug_allocator = false;
 
 pub const gfx = struct {
     pub const fps_target = 60; // Hz
