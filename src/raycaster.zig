@@ -108,6 +108,13 @@ pub fn createScene() void {
 
     var i: usize = 0;
 
+    var u_of_uv_l: [16]f32 = undefined;
+    var y0_l: [16]f32 = undefined;
+    var y1_l: [16]f32 = undefined;
+    for (u_of_uv_l) |*value| value.* = 0;
+    for (y0_l) |*value| value.* = 0;
+    for (y1_l) |*value| value.* = 0;
+
     while (i < rays.seg_i0.len) : (i += 1) {
 
         const j0 = rays.seg_i0[i];
@@ -119,14 +126,19 @@ pub fn createScene() void {
 
         const tilt = -win_h * plr.getTilt();
 
-        const x = @intToFloat(f32, i);
-        gfx.addVerticalLineC2C(x, 0, win_h*0.5+tilt,
-                               0.3, 0, 1, 11);
-        gfx.addVerticalLineC2C(x, win_h*0.5+tilt, win_h,
-                               0, 0.1, 1, 11);
-        while (j >= j0) : (j -= 1){
+        // gfx.addVerticalLineC2C(x, 0, win_h*0.5+tilt,
+        //                        0.3, 0, 1, 11);
+        // gfx.addVerticalLineC2C(x, win_h*0.5+tilt, win_h,
+        //                        0, 0.1, 1, 11);
+        while (j >= j0) : (j -= 1) {
 
             const depth_layer = @intCast(u8, j-j0+1);
+            var sub: f32 = cfg.sub_sampling_base;
+            const x = @intToFloat(f32, i) * sub;
+            sub *= @intToFloat(f32, std.math.pow(usize, 2, depth_layer-1));
+
+            if (i % (std.math.pow(usize, 2, depth_layer-1)) == 0) {
+
             // Use an optical pleasing combination of the natural lense effect due
             // to a "point" camera and the "straight line correction". This results
             // in little dynamic changes when rotating the camera (instead of just)
@@ -181,46 +193,61 @@ pub fn createScene() void {
 
             const h_half_top = h_half*@mulAdd(f32, -2, canvas.top, 1); // h_half*(1-2*canvas_top);
             const h_half_bottom = h_half*@mulAdd(f32, -2, canvas.bottom, 1); // h_half*(1-2*canvas_bottom);
+
+            var y0 = win_h*0.5 - h_half_top + shift_and_tilt;
+            var y1 = win_h*0.5 + h_half_bottom + shift_and_tilt;
             if (tex_id != 0) {
-                gfx.addVerticalTexturedLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
-                                                win_h*0.5 + h_half_bottom + shift_and_tilt,
-                                            u_of_uv, 0, 1,
-                                            d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
-                                            depth_layer, tex_id);
+                // gfx.addVerticalTexturedLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
+                //                                 win_h*0.5 + h_half_bottom + shift_and_tilt,
+                //                             u_of_uv, 0, 1,
+                //                             d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                //                             depth_layer, tex_id);
+                // gfx.addVerticalTexturedQuad(x, x+sub, win_h*0.5 - h_half_top + shift_and_tilt,
+                //                                       win_h*0.5 + h_half_bottom + shift_and_tilt,
+                gfx.addVerticalTexturedQuadY(x, x+sub, y0_l[depth_layer], y0, y1, y1_l[depth_layer],
+                                             u_of_uv_l[depth_layer], u_of_uv, 0, 1,
+                                             d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                             depth_layer, tex_id);
             } else {
-                gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
-                                        win_h*0.5 + h_half_bottom + shift_and_tilt,
-                                    d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
-                                    depth_layer);
+                gfx.addVerticalQuadY(x, x+sub, y0_l[depth_layer], y0, y1, y1_l[depth_layer],
+                                     d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                     depth_layer);
+                // gfx.addVerticalLine(x, win_h*0.5 - h_half_top + shift_and_tilt,
+                //                         win_h*0.5 + h_half_bottom + shift_and_tilt,
+                //                     d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                //                     depth_layer);
             }
             if (canvas.bottom+canvas.top > 0.0) {
                 if (canvas.tex_id != 0) {
-                    gfx.addVerticalTexturedLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                                win_h*0.5-h_half_top + shift_and_tilt,
-                                                u_of_uv, 0, canvas.top,
+                    gfx.addVerticalTexturedQuad(x, x+sub, win_h*0.5-h_half + shift_and_tilt,
+                                                          win_h*0.5-h_half_top + shift_and_tilt,
+                                                u_of_uv, u_of_uv, 0, canvas.top,
                                                 d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                                 depth_layer, canvas.tex_id);
-                    gfx.addVerticalTexturedLine(x, win_h*0.5+h_half + shift_and_tilt,
-                                                win_h*0.5+h_half_bottom + shift_and_tilt,
-                                                u_of_uv, 1, 1-canvas.bottom,
+                    gfx.addVerticalTexturedQuad(x, x+sub, win_h*0.5+h_half + shift_and_tilt,
+                                                          win_h*0.5+h_half_bottom + shift_and_tilt,
+                                                u_of_uv, u_of_uv, 1, 1-canvas.bottom,
                                                 d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                                 depth_layer, canvas.tex_id);
                 } else {
-                    gfx.addVerticalLine(x, win_h*0.5-h_half + shift_and_tilt,
-                                            win_h*0.5-h_half_top + shift_and_tilt,
+                    gfx.addVerticalQuad(x, x+sub, win_h*0.5-h_half + shift_and_tilt,
+                                                  win_h*0.5-h_half_top + shift_and_tilt,
                                         d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                         depth_layer);
-                    gfx.addVerticalLine(x, win_h*0.5+h_half + shift_and_tilt,
-                                            win_h*0.5+h_half_bottom + shift_and_tilt,
+                    gfx.addVerticalQuad(x, x+sub, win_h*0.5+h_half + shift_and_tilt,
+                                                  win_h*0.5+h_half_bottom + shift_and_tilt,
                                         d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                         depth_layer);
                 }
             }
+            u_of_uv_l[depth_layer] = u_of_uv;
+            y0_l[depth_layer] = y0;
+            y1_l[depth_layer] = y1;
             if (j == j0) {
             //     gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
             //                           0, 0.5*d_norm, 0.4, depth_layer);
                 break;
-            }
+            }}
         }
     }
 }
@@ -379,12 +406,12 @@ fn freeMemory() void {
 }
 
 fn reallocRaysOnChange() !void {
-    if (gfx.getWindowWidth() != rays.seg_i0.len) {
+    if (gfx.getWindowWidth() / cfg.sub_sampling_base != rays.seg_i0.len) {
         perf_mem.startMeasurement();
         log_ray.debug("Reallocating memory for ray data", .{});
 
         freeMemory();
-        try allocMemory(gfx.getWindowWidth());
+        try allocMemory(gfx.getWindowWidth() / cfg.sub_sampling_base);
 
         perf_mem.stopMeasurement();
         log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.seg_i0.len});
@@ -867,8 +894,9 @@ inline fn proceedPostContact(contact_status: ContactStatus,
     if (contact_status.prepare_next_segment and s_i+1 < rays.seg_i0.len * segments_max) {
         // Just be sure to stay below the maximum segment number per ray
         // if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_status.reflection_limit) {
+        const r = contact_status.reflection_limit + 1;
         if (contact_status.reflection_limit+1 > 0) {
-            if (r_i % 1 == 0) {
+            if (r_i % 2*@intCast(usize, r) == 0) {
             segments.x0[s_i+1] = s_x;
             segments.y0[s_i+1] = s_y;
             rays.seg_i1[r_i] += 1;
