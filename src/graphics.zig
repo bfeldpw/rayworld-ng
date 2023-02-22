@@ -744,7 +744,7 @@ const lines_max = 4096*8; // 4K resolution, maximum of 8 lines in each column of
 /// Maximum quad buffer size for rendering
 const quads_max = 2048*8; // 4K resolution, minimm width 2px, maximum of 8 lines in each column of a depth layer
 /// Maximum depth levels for rendering
-const depth_levels = 16;
+const depth_levels = cfg.gfx.depth_levels_max;
 /// Active depth levels
 var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
 

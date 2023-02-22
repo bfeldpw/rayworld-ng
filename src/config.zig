@@ -3,6 +3,7 @@ pub const debug_allocator = false;
 pub const sub_sampling_base = 2;
 
 pub const gfx = struct {
+    pub const depth_levels_max = 16;
     pub const fps_target = 60; // Hz
     pub const scale_by = ScalePreference.room_height;
     pub var room_height: f32 = 2.0; // meter
