@@ -134,7 +134,7 @@ const AttribPillar = struct {
 const AttribReflection = struct {
     limit: i8,
     diffusion: f32,
-    sub_sampling: f32,
+    sub_sampling: u8,
 };
 
 const AttribTexture = struct {
@@ -269,7 +269,7 @@ fn fillMap() !void {
 
     // Default attributes reflection
     // -- wall
-    try attribute_components.reflection.append(.{.limit = 3, .diffusion = 0.0, .sub_sampling = 2});
+    try attribute_components.reflection.append(.{.limit = 3, .diffusion = 0.005, .sub_sampling = 2});
     // -- floor, mirror, glass, pillar (as mirror)
     try attribute_components.reflection.append(.{.limit = cfg.rc.segments_max, .diffusion = 0.0, .sub_sampling = 1});
 

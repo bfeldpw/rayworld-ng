@@ -109,11 +109,23 @@ pub fn createScene() void {
     var i: usize = 0;
 
     const depth_levels = cfg.gfx.depth_levels_max;
-    var u_of_uv_prev: [depth_levels]f32 = undefined;
-    var y0_c_prev: [depth_levels]f32 = undefined;
-    var y0_l: [depth_levels]f32 = undefined;
-    var y1_l: [depth_levels]f32 = undefined;
-    var y1_c_prev: [depth_levels]f32 = undefined;
+    const Previous = struct {
+        cell_type: map.CellType,
+        m_x: usize,
+        m_y: usize,
+        u_of_uv: f32,
+        x: f32,
+        y0: f32,
+        y0_cvs: f32,
+        y1: f32,
+        y1_cvs: f32,
+    };
+    var previous: [depth_levels]Previous = undefined;
+
+    for (previous) |*value| {
+        value.m_x = 0;
+        value.m_y = 0;
+    }
 
     while (i < rays.seg_i0.len) : (i += 1) {
 
@@ -134,16 +146,10 @@ pub fn createScene() void {
         while (j >= j0) : (j -= 1) {
 
             const k = @intCast(usize, j);
-            const m_x = segments.cell_x[k];
-            const m_y = segments.cell_y[k];
-
-            // const sub_sampling = map.getReflection(m_y, m_x).sub_sampling;
             const sub_sampling = segments.sub_sample_level[k];
-
             const depth_layer = @intCast(u8, j-j0+1);
-            const sub = cfg.sub_sampling_base * @trunc(sub_sampling);
 
-            if (i % @floatToInt(usize, sub_sampling) == 0) {
+            if (i % sub_sampling == 0) {
 
                 // Use an optical pleasing combination of the natural lense effect due
                 // to a "point" camera and the "straight line correction". This results
@@ -165,9 +171,14 @@ pub fn createScene() void {
                 if (d_norm > 1) d_norm = 1;
 
                 const shift_and_tilt = win_h * plr.getPosZ() / (d+1e-3) + tilt;
+                const m_x = segments.cell_x[k];
+                const m_y = segments.cell_y[k];
+                const cell_type = segments.cell_type[k];
+
+                var prev = &previous[depth_layer];
 
                 var u_of_uv: f32 = 0;
-                if (segments.cell_type[k] != .pillar) {
+                if (cell_type != .pillar) {
                     if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
                         u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
                         if (segments.y0[k] < segments.y1[k]) {
@@ -199,50 +210,68 @@ pub fn createScene() void {
                 const h_half_bottom = h_half*@mulAdd(f32, -2, canvas.bottom, 1); // h_half*(1-2*canvas_bottom);
 
                 // From canvas top to top to bottom to canvas bottom
-                var y0_c = win_h*0.5 - h_half + shift_and_tilt;
-                var y0   = win_h*0.5 - h_half_top + shift_and_tilt;
-                var y1   = win_h*0.5 + h_half_bottom + shift_and_tilt;
-                var y1_c = win_h*0.5 + h_half + shift_and_tilt;
-                // u_of_uv_prev[depth_layer] = u_of_uv;
-                // y0_c_prev[depth_layer] = y0_c;
-                // y0_l[depth_layer] = y0;
-                // y1_l[depth_layer] = y1;
-                // y1_c_prev[depth_layer] = y1_c;
+                var y0_cvs = win_h*0.5 - h_half + shift_and_tilt;
+                var y0     = win_h*0.5 - h_half_top + shift_and_tilt;
+                var y1     = win_h*0.5 + h_half_bottom + shift_and_tilt;
+                var y1_cvs = win_h*0.5 + h_half + shift_and_tilt;
+
+                var is_new = true;
+                const abs_x = std.math.absCast(@intCast(i16, m_x) - @intCast(i16, prev.m_x));
+                const abs_y = std.math.absCast(@intCast(i16, m_y) - @intCast(i16, prev.m_y));
+                const axis = segments.contact_axis[k];
+                if (axis == .x and abs_x < 2 and m_y == prev.m_y) is_new = false;
+                if (axis == .y and abs_y < 2 and m_x == prev.m_x) is_new = false;
+                if (prev.cell_type != cell_type) is_new = true;
+
+                if (is_new) prev.x = x - @intToFloat(f32, sub_sampling * cfg.sub_sampling_base);
+                if (cfg.sub_sampling_blocky or is_new) {
+                    prev.u_of_uv = u_of_uv;
+                    prev.y0_cvs = y0_cvs;
+                    prev.y0 = y0;
+                    prev.y1_cvs = y1_cvs;
+                    prev.y1 = y1;
+                }
+
                 if (tex_id != 0) {
-                    gfx.addVerticalTexturedQuadY(x, x+sub, y0_l[depth_layer], y0, y1, y1_l[depth_layer],
-                    // gfx.addVerticalTexturedQuadY(x, x+sub, y0, y0, y1, y1,
-                                                u_of_uv_prev[depth_layer], u_of_uv, 0, 1,
-                                                d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
-                                                depth_layer, tex_id);
+                    gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
+                                                 prev.u_of_uv, u_of_uv, 0, 1,
+                                                 d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                                 depth_layer, tex_id);
                 } else {
-                    gfx.addVerticalQuadY(x, x+sub, y0_l[depth_layer], y0, y1, y1_l[depth_layer],
-                                        d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
-                                        depth_layer);
+                    gfx.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
+                                         d_norm*col.r, d_norm*col.g, d_norm*col.b, col.a,
+                                         depth_layer);
                 }
                 if (canvas.bottom+canvas.top > 0.0) {
                     if (canvas.tex_id != 0) {
-                        gfx.addVerticalTexturedQuadY(x, x+sub, y0_c_prev[depth_layer], y0_c, y0, y0_l[depth_layer],
-                                                    u_of_uv_prev[depth_layer], u_of_uv, 0, canvas.top,
-                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
-                                                    depth_layer, canvas.tex_id);
-                        gfx.addVerticalTexturedQuadY(x, x+sub, y1_c_prev[depth_layer], y1_c, y1, y1_l[depth_layer],
-                                                    u_of_uv_prev[depth_layer], u_of_uv, 1, 1-canvas.bottom,
-                                                    d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
-                                                    depth_layer, canvas.tex_id);
+                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
+                                                     prev.u_of_uv, u_of_uv, 0, canvas.top,
+                                                     d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
+                                                     depth_layer, canvas.tex_id);
+                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1,
+                                                     prev.u_of_uv, u_of_uv, 1, 1-canvas.bottom,
+                                                     d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
+                                                     depth_layer, canvas.tex_id);
                     } else {
-                        gfx.addVerticalQuad(x, x+sub, y0_c, y0,
+                        gfx.addVerticalQuad(prev.x, x, y0_cvs, y0,
                                             d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                             depth_layer);
-                        gfx.addVerticalQuad(x, x+sub, y1_c, y1,
+                        gfx.addVerticalQuad(prev.x, x, y1_cvs, y1,
                                             d_norm*canvas.r, d_norm*canvas.g, d_norm*canvas.b, canvas.a,
                                             depth_layer);
                     }
                 }
-                u_of_uv_prev[depth_layer] = u_of_uv;
-                y0_c_prev[depth_layer] = y0_c;
-                y0_l[depth_layer] = y0;
-                y1_l[depth_layer] = y1;
-                y1_c_prev[depth_layer] = y1_c;
+                prev.cell_type = cell_type;
+                prev.m_x = m_x;
+                prev.m_y = m_y;
+                prev.x = x;
+                if (!cfg.sub_sampling_blocky) {
+                    prev.u_of_uv = u_of_uv;
+                    prev.y0_cvs = y0_cvs;
+                    prev.y0 = y0;
+                    prev.y1 = y1;
+                    prev.y1_cvs = y1_cvs;
+                }
                 if (j == j0) {
                 //     gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
                 //                           0, 0.5*d_norm, 0.4, depth_layer);
@@ -308,7 +337,8 @@ const RaySegmentData = struct {
     x1: []f32,
     y1: []f32,
     d:  []f32,
-    sub_sample_level: []f32,
+    contact_axis: []Axis,
+    sub_sample_level: []u8,
     cell_type: []map.CellType,
     cell_x: []usize,
     cell_y: []usize,
@@ -329,6 +359,7 @@ var segments = RaySegmentData{
     .x1 = undefined,
     .y1 = undefined,
     .d  = undefined,
+    .contact_axis = undefined,
     .sub_sample_level = undefined,
     .cell_type = undefined,
     .cell_x = undefined,
@@ -378,7 +409,12 @@ fn allocMemory(n: usize) !void {
         return e;
     };
     errdefer allocator.free(segments.d);
-    segments.sub_sample_level = allocator.alloc(f32, n * s * segments_max) catch |e| {
+    segments.contact_axis = allocator.alloc(Axis, n * s * segments_max) catch |e| {
+        log_ray.err("Allocation error ", .{});
+        return e;
+    };
+    errdefer allocator.free(segments.contact_axis);
+    segments.sub_sample_level = allocator.alloc(u8, n * s * segments_max) catch |e| {
         log_ray.err("Allocation error ", .{});
         return e;
     };
@@ -408,6 +444,7 @@ fn freeMemory() void {
     allocator.free(segments.x1);
     allocator.free(segments.y1);
     allocator.free(segments.d);
+    allocator.free(segments.contact_axis);
     allocator.free(segments.sub_sample_level);
     allocator.free(segments.cell_type);
     allocator.free(segments.cell_x);
@@ -538,7 +575,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32,
             }
         }
 
-        proceedPostContact(contact_status, m_x, m_y, m_v, c_prev, material_index_prev,
+        proceedPostContact(contact_status, contact_axis,
+                           m_x, m_y, m_v, c_prev, material_index_prev,
                            s_i, r_i, s_x, s_y, d_x, d_y);
     }
 }
@@ -867,10 +905,14 @@ inline fn resolveContactPillar(d_x: *f32, d_y: *f32,
 }
 
 inline fn proceedPostContact(contact_status: ContactStatus,
+                             contact_axis: Axis,
                              m_x: usize, m_y: usize,
                              m_v: map.CellType, c_prev: map.CellType, n_prev: f32,
                              s_i: usize, r_i: usize,
                              s_x: f32, s_y: f32, d_x: f32, d_y: f32) void {
+
+    segments.contact_axis[s_i] = contact_axis;
+
     // if there is any kind of contact and a the segment ends, save all
     // common data
     if (contact_status.finish_segment == true and m_v != .pillar) {
@@ -891,6 +933,7 @@ inline fn proceedPostContact(contact_status: ContactStatus,
         const s_dx = s_x - s_x0;
         const s_dy = s_y - s_y0;
 
+
         // Accumulate distances, if first segment, set
         if (s_i > rays.seg_i0[r_i]) {
             segments.d[s_i] = segments.d[s_i-1] + @sqrt(s_dx*s_dx + s_dy*s_dy);
@@ -907,7 +950,7 @@ inline fn proceedPostContact(contact_status: ContactStatus,
         const refl = contact_status.reflection_limit + 1;
         if (refl > 0) {
             const subs = map.getReflection(m_y, m_x).sub_sampling;
-            if (r_i % @floatToInt(usize, subs) == 0) {
+            if (r_i % subs == 0) {
                 segments.x0[s_i+1] = s_x;
                 segments.y0[s_i+1] = s_y;
                 segments.sub_sample_level[s_i+1] = segments.sub_sample_level[s_i] * subs;

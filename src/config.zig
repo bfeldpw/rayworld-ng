@@ -1,6 +1,7 @@
 pub const multithreading = true;
 pub const debug_allocator = false;
-pub const sub_sampling_base = 2;
+pub const sub_sampling_base = 4;
+pub const sub_sampling_blocky = false;
 
 pub const gfx = struct {
     pub const depth_levels_max = 16;
