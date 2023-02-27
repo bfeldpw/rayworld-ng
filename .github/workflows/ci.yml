@@ -12,6 +12,7 @@ jobs:
       - name: Setup Zig
         run: |
           sudo apt install libglfw3
+          sudo apt install libglfw3-dev
           sudo apt install xz-utils
           sudo sh -c 'wget -c https://ziglang.org/download/0.10.1/zig-linux-x86_64-0.10.1.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin'
       - name: Compile
