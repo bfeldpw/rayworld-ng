@@ -1,4 +1,4 @@
-name: CI
+name: rayworld-ng build
 on:
   - push
   - pull_request

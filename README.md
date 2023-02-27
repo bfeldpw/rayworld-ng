@@ -1,6 +1,8 @@
 # rayworld-ng
-Simple Raycaster to learn Zig
+Simple Raycaster to learn Zig 
 
+![build](https://github.com/bfeldpw/rayworld-ng/actions/workflows/ci.yml/badge.svg?branch=master)
+ 
 ![teaser](screenshots/teaser.jpg?raw=true)
 
 *Teaser, further screenshots see below*
