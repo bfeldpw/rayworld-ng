@@ -4,7 +4,7 @@ pub const sub_sampling_base = 4;
 pub const sub_sampling_blocky = false;
 
 pub const gfx = struct {
-    pub const depth_levels_max = 16;
+    pub const depth_levels_max = 8;
     pub const fps_target = 60; // Hz
     pub const scale_by = ScalePreference.room_height;
     pub var room_height: f32 = 2.0; // meter
@@ -21,7 +21,7 @@ pub const rc = struct {
     pub const map_display_height = 0.3;
     pub const map_display_opacity = 0.5;
     pub const map_display_reflections_max = 2;
-    pub const segments_max = 10;
+    pub const segments_max = gfx.depth_levels_max-1;
     pub const segments_splits_max = 2;
     pub const threads_max = 16;
 };
