@@ -105,6 +105,24 @@ pub fn createMap() void {
 pub fn createScene() void {
 
     const win_h = @intToFloat(f32, gfx.getWindowHeight());
+    const tilt = -win_h * plr.getTilt();
+
+    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()),
+                           tilt-win_h, tilt,
+                           1.0, 0.6, 1.0,
+                           cfg.gfx.depth_levels_max-1);
+    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()),
+                           tilt, tilt+win_h*0.5,
+                           0.6, 0.0, 1.0,
+                           cfg.gfx.depth_levels_max-1);
+    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()),
+                           tilt+win_h*0.5, tilt+win_h,
+                           0.0, 0.2, 1.0,
+                           cfg.gfx.depth_levels_max-1);
+    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()),
+                           tilt+win_h, tilt+2*win_h,
+                           0.2, 0.6, 1.0,
+                           cfg.gfx.depth_levels_max-1);
 
     var i: usize = 0;
 
@@ -136,8 +154,6 @@ pub fn createScene() void {
 
         // Angle between current ray and player direction
         const ang_0 = (@intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len)-0.5) * plr.getFOV();
-
-        const tilt = -win_h * plr.getTilt();
 
         // gfx.addVerticalLineC2C(x, 0, win_h*0.5+tilt,
         //                        0.3, 0, 1, 11);

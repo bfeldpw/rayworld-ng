@@ -369,6 +369,47 @@ pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32,
     }
 }
 
+pub fn addVerticalQuadG2G(x0: f32, x1: f32, y0: f32, y1: f32,
+                          c0: f32, c1: f32, a: f32,
+                          d0: u8) void {
+
+    var value = quads.getPtr(1);
+    if (value) |v| {
+        const d = depth_levels-d0-1;
+        const i_v = v.i_verts[d];
+        v.verts[d][i_v] = x0;
+        v.verts[d][i_v+1] = y0;
+        v.verts[d][i_v+2] = x1;
+        v.verts[d][i_v+3] = y0;
+        v.verts[d][i_v+4] = x1;
+        v.verts[d][i_v+5] = y1;
+        v.verts[d][i_v+6] = x0;
+        v.verts[d][i_v+7] = y1;
+        const i_c = v.i_cols[d];
+        v.cols[d][i_c] = c0;
+        v.cols[d][i_c+1] = c0;
+        v.cols[d][i_c+2] = c0;
+        v.cols[d][i_c+3] = a;
+        v.cols[d][i_c+4] = c0;
+        v.cols[d][i_c+5] = c0;
+        v.cols[d][i_c+6] = c0;
+        v.cols[d][i_c+7] = a;
+        v.cols[d][i_c+8] = c1;
+        v.cols[d][i_c+9] = c1;
+        v.cols[d][i_c+10] = c1;
+        v.cols[d][i_c+11] = a;
+        v.cols[d][i_c+12] = c1;
+        v.cols[d][i_c+13] = c1;
+        v.cols[d][i_c+14] = c1;
+        v.cols[d][i_c+15] = a;
+        v.i_verts[d] += 8;
+        v.i_cols[d] += 16;
+        v.n[d] += 4;
+        depth_levels_active.set(d);
+        quad_statistics.inc();
+    }
+}
+
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
                         r: f32, g: f32, b: f32, a: f32,
                         d0: u8) void {
