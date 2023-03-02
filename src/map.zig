@@ -250,6 +250,14 @@ fn fillMap() !void {
                                              .a = 0.9,
                                              .tex_id = 1});
     // -- glass
+    try attribute_components.canvas.append(.{.top = 0.01,
+                                             .bottom = 0.01,
+                                             .r = 0.2,
+                                             .g = 0.8,
+                                             .b = 0.2,
+                                             .a = 0.2,
+                                             .tex_id = 1});
+    // -- no canvas
     try attribute_components.canvas.append(.{.top = 0.0,
                                              .bottom = 0.0,
                                              .r = 1.0,
@@ -291,7 +299,7 @@ fn fillMap() !void {
             map_current.i_pillar[j][i] = 1;
             switch (value.*) {
                 .floor => {
-                    map_current.i_canvas[j][i] = 1;
+                    map_current.i_canvas[j][i] = 2;
                     map_current.i_color[j][i] = 0;
                     map_current.i_glass[j][i] = 0;
                     map_current.i_reflection[j][i] = 1;
@@ -299,7 +307,7 @@ fn fillMap() !void {
                     map_current.i_wall[j][i] = 0;
                 },
                 .wall, .wall_thin => {
-                    map_current.i_canvas[j][i] = 1;
+                    map_current.i_canvas[j][i] = 2;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
                     map_current.i_reflection[j][i] = 0;
@@ -323,7 +331,7 @@ fn fillMap() !void {
                     map_current.i_wall[j][i] = 0;
                 },
                 .pillar  => {
-                    map_current.i_canvas[j][i] = 1;
+                    map_current.i_canvas[j][i] = 2;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
                     map_current.i_reflection[j][i] = 0;
