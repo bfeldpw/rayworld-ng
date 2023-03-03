@@ -7,6 +7,7 @@ const map = @import("map.zig");
 const plr = @import("player.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
+const sim = @import("sim.zig");
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
@@ -39,6 +40,8 @@ pub fn main() !void {
     var perf_rc = try stats.Performance.init("Raycasting");
     var perf_ren = try stats.Performance.init("Rendering");
 
+    var sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
+
     while (gfx.isWindowOpen()) {
 
         perf_in.startMeasurement();
@@ -64,6 +67,10 @@ pub fn main() !void {
         perf_fps.startMeasurement();
 
     }
+
+    sim.stop();
+    sim_thread.join();
+
     perf_map.printStats();
     perf_fps.printStats();
     perf_in.printStats();
