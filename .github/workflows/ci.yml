@@ -17,7 +17,7 @@ jobs:
       - name: Compile
         run: |
           zig build
-          zig build -Drelease-safe
+          zig build -Doptimize=ReleaseSafe
       - name: Test
         run: |
           zig build test
