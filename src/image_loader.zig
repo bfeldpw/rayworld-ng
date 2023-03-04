@@ -51,7 +51,7 @@ pub fn loadImage(name: [:0]const u8) !*zstbi.Image {
         log_img.info("Loading image {s}", .{name});
 
         is_image_already_loaded = true;
-        img = try zstbi.Image.init(name, 3);
+        img = try zstbi.Image.loadFromFile(name, 3);
         // var img0 = try zstbi.Image.init(name, 3);
         // defer img0.deinit();
         // img = img0.resize(2000, 1333);

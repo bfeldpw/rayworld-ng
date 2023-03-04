@@ -49,7 +49,7 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub inline fn get() *const[map_size_y][map_size_x]CellType {
+pub inline fn get() *const [map_size_y][map_size_x]CellType {
     return &map_current.cell_type;
 }
 
@@ -91,8 +91,7 @@ pub inline fn getResolution() u32 {
 
 const log_map = std.log.scoped(.map);
 
-var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_log = true}){} else
-                                    std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 const res = 1; // resolution of blocks in meter
@@ -149,15 +148,15 @@ const AttribWallThin = struct {
 
 const AttributeComponents = struct {
     canvas: std.ArrayList(AttribCanvas),
-    color:  std.ArrayList(AttribColor),
-    glass:  std.ArrayList(AttribGlass),
-    pillar:  std.ArrayList(AttribPillar),
+    color: std.ArrayList(AttribColor),
+    glass: std.ArrayList(AttribGlass),
+    pillar: std.ArrayList(AttribPillar),
     reflection: std.ArrayList(AttribReflection),
     texture: std.ArrayList(AttribTexture),
     wall_thin: std.ArrayList(AttribWallThin),
 };
 
-var attribute_components = AttributeComponents {
+var attribute_components = AttributeComponents{
     .canvas = std.ArrayList(AttribCanvas).init(allocator),
     .color = std.ArrayList(AttribColor).init(allocator),
     .glass = std.ArrayList(AttribGlass).init(allocator),
@@ -170,14 +169,14 @@ var attribute_components = AttributeComponents {
 /// Struct of Arrays (SoA) for all map information, that ist cells and their
 /// common attributes. Specific attributes are indexed
 const Map = struct {
-    cell_type:  [map_size_y][map_size_x]CellType,
-    i_canvas:   [map_size_y][map_size_x]usize,
-    i_color:    [map_size_y][map_size_x]usize,
-    i_glass:    [map_size_y][map_size_x]usize,
-    i_pillar:   [map_size_y][map_size_x]usize,
+    cell_type: [map_size_y][map_size_x]CellType,
+    i_canvas: [map_size_y][map_size_x]usize,
+    i_color: [map_size_y][map_size_x]usize,
+    i_glass: [map_size_y][map_size_x]usize,
+    i_pillar: [map_size_y][map_size_x]usize,
     i_reflection: [map_size_y][map_size_x]usize,
-    i_texture:  [map_size_y][map_size_x]usize,
-    i_wall:     [map_size_y][map_size_x]usize,
+    i_texture: [map_size_y][map_size_x]usize,
+    i_wall: [map_size_y][map_size_x]usize,
 };
 
 /// Currently used map, later to be loaded from file
@@ -185,115 +184,96 @@ var map_current: *Map = undefined;
 
 /// Temporary celltypes for convenience as long as maps are hardcoded here.
 /// This map will be copied over to that currently used in the init function.
-const map_celltype_tmp = [map_size_y][map_size_x]u8 {
-    [_]u8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 1, 1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2, 2, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 2, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    [_]u8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+const map_celltype_tmp = [map_size_y][map_size_x]u8{
+    [_]u8{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 1, 1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2, 2, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 2, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
 };
 
 fn fillMap() !void {
     // Attributes
     // Default attributes color
     // -- floor
-    try attribute_components.color.append(.{.r = 0.2, .g = 0.2, .b = 0.2, .a = 1.0});
+    try attribute_components.color.append(.{ .r = 0.2, .g = 0.2, .b = 0.2, .a = 1.0 });
     // -- wall, pillar
-    try attribute_components.color.append(.{.r = 1.0, .g = 1.0, .b = 1.0, .a = 0.9});
+    try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 1.0, .a = 0.9 });
     // -- mirror
-    try attribute_components.color.append(.{.r = 0.0, .g = 0.0, .b = 0.5, .a = 0.2});
+    try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.5, .a = 0.2 });
     // -- glass
-    try attribute_components.color.append(.{.r = 0.2, .g = 0.8, .b = 0.2, .a = 0.05});
+    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.05 });
 
     // Default attributes canvas
     // -- miror
-    try attribute_components.canvas.append(.{.top = 0.075,
-                                             .bottom = 0.075,
-                                             .r = 1.0,
-                                             .g = 1.0,
-                                             .b = 1.0,
-                                             .a = 0.9,
-                                             .tex_id = 1});
+    try attribute_components.canvas.append(.{ .top = 0.075, .bottom = 0.075, .r = 1.0, .g = 1.0, .b = 1.0, .a = 0.9, .tex_id = 1 });
     // -- glass
-    try attribute_components.canvas.append(.{.top = 0.01,
-                                             .bottom = 0.01,
-                                             .r = 0.2,
-                                             .g = 0.8,
-                                             .b = 0.2,
-                                             .a = 0.2,
-                                             .tex_id = 1});
+    try attribute_components.canvas.append(.{ .top = 0.01, .bottom = 0.01, .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.2, .tex_id = 1 });
     // -- no canvas
-    try attribute_components.canvas.append(.{.top = 0.0,
-                                             .bottom = 0.0,
-                                             .r = 1.0,
-                                             .g = 1.0,
-                                             .b = 1.0,
-                                             .a = 1.0,
-                                             .tex_id = 1});
+    try attribute_components.canvas.append(.{ .top = 0.0, .bottom = 0.0, .r = 1.0, .g = 1.0, .b = 1.0, .a = 1.0, .tex_id = 1 });
 
     // Default attributes glass
-    try attribute_components.glass.append(.{.n = 1.46});
-    try attribute_components.glass.append(.{.n = 1.20});
+    try attribute_components.glass.append(.{ .n = 1.46 });
+    try attribute_components.glass.append(.{ .n = 1.20 });
 
     // Default attributes pillar
-    try attribute_components.pillar.append(.{.radius = 0.1, .center_x = 0.5, .center_y = 0.8});
-    try attribute_components.pillar.append(.{.radius = 0.3, .center_x = 0.5, .center_y = 0.5});
-    try attribute_components.pillar.append(.{.radius = 0.5, .center_x = 0.5, .center_y = 0.5});
+    try attribute_components.pillar.append(.{ .radius = 0.1, .center_x = 0.5, .center_y = 0.8 });
+    try attribute_components.pillar.append(.{ .radius = 0.3, .center_x = 0.5, .center_y = 0.5 });
+    try attribute_components.pillar.append(.{ .radius = 0.5, .center_x = 0.5, .center_y = 0.5 });
 
     // Default attributes reflection
     // -- wall
-    try attribute_components.reflection.append(.{.limit = 3, .diffusion = 0.005, .sub_sampling = 2});
+    try attribute_components.reflection.append(.{ .limit = 3, .diffusion = 0.005, .sub_sampling = 2 });
     // -- floor, mirror, glass, pillar (as mirror)
-    try attribute_components.reflection.append(.{.limit = cfg.rc.segments_max, .diffusion = 0.0, .sub_sampling = 1});
-
+    try attribute_components.reflection.append(.{ .limit = cfg.rc.segments_max, .diffusion = 0.0, .sub_sampling = 1 });
 
     // Default attributes texture
-    try attribute_components.texture.append(.{.id = 0});
-    try attribute_components.texture.append(.{.id = 0});
-    try attribute_components.texture.append(.{.id = 0});
-    try attribute_components.texture.append(.{.id = 0});
+    try attribute_components.texture.append(.{ .id = 0 });
+    try attribute_components.texture.append(.{ .id = 0 });
+    try attribute_components.texture.append(.{ .id = 0 });
+    try attribute_components.texture.append(.{ .id = 0 });
 
     // Default attributes wall_thin
-    try attribute_components.wall_thin.append(.{.axis = .x, .from = 0.4, .to = 0.6});
+    try attribute_components.wall_thin.append(.{ .axis = .x, .from = 0.4, .to = 0.6 });
 
     // Copy tmp map and set some default values for celltypes
-    for (map_current.cell_type) |*row, j| {
-        for (row.*) |*value, i| {
+    for (&map_current.cell_type, 0..) |*row, j| {
+        for (&row.*, 0..) |*value, i| {
             value.* = @intToEnum(CellType, map_celltype_tmp[j][i]);
 
             map_current.i_pillar[j][i] = 1;
@@ -330,7 +310,7 @@ fn fillMap() !void {
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
-                .pillar  => {
+                .pillar => {
                     map_current.i_canvas[j][i] = 2;
                     map_current.i_color[j][i] = 1;
                     map_current.i_glass[j][i] = 0;
