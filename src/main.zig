@@ -40,6 +40,8 @@ pub fn main() !void {
     var perf_rc = try stats.Performance.init("Raycasting");
     var perf_ren = try stats.Performance.init("Rendering");
 
+    try sim.init();
+    defer sim.deinit();
     var sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
 
     while (gfx.isWindowOpen()) {
