@@ -9,9 +9,6 @@ const stats = @import("stats.zig");
 pub fn init() !void {
     // Initialise planet
     try objs.append(allocator, .{
-        // .acc = .{.x = 0.0, .y = 0.0},
-        // .vel = .{.x = 0.0, .y = 0.0},
-        // .pos = .{.x = 0.0, .y = 0.0},
         .acc = .{0.0, 0.0},
         .vel = .{0.0, 0.0},
         .pos = .{0.0, 0.0},
@@ -20,12 +17,9 @@ pub fn init() !void {
     });
 
     var i: u32 = 0;
-    while (i < 100_000) : (i += 1) {
+    while (i < 1_000) : (i += 1) {
     // Initialise station
     try objs.append(allocator, .{
-        // .acc = .{.x = 0.0, .y = 0.0},
-        // .vel = .{.x = 0.0, .y = 7.66e3},
-        // .pos = .{.x = 6413.0, .y = 0.0},
         .acc = .{0.0, 0.0},
         .vel = .{0.0, 7.66e3},
         .pos = .{6413.0, 0.0},
