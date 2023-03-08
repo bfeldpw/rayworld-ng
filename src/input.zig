@@ -72,6 +72,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     _ = scancode;
     _ = mods;
 
+    if (key == c.GLFW_KEY_H and action == c.GLFW_PRESS) sim.toggleStationHook();
     if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
     if (key == c.GLFW_KEY_Q and action == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 }

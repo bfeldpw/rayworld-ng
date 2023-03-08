@@ -42,10 +42,8 @@ pub fn init() !void {
     while (i < cfg.sim.number_of_debris) : (i += 1) {
 
         const o_std = prng.floatNorm(f64) * 350.0e3;
-        // const v_std = prng.floatNorm(f64) * 100.0;
         const ang_std = prng.floatNorm(f64) * 0.1;
         const o_r = orbit_radius + o_std;
-        // const o_v = orbit_velocity + v_std;
         const ang = prng.float(f64) * 2.0 * std.math.pi;
 
         const o_v = @sqrt(gravitational_constant * mass_planet / o_r);
@@ -80,6 +78,14 @@ pub fn createScene() void {
         const win_w = @intToFloat(f32, gfx.getWindowWidth());
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
 
+        var hook_x: f32 = 0.0;
+        var hook_y: f32 = 0.0;
+
+        if (cam.station_hook) {
+            hook_x = @floatCast(f32, objs.items(.pos)[1][0]);
+            hook_y = @floatCast(f32, objs.items(.pos)[1][1]);
+        }
+
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
                         @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
 
@@ -92,8 +98,8 @@ pub fn createScene() void {
             var i: usize = 2;
             while (i < objs.len) : (i += 1) {
                 const o = @max(0.1 * @floatCast(f32, objs.items(.radius)[i]), 2.0);
-                const x = (@floatCast(f32, objs.items(.pos)[i][0] + cam.x) * cam.zoom) + win_w * 0.5;
-                const y = (@floatCast(f32, objs.items(.pos)[i][1] + cam.y) * cam.zoom) + win_h * 0.5;
+                const x = (@floatCast(f32, objs.items(.pos)[i][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
+                const y = (@floatCast(f32, objs.items(.pos)[i][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
 
                 gfx.addQuad(x-o, y-o, x+o, y+o);
             }
@@ -102,16 +108,16 @@ pub fn createScene() void {
 
             // The station
             const s_o = @max(0.1 * @floatCast(f32, objs.items(.radius)[1]), 2.0);
-            const s_x = (@floatCast(f32, objs.items(.pos)[1][0] + cam.x) * cam.zoom) + win_w * 0.5;
-            const s_y = (@floatCast(f32, objs.items(.pos)[1][1] + cam.y) * cam.zoom) + win_h * 0.5;
+            const s_x = (@floatCast(f32, objs.items(.pos)[1][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
+            const s_y = (@floatCast(f32, objs.items(.pos)[1][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
 
             gfx.addQuad(s_x-s_o, s_y-s_o, s_x+s_o, s_y+s_o);
 
         gfx.endBatch();
 
         // The planet
-        const c_x = (@floatCast(f32, objs.items(.pos)[0][0] + cam.x) * cam.zoom) + win_w * 0.5;
-        const c_y = (@floatCast(f32, objs.items(.pos)[0][1] + cam.y) * cam.zoom) + win_h * 0.5;
+        const c_x = (@floatCast(f32, objs.items(.pos)[0][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
+        const c_y = (@floatCast(f32, objs.items(.pos)[0][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
         const c_r = cam.zoom * @floatCast(f32, objs.items(.radius)[0]);
         gfx.setColor4(1.0, 0.6, 0.0, 0.8);
         gfx.setLineWidth(4.0);
@@ -171,9 +177,12 @@ pub fn stop() void {
     @atomicStore(bool, &is_running, false, .Release);
 }
 
-pub fn toggleMap() void {
-    if (is_map_displayed) is_map_displayed = false
-    else is_map_displayed = true;
+pub inline fn toggleMap() void {
+    is_map_displayed = is_map_displayed != true;
+}
+
+pub inline fn toggleStationHook() void {
+    cam.station_hook = cam.station_hook != true;
 }
 
 pub inline fn moveMapLeft() void {
@@ -220,11 +229,13 @@ const Camera = struct {
     x: f32,
     y: f32,
     zoom: f32,
+    station_hook: bool,
 };
 var cam = Camera {
     .x = 0.0,
     .y = 0.0,
     .zoom = 5.0e-5,
+    .station_hook = false,
 };
 
 const vec_2d = @Vector(2, f64);
