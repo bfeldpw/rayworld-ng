@@ -67,6 +67,59 @@ pub fn deinit() void {
 }
 
 //-----------------------------------------------------------------------------//
+//   Getter/Setter
+//-----------------------------------------------------------------------------//
+
+pub inline fn getAspect() f32 {
+    return aspect;
+}
+
+pub inline fn getFPS() f32 {
+    return fps;
+}
+
+/// Get the active glfw window
+pub inline fn getWindow() ?*c.GLFWwindow {
+    return window;
+}
+
+pub inline fn getWindowHeight() u64 {
+    return window_h;
+}
+
+pub inline fn getWindowWidth() u64 {
+    return window_w;
+}
+
+pub fn setActiveTexture(tex: u32) void {
+    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex));
+}
+
+pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
+    c.glColor4f(r, g, b, a);
+}
+
+/// Set the frequency of the main loop
+pub fn setFpsTarget(f: f32) void {
+    if (f > 0.0) {
+        frame_time = @floatToInt(i64, 1.0 / f * 1.0e9);
+        log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
+    } else {
+        log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
+        frame_time = 16_666_667;
+    }
+}
+
+pub inline fn setViewport(x: u64, y: u64, w: u64, h: u64) void {
+    c.glViewport(@intCast(c_int, x), @intCast(c_int, y),
+                 @intCast(c_int, w), @intCast(c_int, h));
+}
+
+pub inline fn setViewportFull() void {
+    c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
+}
+
+//-----------------------------------------------------------------------------//
 //   Processing
 //-----------------------------------------------------------------------------//
 
@@ -581,10 +634,6 @@ pub fn finishFrame() !void {
     timer_main.reset();
 }
 
-pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
-    c.glColor4f(r, g, b, a);
-}
-
 pub fn renderFrame() !void {
     var iter = depth_levels_active.iterator(.{});
     while (iter.next()) |d| {
@@ -662,51 +711,11 @@ pub fn renderFrame() !void {
     quad_tex_statistics.finishFrame();
 }
 
-pub fn setActiveTexture(tex: u32) void {
-    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex));
-}
-
 pub fn isWindowOpen() bool {
     if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
         return false;
     } else {
         return true;
-    }
-}
-
-//-----------------------------------------------------------------------------//
-//   Getter/Setter
-//-----------------------------------------------------------------------------//
-
-pub inline fn getAspect() f32 {
-    return aspect;
-}
-
-pub inline fn getFPS() f32 {
-    return fps;
-}
-
-/// Get the active glfw window
-pub inline fn getWindow() ?*c.GLFWwindow {
-    return window;
-}
-
-pub inline fn getWindowHeight() u64 {
-    return window_h;
-}
-
-pub inline fn getWindowWidth() u64 {
-    return window_w;
-}
-
-/// Set the frequency of the main loop
-pub fn setFpsTarget(f: f32) void {
-    if (f > 0.0) {
-        frame_time = @floatToInt(i64, 1.0 / f * 1.0e9);
-        log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
-    } else {
-        log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
-        frame_time = 16_666_667;
     }
 }
 

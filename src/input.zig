@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("c.zig").c;
 const gfx = @import("graphics.zig");
 const plr = @import("player.zig");
+const sim = @import("sim.zig");
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
@@ -33,6 +34,12 @@ pub fn processInputs(frequency: f32) void {
     if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-6.0 / frequency);
     if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(3.0 / frequency);
     if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-3.0 / frequency);
+    if (c.glfwGetKey(window, c.GLFW_KEY_LEFT) == c.GLFW_PRESS) sim.moveMapLeft();
+    if (c.glfwGetKey(window, c.GLFW_KEY_RIGHT) == c.GLFW_PRESS) sim.moveMapRight();
+    if (c.glfwGetKey(window, c.GLFW_KEY_UP) == c.GLFW_PRESS) sim.moveMapUp();
+    if (c.glfwGetKey(window, c.GLFW_KEY_DOWN) == c.GLFW_PRESS) sim.moveMapDown();
+    if (c.glfwGetKey(window, c.GLFW_KEY_F3) == c.GLFW_PRESS) sim.zoomOutMap();
+    if (c.glfwGetKey(window, c.GLFW_KEY_F4) == c.GLFW_PRESS) sim.zoomInMap();
 }
 
 //-----------------------------------------------------------------------------//
@@ -65,6 +72,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     _ = scancode;
     _ = mods;
 
+    if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
     if (key == c.GLFW_KEY_Q and action == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 }
 

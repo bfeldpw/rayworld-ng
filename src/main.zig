@@ -64,6 +64,9 @@ pub fn main() !void {
         rc.createMap();
         perf_ren.stopMeasurement();
 
+        // sim.step();
+        sim.createScene();
+
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
         perf_fps.startMeasurement();

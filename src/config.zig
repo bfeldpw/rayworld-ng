@@ -25,3 +25,9 @@ pub const rc = struct {
     pub const segments_splits_max = 2;
     pub const threads_max = 16;
 };
+
+pub const sim = struct {
+    pub const acceleration = 10.0;
+    pub const fps_target = 200.0;
+    pub const number_of_debris = 10000.0;
+};
