@@ -1,3 +1,6 @@
+/// Globally enable/disable multithreading. Disabling
+/// is mostly used for debugging, frequency targets
+/// might not be met
 pub const multithreading = true;
 pub const debug_allocator = false;
 pub const sub_sampling_base = 4;

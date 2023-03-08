@@ -42,7 +42,9 @@ pub fn main() !void {
 
     try sim.init();
     defer sim.deinit();
-    var sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
+    var sim_thread: std.Thread = undefined;
+
+    if (cfg.multithreading) sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
 
     while (gfx.isWindowOpen()) {
 
@@ -64,7 +66,7 @@ pub fn main() !void {
         rc.createMap();
         perf_ren.stopMeasurement();
 
-        // sim.step();
+        if (!cfg.multithreading) sim.step();
         sim.createScene();
 
         try gfx.finishFrame();
@@ -74,7 +76,7 @@ pub fn main() !void {
     }
 
     sim.stop();
-    sim_thread.join();
+    if (cfg.multithreading) sim_thread.join();
 
     perf_map.printStats();
     perf_fps.printStats();
