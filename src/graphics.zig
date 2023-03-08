@@ -110,6 +110,10 @@ pub fn setFpsTarget(f: f32) void {
     }
 }
 
+pub inline fn setLineWidth(w: f32) void {
+    c.glLineWidth(w);
+}
+
 pub inline fn setViewport(x: u64, y: u64, w: u64, h: u64) void {
     c.glViewport(@intCast(c_int, x), @intCast(c_int, y),
                  @intCast(c_int, w), @intCast(c_int, h));
@@ -192,6 +196,18 @@ pub fn startBatchLineTextured() void {
 
 pub fn startBatchQuads() void {
     c.glBegin(c.GL_QUADS);
+}
+
+pub fn drawCircle(x: f32, y: f32, r: f32) void {
+    const nr_of_segments = 100.0;
+
+    c.glBegin(c.GL_LINE_LOOP);
+    var angle: f32 = 0.0;
+    const inc = 2.0 * std.math.pi / nr_of_segments;
+    while (angle < 2.0 * std.math.pi) : (angle += inc) {
+        c.glVertex2f(r * @cos(angle) + x, r * @sin(angle) + y);
+    }
+    c.glEnd();
 }
 
 pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32) void {

@@ -21,7 +21,7 @@ pub fn init() !void {
         .pos = .{0.0, 0.0},
         .mass = mass_planet,
         .mass_inv = 1.0 / mass_planet,
-        .radius = 6.371e6, // earth-like
+        .radius = 5e6,
     });
 
     const orbit_radius = 7e6;
@@ -82,28 +82,42 @@ pub fn createScene() void {
 
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
                         @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
+
         gfx.startBatchQuads();
 
-        gfx.setColor4(1.0, 0.5, 0.0, 0.3);
-        gfx.addQuad(0, 0 ,win_w , win_h);
-        gfx.setColor4(1.0, 0.5, 0.0, 0.8);
+            gfx.setColor4(1.0, 0.5, 0.0, 0.3);
+            gfx.addQuad(0, 0 ,win_w , win_h);
+            gfx.setColor4(1.0, 0.5, 0.0, 0.8);
 
-        const x0 = (@floatCast(f32, objs.items(.pos)[0][0] + cam.x) * cam.zoom) + win_w * 0.5;
-        const y0 = (@floatCast(f32, objs.items(.pos)[0][1] + cam.y) * cam.zoom) + win_h * 0.5;
+            var i: usize = 2;
+            while (i < objs.len) : (i += 1) {
+                const o = @max(0.1 * @floatCast(f32, objs.items(.radius)[i]), 2.0);
+                const x = (@floatCast(f32, objs.items(.pos)[i][0] + cam.x) * cam.zoom) + win_w * 0.5;
+                const y = (@floatCast(f32, objs.items(.pos)[i][1] + cam.y) * cam.zoom) + win_h * 0.5;
 
-        const o0 = 0.1 * cam.zoom * @floatCast(f32, objs.items(.radius)[0]);
-        gfx.addQuad(x0-o0, y0-o0, x0+o0, y0+o0);
+                gfx.addQuad(x-o, y-o, x+o, y+o);
+            }
 
-        var i: usize = 1;
-        while (i < objs.len) : (i += 1) {
-            const o = @max(0.1 * @floatCast(f32, objs.items(.radius)[i]), 2.0);
-            const x = (@floatCast(f32, objs.items(.pos)[i][0] + cam.x) * cam.zoom) + win_w * 0.5;
-            const y = (@floatCast(f32, objs.items(.pos)[i][1] + cam.y) * cam.zoom) + win_h * 0.5;
+            gfx.setColor4(1.0, 0.1, 0.0, 0.8);
 
-            gfx.addQuad(x-o, y-o, x+o, y+o);
-        }
+            // The station
+            const s_o = @max(0.1 * @floatCast(f32, objs.items(.radius)[1]), 2.0);
+            const s_x = (@floatCast(f32, objs.items(.pos)[1][0] + cam.x) * cam.zoom) + win_w * 0.5;
+            const s_y = (@floatCast(f32, objs.items(.pos)[1][1] + cam.y) * cam.zoom) + win_h * 0.5;
+
+            gfx.addQuad(s_x-s_o, s_y-s_o, s_x+s_o, s_y+s_o);
 
         gfx.endBatch();
+
+        // The planet
+        const c_x = (@floatCast(f32, objs.items(.pos)[0][0] + cam.x) * cam.zoom) + win_w * 0.5;
+        const c_y = (@floatCast(f32, objs.items(.pos)[0][1] + cam.y) * cam.zoom) + win_h * 0.5;
+        const c_r = cam.zoom * @floatCast(f32, objs.items(.radius)[0]);
+        gfx.setColor4(1.0, 0.6, 0.0, 0.8);
+        gfx.setLineWidth(4.0);
+        gfx.drawCircle(c_x, c_y, c_r);
+        gfx.setLineWidth(1.0);
+
         gfx.setViewportFull();
     }
 }
