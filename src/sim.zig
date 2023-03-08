@@ -25,9 +25,7 @@ pub fn init() !void {
     });
 
     const orbit_radius = 7e6;
-    const orbit_velocity= @sqrt(gravitational_constant * mass_planet / orbit_radius);
-
-    log_sim.debug("Orbit velocity = {} m/s", .{orbit_velocity});
+    const orbit_velocity = @sqrt(gravitational_constant * mass_planet / orbit_radius);
 
     var i: u32 = 0;
     // Initialise station
@@ -43,12 +41,14 @@ pub fn init() !void {
     i = 0;
     while (i < cfg.sim.number_of_debris) : (i += 1) {
 
-        const o_std = prng.floatNorm(f64) * 100.0e3;
-        const v_std = prng.floatNorm(f64) * 100.0;
+        const o_std = prng.floatNorm(f64) * 350.0e3;
+        // const v_std = prng.floatNorm(f64) * 100.0;
         const ang_std = prng.floatNorm(f64) * 0.1;
         const o_r = orbit_radius + o_std;
-        const o_v = orbit_velocity + v_std;
+        // const o_v = orbit_velocity + v_std;
         const ang = prng.float(f64) * 2.0 * std.math.pi;
+
+        const o_v = @sqrt(gravitational_constant * mass_planet / o_r);
 
         // Initialise debris
         try objs.append(allocator, .{
