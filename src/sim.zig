@@ -78,12 +78,12 @@ pub fn createScene() void {
         const win_w = @intToFloat(f32, gfx.getWindowWidth());
         const win_h = @intToFloat(f32, gfx.getWindowHeight());
 
-        var hook_x: f32 = 0.0;
-        var hook_y: f32 = 0.0;
+        var hook: vec_2d = .{0.0, 0.0};
+        var zoom_x2: vec_2d = @splat(2, cam.zoom);
+        var win_center: vec_2d = .{win_w * 0.5, win_h * 0.5};
 
         if (cam.station_hook) {
-            hook_x = @floatCast(f32, objs.items(.pos)[1][0]);
-            hook_y = @floatCast(f32, objs.items(.pos)[1][1]);
+            hook = objs.items(.pos)[1];
         }
 
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
@@ -98,30 +98,29 @@ pub fn createScene() void {
             var i: usize = 2;
             while (i < objs.len) : (i += 1) {
                 const o = @max(0.1 * @floatCast(f32, objs.items(.radius)[i]), 2.0);
-                const x = (@floatCast(f32, objs.items(.pos)[i][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
-                const y = (@floatCast(f32, objs.items(.pos)[i][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
+                const p = (objs.items(.pos)[i] + cam.p - hook) * zoom_x2 + win_center;
 
-                gfx.addQuad(x-o, y-o, x+o, y+o);
+                gfx.addQuad(@floatCast(f32, p[0])-o, @floatCast(f32, p[1])-o,
+                            @floatCast(f32, p[0])+o, @floatCast(f32, p[1])+o);
             }
 
             gfx.setColor4(1.0, 0.1, 0.0, 0.8);
 
             // The station
             const s_o = @max(0.1 * @floatCast(f32, objs.items(.radius)[1]), 2.0);
-            const s_x = (@floatCast(f32, objs.items(.pos)[1][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
-            const s_y = (@floatCast(f32, objs.items(.pos)[1][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
+            const s_p = (objs.items(.pos)[1] + cam.p - hook) * zoom_x2 + win_center;
 
-            gfx.addQuad(s_x-s_o, s_y-s_o, s_x+s_o, s_y+s_o);
+            gfx.addQuad(@floatCast(f32, s_p[0])-s_o, @floatCast(f32, s_p[1])-s_o,
+                        @floatCast(f32, s_p[0])+s_o, @floatCast(f32, s_p[1])+s_o);
 
         gfx.endBatch();
 
         // The planet
-        const c_x = (@floatCast(f32, objs.items(.pos)[0][0] + cam.x - hook_x) * cam.zoom) + win_w * 0.5;
-        const c_y = (@floatCast(f32, objs.items(.pos)[0][1] + cam.y - hook_y) * cam.zoom) + win_h * 0.5;
+        const c_p = (objs.items(.pos)[0] + cam.p - hook) * zoom_x2 + win_center;
         const c_r = cam.zoom * @floatCast(f32, objs.items(.radius)[0]);
         gfx.setColor4(1.0, 0.6, 0.0, 0.8);
         gfx.setLineWidth(4.0);
-        gfx.drawCircle(c_x, c_y, c_r);
+        gfx.drawCircle(@floatCast(f32, c_p[0]), @floatCast(f32, c_p[1]), c_r);
         gfx.setLineWidth(1.0);
 
         gfx.setViewportFull();
@@ -186,19 +185,19 @@ pub inline fn toggleStationHook() void {
 }
 
 pub inline fn moveMapLeft() void {
-    cam.x += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[0] += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
 }
 
 pub inline fn moveMapRight() void {
-    cam.x -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[0] -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
 }
 
 pub inline fn moveMapUp() void {
-    cam.y += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[1] += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
 }
 
 pub inline fn moveMapDown() void {
-    cam.y -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[1] -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
 }
 
 pub inline fn zoomInMap() void {
@@ -226,14 +225,12 @@ var is_running: bool = true;
 var frame_time = @floatToInt(u64, 1.0/cfg.sim.fps_target*1.0e9);
 
 const Camera = struct {
-    x: f32,
-    y: f32,
+    p: vec_2d,
     zoom: f32,
     station_hook: bool,
 };
 var cam = Camera {
-    .x = 0.0,
-    .y = 0.0,
+    .p = .{0.0, 0.0},
     .zoom = 5.0e-5,
     .station_hook = false,
 };

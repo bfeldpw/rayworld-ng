@@ -60,14 +60,14 @@ pub fn main() !void {
         // rc_thread.join();
         perf_rc.stopMeasurement();
 
+        if (!cfg.multithreading) sim.step();
+
         perf_ren.startMeasurement();
         rc.createScene();
         try gfx.renderFrame();
         rc.createMap();
-        perf_ren.stopMeasurement();
-
-        if (!cfg.multithreading) sim.step();
         sim.createScene();
+        perf_ren.stopMeasurement();
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
