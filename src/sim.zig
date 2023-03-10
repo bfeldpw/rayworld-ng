@@ -9,7 +9,7 @@ const stats = @import("stats.zig");
 
 pub fn init() !void {
 
-    const mass_planet = 6e24;
+    const mass_planet = 1e26;
 
     var r_gen = std.rand.DefaultPrng.init(23);
     const prng = r_gen.random();
