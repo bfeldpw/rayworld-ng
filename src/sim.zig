@@ -9,10 +9,9 @@ const stats = @import("stats.zig");
 
 pub fn init() !void {
 
-    const mass_planet = 1e26;
+    timing.init();
 
-    var r_gen = std.rand.DefaultPrng.init(23);
-    const prng = r_gen.random();
+    const mass_planet = 1e26;
 
     // Initialise planet
     try objs.append(allocator, .{
@@ -25,39 +24,14 @@ pub fn init() !void {
     });
 
     const orbit_radius = 7e6;
-    const orbit_velocity = @sqrt(gravitational_constant * mass_planet / orbit_radius);
+    // const orbit_velocity = @sqrt(gravitational_constant * mass_planet / orbit_radius);
 
-    var i: u32 = 0;
-    // Initialise station
-    try objs.append(allocator, .{
-        .acc = .{0.0, 0.0},
-        .vel = .{0.0, orbit_velocity},
-        .pos = .{orbit_radius, 0.0},
-        .mass = 500e3, // ISS-like ~ 500t
-        .mass_inv = 1.0 / 500e3,
-        .radius = 50, // ISS-like ~94m x 73m
-    });
-
-    i = 0;
-    while (i < cfg.sim.number_of_debris) : (i += 1) {
-
-        const o_std = prng.floatNorm(f64) * 350.0e3;
-        const ang_std = prng.floatNorm(f64) * 0.1;
-        const o_r = orbit_radius + o_std;
-        const ang = prng.float(f64) * 2.0 * std.math.pi;
-
-        const o_v = @sqrt(gravitational_constant * mass_planet / o_r);
-
-        // Initialise debris
-        try objs.append(allocator, .{
-            .acc = .{0.0, 0.0},
-            .vel = .{-o_v * @cos(ang+ang_std), o_v * @sin(ang+ang_std)},
-            .pos = .{o_r * @sin(ang+ang_std), o_r * @cos(ang+ang_std)},
-            .mass = 20e3,
-            .mass_inv = 1.0 / 20e3,
-            .radius = 5,
-        });
+    switch (cfg.sim.scenario) {
+        .falling_station => try initFallingStation(mass_planet, orbit_radius),
+        .breaking_asteriod => try initBreakingAsteriod(mass_planet, orbit_radius),
+        else => {},
     }
+
     log_sim.debug("Number of objects: {}", .{objs.len});
 }
 
@@ -97,7 +71,7 @@ pub fn createScene() void {
 
             var i: usize = 2;
             while (i < objs.len) : (i += 1) {
-                const o = @max(0.1 * @floatCast(f32, objs.items(.radius)[i]), 2.0);
+                const o = @max(@floatCast(f32, objs.items(.radius)[i]) * cam.zoom, 1.5);
                 const p = (objs.items(.pos)[i] + cam.p - hook) * zoom_x2 + win_center;
 
                 gfx.addQuad(@floatCast(f32, p[0])-o, @floatCast(f32, p[1])-o,
@@ -107,7 +81,7 @@ pub fn createScene() void {
             gfx.setColor4(1.0, 0.1, 0.0, 0.8);
 
             // The station
-            const s_o = @max(0.1 * @floatCast(f32, objs.items(.radius)[1]), 2.0);
+            const s_o = @max(@floatCast(f32, objs.items(.radius)[1]) * cam.zoom, 2.0);
             const s_p = (objs.items(.pos)[1] + cam.p - hook) * zoom_x2 + win_center;
 
             gfx.addQuad(@floatCast(f32, s_p[0])-s_o, @floatCast(f32, s_p[1])-s_o,
@@ -127,6 +101,7 @@ pub fn createScene() void {
     }
 }
 
+
 pub fn run() !void {
     var timer = try std.time.Timer.start();
 
@@ -134,14 +109,16 @@ pub fn run() !void {
 
     var perf = try stats.Performance.init("Sim");
     while (is_running) {
-        perf.startMeasurement();
-        step();
-        perf.stopMeasurement();
-
+        if (timing.is_paused) {
+            perf.startMeasurement();
+            step();
+            perf.stopMeasurement();
+        }
         const t = timer.read();
 
-        const t_step = @subWithOverflow(frame_time, t);
-        if (t_step[1] == 0) std.time.sleep(t_step[0]);
+        const t_step = @subWithOverflow(timing.frame_time, t);
+        if (t_step[1] == 0) std.time.sleep(t_step[0])
+        else timing.decreaseFpsTarget();
 
         timer.reset();
     }
@@ -149,7 +126,7 @@ pub fn run() !void {
 }
 
 pub fn step() void {
-    const dt = @splat(2, @as(f64, cfg.sim.acceleration/cfg.sim.fps_target));
+    const dt = @splat(2, @as(f64, timing.acceleration/timing.fps_base));
 
     var i: usize = 1;
     while (i < objs.len) : (i += 1) {
@@ -163,6 +140,10 @@ pub fn step() void {
         const e_0 = d / r_x2;
         objs.items(.acc)[i] = e_0 * a_x2;
     }
+    // if (cfg.sim.scenario == .falling_station) {
+        var drag: f64 = -1.0e-5;
+        objs.items(.acc)[1] += @splat(2, drag) * objs.items(.vel)[1];
+    // }
 
     i = 0;
     while (i < objs.len) : (i += 1) {
@@ -174,14 +155,6 @@ pub fn step() void {
 pub fn stop() void {
     log_sim.info("Simulation terminating", .{});
     @atomicStore(bool, &is_running, false, .Release);
-}
-
-pub inline fn toggleMap() void {
-    is_map_displayed = is_map_displayed != true;
-}
-
-pub inline fn toggleStationHook() void {
-    cam.station_hook = cam.station_hook != true;
 }
 
 pub inline fn moveMapLeft() void {
@@ -200,6 +173,18 @@ pub inline fn moveMapDown() void {
     cam.p[1] -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
 }
 
+pub inline fn toggleMap() void {
+    is_map_displayed = is_map_displayed != true;
+}
+
+pub inline fn togglePause() void {
+    timing.is_paused = timing.is_paused != true;
+}
+
+pub inline fn toggleStationHook() void {
+    cam.station_hook = cam.station_hook != true;
+}
+
 pub inline fn zoomInMap() void {
     cam.zoom *= 1.0 + 0.1 * 60.0 / gfx.getFPS();
 }
@@ -207,6 +192,55 @@ pub inline fn zoomInMap() void {
 pub inline fn zoomOutMap() void {
     cam.zoom *= 1.0 - 0.1 * 60.0 / gfx.getFPS();
 }
+
+pub const timing = struct {
+
+    pub fn accelerate() void {
+        if (10.0 * acceleration / fps_base <= 10.0) {
+            acceleration *= 10.0;
+        } else {
+            log_sim.warn("Acceleration too high, keeping {d:.0} for numeric stability.", .{acceleration});
+        }
+        log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
+    }
+
+    pub fn decelerate() void {
+        acceleration *= 0.1;
+        log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
+    }
+
+    pub fn decreaseFpsTarget() void {
+        if (fps_target > 100.0) {
+            fps_target -= 100.0;
+            frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
+            log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
+        }
+    }
+
+    pub fn increaseFpsTarget() void {
+        if (fps_target < 1000.0) {
+            fps_target += 100.0;
+            frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
+            log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
+        }
+    }
+
+    fn init() void {
+        fps_target = cfg.sim.fps_target;
+        acceleration = cfg.sim.acceleration;
+        if (acceleration / fps_target > 10.0) {
+            acceleration = 10.0 * fps_target;
+            log_sim.warn("Acceleration too high, capping at {d:.0} for numeric stability.", .{acceleration});
+        }
+        log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
+    }
+
+    var acceleration: f32 = 1.0;
+    var fps_base: f32 = 100.0;
+    var fps_target: f32 = 100.0;
+    var frame_time = @floatToInt(u64, 1.0/cfg.sim.fps_target*1.0e9);
+    var is_paused = false;
+};
 
 //-----------------------------------------------------------------------------//
 //   Internal
@@ -222,7 +256,6 @@ const gravitational_constant = 6.6743015e-11;
 
 var is_map_displayed: bool = false;
 var is_running: bool = true;
-var frame_time = @floatToInt(u64, 1.0/cfg.sim.fps_target*1.0e9);
 
 const Camera = struct {
     p: vec_2d,
@@ -252,3 +285,80 @@ const Objects = std.MultiArrayList(PhysicalObject);
 
 var objs = Objects{};
 
+fn initFallingStation(mass_planet: f64, orbit_radius: f64) !void {
+    var r_gen = std.rand.DefaultPrng.init(23);
+    const prng = r_gen.random();
+
+    const o_sr = orbit_radius + 2.0e6;
+    const o_sv = @sqrt(gravitational_constant * mass_planet / o_sr);
+    var i: u32 = 0;
+    // Initialise station
+    try objs.append(allocator, .{
+        .acc = .{0.0, 0.0},
+        .vel = .{0.0, o_sv},
+        .pos = .{o_sr, 0.0},
+        .mass = 500e3, // ISS-like ~ 500t
+        .mass_inv = 1.0 / 500e3,
+        .radius = 50, // ISS-like ~94m x 73m
+    });
+
+    i = 0;
+    while (i < cfg.sim.number_of_debris) : (i += 1) {
+
+        const o_std = prng.floatNorm(f64) * 350.0e3;
+        const ang_std = prng.floatNorm(f64) * 0.1;
+        const o_r = orbit_radius + o_std;
+        const ang = prng.float(f64) * 2.0 * std.math.pi;
+
+        const o_v = @sqrt(gravitational_constant * mass_planet / o_r);
+
+        // Initialise debris
+        try objs.append(allocator, .{
+            .acc = .{0.0, 0.0},
+            .vel = .{-o_v * @cos(ang+ang_std), o_v * @sin(ang+ang_std)},
+            .pos = .{o_r * @sin(ang+ang_std), o_r * @cos(ang+ang_std)},
+            .mass = 20e3,
+            .mass_inv = 1.0 / 20e3,
+            .radius = 5,
+        });
+    }
+}
+
+fn initBreakingAsteriod(mass_planet: f64, orbit_radius: f64) !void {
+    var r_gen = std.rand.DefaultPrng.init(23);
+    const prng = r_gen.random();
+
+    const o_sr = orbit_radius + 1.0e6;
+    const o_sv = @sqrt(gravitational_constant * mass_planet / o_sr);
+    var i: u32 = 0;
+    // Initialise station
+    try objs.append(allocator, .{
+        .acc = .{0.0, 0.0},
+        .vel = .{0.0, o_sv},
+        .pos = .{-o_sr, 0.0},
+        .mass = 500e3, // ISS-like ~ 500t
+        .mass_inv = 1.0 / 500e3,
+        .radius = 50, // ISS-like ~94m x 73m
+    });
+
+    const o_dr = orbit_radius;
+    const o_dv = @sqrt(gravitational_constant * mass_planet / o_dr);
+    i = 0;
+    while (i < cfg.sim.number_of_debris) : (i += 1) {
+
+        const o_std = prng.floatNorm(f64) * 50.0e3;
+        const o_r = orbit_radius + o_std;
+
+        // const o_v = @sqrt(gravitational_constant * mass_planet / o_r);
+
+        // Initialise debris
+        try objs.append(allocator, .{
+            .acc = .{0.0, 0.0},
+            .vel = .{0.0, o_dv+prng.floatNorm(f64) * 1.0e2},
+            .pos = .{o_r, prng.floatNorm(f64) * 25.0e3},
+            .mass = 20e3,
+            .mass_inv = 1.0 / 20e3,
+            .radius = 5,
+        });
+    }
+}

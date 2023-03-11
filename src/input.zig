@@ -72,8 +72,13 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     _ = scancode;
     _ = mods;
 
+    if (key == c.GLFW_KEY_F5 and action == c.GLFW_PRESS) sim.timing.decelerate();
+    if (key == c.GLFW_KEY_F6 and action == c.GLFW_PRESS) sim.timing.accelerate();
+    if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
+    if (key == c.GLFW_KEY_F8 and action == c.GLFW_PRESS) sim.timing.increaseFpsTarget();
     if (key == c.GLFW_KEY_H and action == c.GLFW_PRESS) sim.toggleStationHook();
     if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
+    if (key == c.GLFW_KEY_P and action == c.GLFW_PRESS) sim.togglePause();
     if (key == c.GLFW_KEY_Q and action == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 }
 

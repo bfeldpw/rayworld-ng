@@ -30,7 +30,15 @@ pub const rc = struct {
 };
 
 pub const sim = struct {
-    pub const acceleration = 10.0;
-    pub const fps_target = 200.0;
+    /// Default simulation acceleration, should be no more than 10x fps_target
+    /// in order to ensure stability
+    pub const acceleration = 100.0;
+    pub const fps_target = 100.0;
     pub const number_of_debris = 10000.0;
+    pub const scenario = .breaking_asteriod;
+};
+
+const SimScenario = enum {
+    falling_station,
+    breaking_asteriod,
 };
