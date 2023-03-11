@@ -20,6 +20,9 @@ pub const std_options = struct {
 };
 
 pub fn main() !void {
+
+    printUsage();
+
     try gfx.init();
     defer gfx.deinit();
     try rc.init();
@@ -94,4 +97,24 @@ fn adjustFovOnAspectChange() void {
         plr.setFOV(std.math.degreesToRadians(f32, cfg.player_fov));
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
+}
+
+fn printUsage() void {
+    std.debug.print("\n Welcome to Rayworld \n" ++
+                    "=====================\n" ++
+                    "MOVEMENT\n" ++
+                    "  Use mouse to turn/look around\n" ++
+                    "  WASD: move\n" ++
+                    "  E/C:  to move up/down (debug)\n" ++
+                    "SIMULATION\n" ++
+                    "  Cursor Keys (l/r/u/d): move map\n" ++
+                    "  M:     toggle system map\n" ++
+                    "  H:     toggle station hook\n" ++
+                    "SIMULATION TIMING\n" ++
+                    "  P:     toggle pause\n" ++
+                    "  F3/F4: zoom (out/in)\n" ++
+                    "  F5/F6: time acceleration (decrease/increase x10)\n" ++
+                    "  F7/F8: time acceleration thread frequency\n" ++
+                    "         - 100Hz base x factor\n" ++
+                    "         - automatically reduced if load too high\n\n", .{});
 }
