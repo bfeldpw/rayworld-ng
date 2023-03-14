@@ -12,8 +12,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    exe.install();
-
     const zstbi_pkg = zstbi.Package.build(b, target, optimize, .{});
     exe.addModule("zstbi", zstbi_pkg.zstbi);
     zstbi_pkg.link(exe);

@@ -105,7 +105,7 @@ fn printUsage() void {
                     "MOVEMENT\n" ++
                     "  Use mouse to turn/look around\n" ++
                     "  WASD: move\n" ++
-                    "  E/C:  to move up/down (debug)\n" ++
+                    "  E/C:  move up/down (debug)\n" ++
                     "SIMULATION\n" ++
                     "  Cursor Keys (l/r/u/d): move map\n" ++
                     "  M:     toggle system map\n" ++
