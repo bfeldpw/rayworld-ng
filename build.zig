@@ -16,6 +16,8 @@ pub fn build(b: *std.Build) void {
     exe.addModule("zstbi", zstbi_pkg.zstbi);
     zstbi_pkg.link(exe);
 
+    exe.addIncludePath("src");
+    exe.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
     exe.linkLibC();
     exe.linkSystemLibrary("gl");
     exe.linkSystemLibrary("glfw");
@@ -40,6 +42,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    exe_tests.addIncludePath("src");
+    exe_tests.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
+    exe_tests.linkLibC();
+    exe_tests.linkSystemLibrary("gl");
+    exe_tests.linkSystemLibrary("glfw");
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);

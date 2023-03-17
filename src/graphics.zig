@@ -78,6 +78,13 @@ pub inline fn getFPS() f32 {
     return fps;
 }
 
+pub fn getTextureId() u32 {
+    var tex_id: c.GLuint = 0;
+    c.glGenTextures(1, &tex_id);
+
+    return @intCast(u32, tex_id);
+}
+
 /// Get the active glfw window
 pub inline fn getWindow() ?*c.GLFWwindow {
     return window;
@@ -127,14 +134,27 @@ pub inline fn setViewportFull() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn createTexture(w: u32, h: u32, data: *[]u8) !u32 {
+pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
+    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c_uint, tex_id));
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 1,
+                   @intCast(c_int, w), @intCast(c_int, h), 0,
+                   c.GL_RED, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
+    c.glBindTexture(c.GL_TEXTURE_2D, tex_id);
+
+    log_gfx.debug("Texture generated with ID={}", .{tex_id});
+}
+
+pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     var tex: c.GLuint = 0;
     c.glGenTextures(1, &tex);
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(c_int, w), @intCast(c_int, h), 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data.*));
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(c_int, w), @intCast(c_int, h), 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
 
     log_gfx.debug("Texture generated with ID={}", .{tex});
@@ -914,11 +934,14 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "setFrequency" {
+test "set_frequency_invalid_expected" {
+    setFpsTarget(0);
+    try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
+}
+
+test "set_frequency" {
     setFpsTarget(40);
     try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
     setFpsTarget(100);
     try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
-    setFpsTarget(0);
-    try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
 }

@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
+const fnt = @import("font_manager.zig");
 const gfx = @import("graphics.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
@@ -31,6 +32,11 @@ pub fn main() !void {
     gfx.setFpsTarget(cfg.gfx.fps_target);
     input.setWindow(gfx.getWindow());
     input.init();
+
+    fnt.init();
+    defer fnt.deinit();
+    try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
+    try fnt.rasterise("anka", 32, gfx.getTextureId());
 
     var perf_map = try stats.Performance.init("Map");
     perf_map.startMeasurement();
@@ -71,6 +77,8 @@ pub fn main() !void {
         rc.createMap();
         sim.createScene();
         perf_ren.stopMeasurement();
+
+        fnt.renderAtlas();
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
