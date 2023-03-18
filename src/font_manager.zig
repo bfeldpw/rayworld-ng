@@ -38,12 +38,12 @@ pub fn deinit() void {
     }
     fonts_map.deinit();
     {
-        var iter = fonts_char_info.iterator();
+        var iter = font_char_info_by_id.iterator();
         while (iter.next()) |v| {
             allocator.destroy(v.value_ptr.*);
         }
     }
-    fonts_char_info.deinit();
+    font_char_info_by_id.deinit();
     {
         var iter = font_atlas_by_id.iterator();
         while (iter.next()) |v| {
@@ -122,7 +122,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
         fm_log.warn("{}", .{e});
         return error.FontRasterisingFailed;
     };
-    fonts_char_info.put(tex_id, font_current_char_info) catch |e| {
+    font_char_info_by_id.put(tex_id, font_current_char_info) catch |e| {
         fm_log.warn("{}", .{e});
         return error.FontRasterisingFailed;
     };
@@ -167,7 +167,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
             c.stbtt_PackSetOversampling(&pack_context, 1, 1);
             const r1 = c.stbtt_PackFontRange(&pack_context, @ptrCast([*c]u8, fonts_map.get(font_name).?),
                                             0, font_size, ascii_first, ascii_nr,
-                                            @ptrCast([*c]c.stbtt_packedchar, fonts_char_info.get(tex_id).?));
+                                            @ptrCast([*c]c.stbtt_packedchar, font_char_info_by_id.get(tex_id).?));
             if (r1 == 0) {
                 fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
                             .{font_atlas_size_default * atlas_scale});
@@ -189,6 +189,24 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
         gfx.createTexture1C(font_atlas_size_default * @intCast(u32, atlas_scale/2),
                             font_atlas_size_default * @intCast(u32, atlas_scale/2),
                             font_atlas_by_id.get(tex_id).?, tex_id);
+    }
+}
+
+pub fn removeFont(name: []const u8) FontError!void {
+    var success: bool = true;
+    const id = font_id_by_name.get(name);
+    if (id == null) {
+        success = false;
+    } else if (font_atlas_by_id.contains(id.?)) {
+        success = success and font_id_by_name.remove(name);
+        success = success and font_atlas_by_id.remove(id.?);
+        success = success and font_char_info_by_id.remove(id.?);
+    } else {
+        success = false;
+    }
+    if (!success) {
+        fm_log.warn("Couldn't remove font {s}, unknown font name", .{name});
+        return error.FontNameUnknown;
     }
 }
 
@@ -230,11 +248,11 @@ const font_atlas_scale_max = 8;
 /// Raw font information as read from file
 var fonts_map = std.StringHashMap([]u8).init(allocator);
 
-/// Font information like kerning for all rasterised fonts
-var fonts_char_info = std.AutoHashMap(c_uint, *c.stbtt_packedchar).init(allocator);
-
 /// Font information of current font
 var font_current_char_info: *c.stbtt_packedchar = undefined;
+
+/// Font information like kerning for all rasterised fonts
+var font_char_info_by_id = std.AutoHashMap(c_uint, *c.stbtt_packedchar).init(allocator);
 
 /// Access atlas by given texture id
 var font_atlas_by_id = std.AutoHashMap(c_uint, []u8).init(allocator);
@@ -250,18 +268,52 @@ test "open_font_file_fail_expected" {
     const actual = addFont("non_existing_fond_name", "./this/font/does/not/exist.ttf");
     const expected = FontError.FontLoadingFailed;
     try std.testing.expectError(expected, actual);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 0);
 }
 
 test "open_font_file" {
     try addFont("anka", "resource/AnkaCoder-r.ttf");
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "rasterise_font" {
     try rasterise("anka", 16, 0);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "rasterise_font_fail_expected" {
     const actual = rasterise("no_font_name", 16, 0);
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "remove_font_fail_expected" {
+    const actual = removeFont("anka_17");
+    const expected = error.FontNameUnknown;
+    try std.testing.expectError(expected, actual);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "remove_font" {
+    try removeFont("anka_16");
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
