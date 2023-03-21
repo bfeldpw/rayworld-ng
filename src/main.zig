@@ -37,6 +37,8 @@ pub fn main() !void {
     defer fnt.deinit();
     try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
     try fnt.rasterise("anka", 32, gfx.getTextureId());
+    try fnt.rasterise("anka", 64, gfx.getTextureId());
+    try fnt.setFont("anka", 32);
 
     var perf_map = try stats.Performance.init("Map");
     perf_map.startMeasurement();
@@ -78,7 +80,10 @@ pub fn main() !void {
         sim.createScene();
         perf_ren.stopMeasurement();
 
-        fnt.renderAtlas();
+        try fnt.renderAtlas();
+        try fnt.renderText("Hello World", 0.0, 0.0);
+        try fnt.renderText(usage, 0.0, 200.0);
+        // try fnt.renderText("Pred Lander", 400.0, 400.0);
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
@@ -108,21 +113,40 @@ fn adjustFovOnAspectChange() void {
 }
 
 fn printUsage() void {
-    std.debug.print("\n Welcome to Rayworld \n" ++
-                    "=====================\n" ++
-                    "MOVEMENT\n" ++
-                    "  Use mouse to turn/look around\n" ++
-                    "  WASD: move\n" ++
-                    "  E/C:  move up/down (debug)\n" ++
-                    "SIMULATION\n" ++
-                    "  Cursor Keys (l/r/u/d): move map\n" ++
-                    "  M:     toggle system map\n" ++
-                    "  H:     toggle station hook\n" ++
-                    "SIMULATION TIMING\n" ++
-                    "  P:     toggle pause\n" ++
-                    "  F3/F4: zoom (out/in)\n" ++
-                    "  F5/F6: time acceleration (decrease/increase x10)\n" ++
-                    "  F7/F8: time acceleration thread frequency\n" ++
-                    "         - 100Hz base x factor\n" ++
-                    "         - automatically reduced if load too high\n\n", .{});
+    std.debug.print(usage, .{});
+    // std.debug.print("\n Welcome to Rayworld \n" ++
+    //                 "=====================\n" ++
+    //                 "MOVEMENT\n" ++
+    //                 "  Use mouse to turn/look around\n" ++
+    //                 "  WASD: move\n" ++
+    //                 "  E/C:  move up/down (debug)\n" ++
+    //                 "SIMULATION\n" ++
+    //                 "  Cursor Keys (l/r/u/d): move map\n" ++
+    //                 "  M:     toggle system map\n" ++
+    //                 "  H:     toggle station hook\n" ++
+    //                 "SIMULATION TIMING\n" ++
+    //                 "  P:     toggle pause\n" ++
+    //                 "  F3/F4: zoom (out/in)\n" ++
+    //                 "  F5/F6: time acceleration (decrease/increase x10)\n" ++
+    //                 "  F7/F8: time acceleration thread frequency\n" ++
+    //                 "         - 100Hz base x factor\n" ++
+    //                 "         - automatically reduced if load too high\n\n", .{});
 }
+
+const usage = "\n Welcome to Rayworld \n" ++
+            "=====================\n" ++
+            "MOVEMENT\n" ++
+            "  Use mouse to turn/look around\n" ++
+            "  WASD: move\n" ++
+            "  E/C:  move up/down (debug)\n" ++
+            "SIMULATION\n" ++
+            "  Cursor Keys (l/r/u/d): move map\n" ++
+            "  M:     toggle system map\n" ++
+            "  H:     toggle station hook\n" ++
+            "SIMULATION TIMING\n" ++
+            "  P:     toggle pause\n" ++
+            "  F3/F4: zoom (out/in)\n" ++
+            "  F5/F6: time acceleration (decrease/increase x10)\n" ++
+            "  F7/F8: time acceleration thread frequency\n" ++
+            "         - 100Hz base x factor\n" ++
+            "         - automatically reduced if load too high\n\n";

@@ -99,6 +99,7 @@ pub inline fn getWindowWidth() u64 {
 }
 
 pub fn setActiveTexture(tex: u32) void {
+    c.glActiveTexture(c.GL_TEXTURE0);
     c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex));
 }
 
@@ -139,9 +140,9 @@ pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 1,
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_ALPHA8,
                    @intCast(c_int, w), @intCast(c_int, h), 0,
-                   c.GL_RED, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
+                   c.GL_ALPHA, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
     c.glBindTexture(c.GL_TEXTURE_2D, tex_id);
 
     log_gfx.debug("Texture generated with ID={}", .{tex_id});

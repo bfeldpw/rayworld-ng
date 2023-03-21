@@ -40,7 +40,7 @@ pub fn deinit() void {
     {
         var iter = font_char_info_by_id.iterator();
         while (iter.next()) |v| {
-            allocator.destroy(v.value_ptr.*);
+            allocator.free(v.value_ptr.*);
         }
     }
     font_char_info_by_id.deinit();
@@ -51,6 +51,7 @@ pub fn deinit() void {
         }
     }
     font_atlas_by_id.deinit();
+    font_atlas_size_by_id.deinit();
 
     {
         var iter = font_id_by_name.keyIterator();
@@ -65,13 +66,65 @@ pub fn deinit() void {
 }
 
 //-----------------------------------------------------------------------------//
+//   Getter/Setter
+//-----------------------------------------------------------------------------//
+
+pub fn setFont(font_name: []const u8, font_size: f32) !void {
+    if (fonts_map.contains(font_name)) {
+        current.font_name = font_name;
+        current.font_size = font_size;
+
+        // Get font information to use correct baseline
+        var font_info: c.stbtt_fontinfo = undefined;
+        _ = c.stbtt_InitFont(@ptrCast([*c] c.stbtt_fontinfo, &font_info),
+                             @ptrCast([*c]const u8, fonts_map.get(font_name).?), 0);
+        const font_scale = c.stbtt_ScaleForPixelHeight(&font_info, font_size);
+
+        var font_ascent: c_int = 0;
+        c.stbtt_GetFontVMetrics(&font_info, &font_ascent, 0, 0);
+        current.baseline = @intToFloat(f32, font_ascent) * font_scale;
+        fm_log.debug("Baseline = {d:.2}", .{current.baseline});
+
+        // Setup parameters for current font
+        const font_designator = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
+                                                   .{current.font_name, font_size}) catch |e| {
+            fm_log.warn("{}", .{e});
+            return error.FontRasterisingFailed;
+        };
+        defer allocator.free(font_designator);
+
+        var success = true;
+        if (font_id_by_name.contains(font_designator)) {
+            current.tex_id = font_id_by_name.get(font_designator).?;
+        } else {
+            success = false;
+        }
+        if (font_char_info_by_id.contains(current.tex_id) and
+            font_atlas_by_id.contains(current.tex_id)) {
+            current.char_info = font_char_info_by_id.get(current.tex_id).?;
+            current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
+        } else {
+            success = false;
+        }
+        if (!success) {
+            fm_log.warn("Unable to get information about font designator <{s}>," ++
+                        " maybe you misspelled, otherwise rasterise first", .{font_designator});
+            return error.FontNameUnknown;
+        }
+    } else {
+        fm_log.warn("Unknown font name <{s}>, maybe you misspelled, otherwise load" ++
+                    " first", .{font_name});
+        return error.FontNameUnknown;
+    }
+}
+
+//-----------------------------------------------------------------------------//
 //   Processing
 //-----------------------------------------------------------------------------//
 
 pub fn addFont(font_name: []const u8,
                file_name: []const u8) FontError!void {
     fm_log.info("Opening file {s}", .{file_name});
-    // const file = try std.fs.cwd().openFile(file_name, .{});
     const file = std.fs.cwd().openFile(file_name, .{}) catch |e| {
         fm_log.warn("{}", .{e});
         return FontError.FontLoadingFailed;
@@ -95,6 +148,8 @@ pub fn addFont(font_name: []const u8,
         return FontError.FontLoadingFailed;
     };
     fm_log.info("Number of fonts: {}", .{fonts_map.count()});
+    current.font_name = font_name;
+
 }
 
 pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!void {
@@ -103,92 +158,105 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
     if (!fonts_map.contains(font_name)) return error.FontNameUnknown;
 
     // Create and store designator consisting of font_name and the size
-    const font_name_sized = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
+    const font_designator = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
                                                .{font_name, font_size}) catch |e| {
         fm_log.warn("{}", .{e});
         return error.FontRasterisingFailed;
     };
-    // defer allocator.free(font_name_sized);
     fm_log.debug("Rasterising font with size {d:.0} named {s}",
-                 .{font_size, font_name_sized});
+                 .{font_size, font_designator});
 
-    font_id_by_name.put(font_name_sized, @intCast(u32, tex_id)) catch |e| {
-        fm_log.warn("{}", .{e});
-        return error.FontRasterisingFailed;
-    };
-
-    // Prepare character information such as kerning
-    font_current_char_info = allocator.create(c.stbtt_packedchar) catch |e| {
-        fm_log.warn("{}", .{e});
-        return error.FontRasterisingFailed;
-    };
-    font_char_info_by_id.put(tex_id, font_current_char_info) catch |e| {
-        fm_log.warn("{}", .{e});
-        return error.FontRasterisingFailed;
-    };
-
-    // Pack atlas. Retry with bigger texture if neccessary
-    var atlas_done: bool = false;
-    var atlas_scale: usize = 1;
-    while (atlas_scale <= font_atlas_scale_max and !atlas_done) : (atlas_scale *= 2) {
-
-        // Prepare atlas array size, free previously allocated
-        // memory in case of resizing
-        const s = font_atlas_size_default * font_atlas_size_default * atlas_scale * atlas_scale;
-        if (atlas_scale > 1) {
-            allocator.free(font_atlas_by_id.get(tex_id).?);
-            _ = font_atlas_by_id.remove(tex_id);
-        }
-
-        // Allocate memory for the atlas and add reference based
-        // on texture id
-        const atlas = allocator.alloc(u8, s) catch |e| {
-            fm_log.warn("{}", .{e});
-            return error.FontRasterisingFailed;
-        };
-
-        // try font_atlas_mem.append(atlas);
-        font_atlas_by_id.put(tex_id, atlas) catch |e| {
-            fm_log.warn("{}", .{e});
-            return error.FontRasterisingFailed;
-        };
-
-        // Try to pack atlas
-        atlas_done = true;
-        var pack_context: c.stbtt_pack_context = undefined;
-        const r0 = c.stbtt_PackBegin(&pack_context, @ptrCast([*c]u8, atlas),
-                                     @intCast(c_int, font_atlas_size_default * atlas_scale),
-                                     @intCast(c_int, font_atlas_size_default * atlas_scale), 0, 1, null);
-        if (r0 == 0) {
-            fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
-                         .{font_atlas_size_default * atlas_scale});
-            atlas_done = false;
-        } else {
-            c.stbtt_PackSetOversampling(&pack_context, 1, 1);
-            const r1 = c.stbtt_PackFontRange(&pack_context, @ptrCast([*c]u8, fonts_map.get(font_name).?),
-                                            0, font_size, ascii_first, ascii_nr,
-                                            @ptrCast([*c]c.stbtt_packedchar, font_char_info_by_id.get(tex_id).?));
-            if (r1 == 0) {
-                fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
-                            .{font_atlas_size_default * atlas_scale});
-                atlas_done = false;
-            }
-            else {
-                c.stbtt_PackEnd(&pack_context);
-            }
-        }
-    }
-
-    if (!atlas_done) {
-        fm_log.warn("Could not pack font {s} with size {d:.0}, try to reduce font size.",
-                    .{font_name, font_size});
-        fm_log.warn("Texture size would have been {}",
-                    .{font_atlas_size_default * (atlas_scale / 2)});
-        return error.FontRasterisingFailed;
+    if (font_id_by_name.contains(font_designator)) {
+        fm_log.debug("Font <{s}> already rasterised, skipping", .{font_designator});
+        allocator.free(font_designator);
     } else {
-        gfx.createTexture1C(font_atlas_size_default * @intCast(u32, atlas_scale/2),
-                            font_atlas_size_default * @intCast(u32, atlas_scale/2),
-                            font_atlas_by_id.get(tex_id).?, tex_id);
+        font_id_by_name.put(font_designator, @intCast(u32, tex_id)) catch |e| {
+            fm_log.warn("{}", .{e});
+            return error.FontRasterisingFailed;
+        };
+
+        // Prepare character information such as kerning
+        current.char_info = allocator.alloc(c.stbtt_packedchar, ascii_nr) catch |e| {
+            fm_log.warn("{}", .{e});
+            return error.FontRasterisingFailed;
+        };
+        font_char_info_by_id.put(tex_id, current.char_info) catch |e| {
+            fm_log.warn("{}", .{e});
+            return error.FontRasterisingFailed;
+        };
+
+        // Pack atlas. Retry with bigger texture if neccessary
+        var atlas_done: bool = false;
+        var atlas_scale: usize = 1;
+        while (atlas_scale <= font_atlas_scale_max and !atlas_done) : (atlas_scale *= 2) {
+
+            // Prepare atlas array size, free previously allocated
+            // memory in case of resizing
+            const s = font_atlas_size_default * font_atlas_size_default * atlas_scale * atlas_scale;
+            if (atlas_scale > 1) {
+                allocator.free(font_atlas_by_id.get(tex_id).?);
+                _ = font_atlas_by_id.remove(tex_id);
+                _ = font_atlas_size_by_id.remove(tex_id);
+            }
+
+            // Allocate memory for the atlas and add reference based
+            // on texture id
+            const atlas = allocator.alloc(u8, s) catch |e| {
+                fm_log.warn("{}", .{e});
+                return error.FontRasterisingFailed;
+            };
+
+            font_atlas_by_id.put(tex_id, atlas) catch |e| {
+                fm_log.warn("{}", .{e});
+                return error.FontRasterisingFailed;
+            };
+            const atlas_size = @intCast(c_int, font_atlas_size_default * atlas_scale);
+            font_atlas_size_by_id.put(tex_id, atlas_size) catch |e| {
+                fm_log.warn("{}", .{e});
+                return error.FontRasterisingFailed;
+            };
+
+            // Try to pack atlas
+            atlas_done = true;
+            var pack_context: c.stbtt_pack_context = undefined;
+            const r0 = c.stbtt_PackBegin(&pack_context, @ptrCast([*c]u8, atlas),
+                                         @intCast(c_int, font_atlas_size_default * atlas_scale),
+                                         @intCast(c_int, font_atlas_size_default * atlas_scale), 0, 1, null);
+            if (r0 == 0) {
+                fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
+                             .{font_atlas_size_default * atlas_scale});
+                atlas_done = false;
+            } else {
+                c.stbtt_PackSetOversampling(&pack_context, 1, 1);
+                const r1 = c.stbtt_PackFontRange(&pack_context, @ptrCast([*c]u8, fonts_map.get(font_name).?),
+                                                 0, font_size, ascii_first, ascii_nr,
+                                                 @ptrCast([*c]c.stbtt_packedchar, font_char_info_by_id.get(tex_id).?));
+                if (r1 == 0) {
+                    fm_log.debug("Could not pack font with texture size {}, trying texture size {}.",
+                                 .{font_atlas_size_default * atlas_scale,
+                                   font_atlas_size_default * atlas_scale * 2});
+                    atlas_done = false;
+                }
+                else {
+                    c.stbtt_PackEnd(&pack_context);
+                }
+            }
+        }
+        atlas_scale /= 2;
+
+        if (!atlas_done) {
+            fm_log.warn("Could not pack font {s} with size {d:.0}, try to reduce font size.",
+                        .{font_name, font_size});
+            fm_log.warn("Texture size would have been {}",
+                        .{font_atlas_size_default * atlas_scale});
+            return error.FontRasterisingFailed;
+        } else {
+            gfx.createTexture1C(font_atlas_size_default * @intCast(u32, atlas_scale),
+                                font_atlas_size_default * @intCast(u32, atlas_scale),
+                                font_atlas_by_id.get(tex_id).?, tex_id);
+
+            try setFont(font_name, font_size);
+        }
     }
 }
 
@@ -210,11 +278,8 @@ pub fn removeFont(name: []const u8) FontError!void {
     }
 }
 
-pub fn renderAtlas() void {
-    const tex_id = font_id_by_name.get("anka_32").?;
-    gfx.setActiveTexture(tex_id);
-    c.glBindTexture(c.GL_TEXTURE_2D, tex_id);
-
+pub fn renderAtlas() !void {
+    gfx.setActiveTexture(current.tex_id);
     c.glEnable(c.GL_TEXTURE_2D);
 
     const x0 = 100;
@@ -229,6 +294,35 @@ pub fn renderAtlas() void {
     c.glEnd();
 }
 
+pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
+    var glyph_quad: c.stbtt_aligned_quad = undefined;
+    var offset_x: f32 = 0.0;
+    var offset_y: f32 = current.baseline;
+
+    gfx.setActiveTexture(current.tex_id);
+    c.glEnable(c.GL_TEXTURE_2D);
+
+    c.glBegin(c.GL_QUADS);
+    for (text) |ch| {
+
+        if (ch == 10) { // Handle line feed
+            offset_x = 0.0;
+            offset_y += current.font_size;
+        } else {
+            c.stbtt_GetPackedQuad(@ptrCast([*c]c.stbtt_packedchar, current.char_info),
+                                  current.atlas_size, current.atlas_size,
+                                  ch - ascii_first,
+                                  &offset_x, &offset_y, &glyph_quad, 0);
+
+            c.glTexCoord2f(glyph_quad.s0, glyph_quad.t0); c.glVertex2f(glyph_quad.x0+x, glyph_quad.y0+y);
+            c.glTexCoord2f(glyph_quad.s1, glyph_quad.t0); c.glVertex2f(glyph_quad.x1+x, glyph_quad.y0+y);
+            c.glTexCoord2f(glyph_quad.s1, glyph_quad.t1); c.glVertex2f(glyph_quad.x1+x, glyph_quad.y1+y);
+            c.glTexCoord2f(glyph_quad.s0, glyph_quad.t1); c.glVertex2f(glyph_quad.x0+x, glyph_quad.y1+y);
+        }
+    }
+    c.glEnd();
+}
+
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
@@ -236,26 +330,36 @@ pub fn renderAtlas() void {
 /// Font manager logging scope
 const fm_log = std.log.scoped(.fnt);
 
-var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
+          else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 // Number of relevant ASCII characters
 const ascii_nr = 95;
 const ascii_first = 32;
 const font_atlas_size_default = 32;
-const font_atlas_scale_max = 8;
+const font_atlas_scale_max = 128;
+
+const current = struct {
+    var atlas_size: c_int = font_atlas_size_default;
+    var baseline: f32 = 0.0;
+    var char_info: []c.stbtt_packedchar = undefined;
+    var font_name: []const u8 = undefined;
+    var font_size: f32 = 16.0;
+    var tex_id: c_uint = 0;
+};
 
 /// Raw font information as read from file
 var fonts_map = std.StringHashMap([]u8).init(allocator);
 
-/// Font information of current font
-var font_current_char_info: *c.stbtt_packedchar = undefined;
-
 /// Font information like kerning for all rasterised fonts
-var font_char_info_by_id = std.AutoHashMap(c_uint, *c.stbtt_packedchar).init(allocator);
+var font_char_info_by_id = std.AutoHashMap(c_uint, []c.stbtt_packedchar).init(allocator);
 
 /// Access atlas by given texture id
 var font_atlas_by_id = std.AutoHashMap(c_uint, []u8).init(allocator);
+
+/// Access atlas sizes by given texture id
+var font_atlas_size_by_id = std.AutoHashMap(c_uint, c_int).init(allocator);
 
 /// Texture id of font atlas for a given font name
 var font_id_by_name = std.StringHashMap(u32).init(allocator);
@@ -290,6 +394,14 @@ test "rasterise_font" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
+test "rasterise_font_twice" {
+    try rasterise("anka", 16, 0);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
 test "rasterise_font_fail_expected" {
     const actual = rasterise("no_font_name", 16, 0);
     const expected = error.FontNameUnknown;
@@ -316,4 +428,10 @@ test "remove_font" {
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
     try std.testing.expectEqual(font_id_by_name.count(), 0);
     try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "set_font_fail_expected" {
+    const actual = setFont("anka", 16);
+    const expected = error.FontNameUnknown;
+    try std.testing.expectError(expected, actual);
 }
