@@ -80,10 +80,16 @@ pub fn main() !void {
         sim.createScene();
         perf_ren.stopMeasurement();
 
-        try fnt.renderAtlas();
-        try fnt.renderText("Hello World", 0.0, 0.0);
-        try fnt.renderText(usage, 0.0, 200.0);
-        // try fnt.renderText("Pred Lander", 400.0, 400.0);
+        // try fnt.renderAtlas();
+        // try fnt.renderText("Hello World", 0.0, 0.0);
+        if (input.getF1()) {
+            const h = @intToFloat(f32, gfx.getWindowHeight());
+            const w = @intToFloat(f32, gfx.getWindowWidth());
+            gfx.setColor4(0.0, 1.0, 0.0, 0.2);
+            gfx.drawQuad(w*0.1, h*0.1, w*0.9, h*0.9);
+            gfx.setColor4(0.0, 1.0, 0.0, 0.8);
+            try fnt.renderText(help_message, w*0.2, h*0.2);
+        }
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
@@ -113,32 +119,19 @@ fn adjustFovOnAspectChange() void {
 }
 
 fn printUsage() void {
-    std.debug.print(usage, .{});
-    // std.debug.print("\n Welcome to Rayworld \n" ++
-    //                 "=====================\n" ++
-    //                 "MOVEMENT\n" ++
-    //                 "  Use mouse to turn/look around\n" ++
-    //                 "  WASD: move\n" ++
-    //                 "  E/C:  move up/down (debug)\n" ++
-    //                 "SIMULATION\n" ++
-    //                 "  Cursor Keys (l/r/u/d): move map\n" ++
-    //                 "  M:     toggle system map\n" ++
-    //                 "  H:     toggle station hook\n" ++
-    //                 "SIMULATION TIMING\n" ++
-    //                 "  P:     toggle pause\n" ++
-    //                 "  F3/F4: zoom (out/in)\n" ++
-    //                 "  F5/F6: time acceleration (decrease/increase x10)\n" ++
-    //                 "  F7/F8: time acceleration thread frequency\n" ++
-    //                 "         - 100Hz base x factor\n" ++
-    //                 "         - automatically reduced if load too high\n\n", .{});
+    std.debug.print(help_message, .{});
 }
 
-const usage = "\n Welcome to Rayworld \n" ++
-            "=====================\n" ++
+const help_message = "=====================\n" ++
+            " Welcome to Rayworld \n" ++
+            "=====================\n\n" ++
+            "GENERAL\n" ++
+            "  F1:    this help\n" ++
+            "  Q:     quit\n" ++
             "MOVEMENT\n" ++
             "  Use mouse to turn/look around\n" ++
-            "  WASD: move\n" ++
-            "  E/C:  move up/down (debug)\n" ++
+            "  WASD:  move\n" ++
+            "  E/C:   move up/down (debug)\n" ++
             "SIMULATION\n" ++
             "  Cursor Keys (l/r/u/d): move map\n" ++
             "  M:     toggle system map\n" ++

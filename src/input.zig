@@ -47,7 +47,12 @@ pub fn processInputs(frequency: f32) void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn setWindow(win: ?*c.GLFWwindow) void {
+var is_f1: bool = false;
+pub inline fn getF1() bool {
+    return is_f1;
+}
+
+pub inline fn setWindow(win: ?*c.GLFWwindow) void {
     window = win;
 }
 
@@ -73,6 +78,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     _ = scancode;
     _ = mods;
 
+    if (key == c.GLFW_KEY_F1 and action == c.GLFW_PRESS) is_f1 = is_f1 != true;
     if (key == c.GLFW_KEY_F5 and action == c.GLFW_PRESS) sim.timing.decelerate();
     if (key == c.GLFW_KEY_F6 and action == c.GLFW_PRESS) sim.timing.accelerate();
     if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
