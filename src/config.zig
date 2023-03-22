@@ -6,6 +6,14 @@ pub const debug_allocator = false;
 pub const sub_sampling_base = 4;
 pub const sub_sampling_blocky = false;
 
+pub const fnt = struct {
+    /// Rasterise a loaded font if requested size
+    /// is not yet rasterised
+    pub const auto_rasterise = false;
+    /// Number of font atlasses to be kept in parallel
+    pub const font_atlas_limit = 10;
+};
+
 pub const gfx = struct {
     pub const depth_levels_max = 8;
     pub const fps_target = 60; // Hz

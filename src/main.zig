@@ -39,6 +39,13 @@ pub fn main() !void {
     try fnt.rasterise("anka", 32, gfx.getTextureId());
     try fnt.rasterise("anka", 64, gfx.getTextureId());
     try fnt.setFont("anka", 32);
+    fnt.setFont("anka", 16) catch |err| {
+        std.log.debug("{}", .{err});
+    };
+    // fnt.setFont("anka", 16) catch |err| {
+    //     std.log.debug("{}", .{err});
+    //     try fnt.rasterise("anka", 16, gfx.getTextureId());
+    // };
 
     var perf_map = try stats.Performance.init("Map");
     perf_map.startMeasurement();
@@ -80,16 +87,7 @@ pub fn main() !void {
         sim.createScene();
         perf_ren.stopMeasurement();
 
-        // try fnt.renderAtlas();
-        // try fnt.renderText("Hello World", 0.0, 0.0);
-        if (input.getF1()) {
-            const h = @intToFloat(f32, gfx.getWindowHeight());
-            const w = @intToFloat(f32, gfx.getWindowWidth());
-            gfx.setColor4(0.0, 1.0, 0.0, 0.2);
-            gfx.drawQuad(w*0.1, h*0.1, w*0.9, h*0.9);
-            gfx.setColor4(0.0, 1.0, 0.0, 0.8);
-            try fnt.renderText(help_message, w*0.2, h*0.2);
-        }
+        try displayHelp();
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
@@ -115,6 +113,17 @@ fn adjustFovOnAspectChange() void {
     } else { // scale_by == player_fov
         plr.setFOV(std.math.degreesToRadians(f32, cfg.player_fov));
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
+    }
+}
+
+fn displayHelp() !void {
+    if (input.getF1()) {
+        const h = @intToFloat(f32, gfx.getWindowHeight());
+        const w = @intToFloat(f32, gfx.getWindowWidth());
+        gfx.setColor4(0.0, 1.0, 0.0, 0.2);
+        gfx.drawQuad(w*0.1, h*0.1, w*0.9, h*0.9);
+        gfx.setColor4(0.0, 1.0, 0.0, 0.8);
+        try fnt.renderText(help_message, w*0.2, h*0.2);
     }
 }
 

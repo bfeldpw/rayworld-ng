@@ -12,7 +12,9 @@ const c = @cImport({
 //-----------------------------------------------------------------------------//
 
 const FontError = error{
+    FontDesignatorUnknown,
     FontLoadingFailed,
+    FontMaxNrOfAtlasses,
     FontNameUnknown,
     FontRasterisingFailed,
 };
@@ -71,8 +73,6 @@ pub fn deinit() void {
 
 pub fn setFont(font_name: []const u8, font_size: f32) !void {
     if (fonts_map.contains(font_name)) {
-        current.font_name = font_name;
-        current.font_size = font_size;
 
         // Get font information to use correct baseline
         var font_info: c.stbtt_fontinfo = undefined;
@@ -82,34 +82,48 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
 
         var font_ascent: c_int = 0;
         c.stbtt_GetFontVMetrics(&font_info, &font_ascent, 0, 0);
-        current.baseline = @intToFloat(f32, font_ascent) * font_scale;
-        fm_log.debug("Baseline = {d:.2}", .{current.baseline});
+        const baseline = @intToFloat(f32, font_ascent) * font_scale;
+        fm_log.debug("Baseline = {d:.2}", .{baseline});
 
         // Setup parameters for current font
         const font_designator = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
-                                                   .{current.font_name, font_size}) catch |e| {
+                                                   .{font_name, font_size}) catch |e| {
             fm_log.warn("{}", .{e});
             return error.FontRasterisingFailed;
         };
         defer allocator.free(font_designator);
 
         var success = true;
-        if (font_id_by_name.contains(font_designator)) {
-            current.tex_id = font_id_by_name.get(font_designator).?;
-        } else {
+        if (!font_id_by_name.contains(font_designator)) {
             success = false;
         }
-        if (font_char_info_by_id.contains(current.tex_id) and
-            font_atlas_by_id.contains(current.tex_id)) {
+        if (font_char_info_by_id.contains(current.tex_id) == false or
+            font_atlas_by_id.contains(current.tex_id) == false) {
+            success = false;
+        }
+        if (success) {
+            current.font_name = font_name;
+            current.font_size = font_size;
+            current.tex_id = font_id_by_name.get(font_designator).?;
             current.char_info = font_char_info_by_id.get(current.tex_id).?;
             current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
+            current.baseline = baseline;
         } else {
-            success = false;
-        }
-        if (!success) {
-            fm_log.warn("Unable to get information about font designator <{s}>," ++
-                        " maybe you misspelled, otherwise rasterise first", .{font_designator});
-            return error.FontNameUnknown;
+            if (auto_rasterise) {
+                // current.tex_id = font_id_by_name.get(font_designator).?;
+                // current.char_info = font_char_info_by_id.get(current.tex_id).?;
+                // current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
+                fm_log.debug("Unable to get information about font designator <{s}>", .{font_designator});
+                fm_log.debug("You are covered, <auto_rasterise> is enabled", .{});
+                rasterise(font_name, font_size, gfx.getTextureId()) catch |err| {
+                    return err;
+                };
+
+            } else {
+                fm_log.warn("Unable to get information about font designator <{s}>", .{font_designator});
+                fm_log.warn("Maybe you misspelled, try rasterise first", .{});
+                return error.FontDesignatorUnknown;
+            }
         }
     } else {
         fm_log.warn("Unknown font name <{s}>, maybe you misspelled, otherwise load" ++
@@ -153,6 +167,11 @@ pub fn addFont(font_name: []const u8,
 }
 
 pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!void {
+
+    // Check for maximum number of font atlasses
+    if (font_id_by_name.count() + 1 == cfg.fnt.font_atlas_limit) {
+        return error.FontMaxNrOfAtlasses;
+    }
 
     // Check, if font with font_name exists
     if (!fonts_map.contains(font_name)) return error.FontNameUnknown;
@@ -255,6 +274,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                                 font_atlas_size_default * @intCast(u32, atlas_scale),
                                 font_atlas_by_id.get(tex_id).?, tex_id);
 
+            current.tex_id = tex_id;
             try setFont(font_name, font_size);
         }
     }
@@ -349,6 +369,8 @@ const current = struct {
     var tex_id: c_uint = 0;
 };
 
+var auto_rasterise: bool = cfg.fnt.auto_rasterise;
+
 /// Raw font information as read from file
 var fonts_map = std.StringHashMap([]u8).init(allocator);
 
@@ -430,8 +452,26 @@ test "remove_font" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "set_font_fail_expected" {
-    const actual = setFont("anka", 16);
+test "set_font_fail_expected_01" {
+    const actual = setFont("anka_bad", 16);
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
+}
+
+test "set_font_fail_expected_02" {
+    auto_rasterise = false;
+    const actual = setFont("anka", 16);
+    const expected = error.FontDesignatorUnknown;
+    try std.testing.expectError(expected, actual);
+}
+
+test "set_font_auto_rasterise" {
+    auto_rasterise = true;
+    try setFont("anka", 16);
+}
+
+test "set_font" {
+    auto_rasterise = false;
+    try rasterise("anka", 32, 1);
+    try setFont("anka", 16);
 }
