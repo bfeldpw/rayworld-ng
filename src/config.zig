@@ -2,6 +2,8 @@
 /// is mostly used for debugging, frequency targets
 /// might not be met
 pub const multithreading = true;
+/// Globally turn on the General Purpose Allocators (GPAs)
+/// verbose output
 pub const debug_allocator = false;
 pub const sub_sampling_base = 4;
 pub const sub_sampling_blocky = false;
@@ -9,7 +11,18 @@ pub const sub_sampling_blocky = false;
 pub const fnt = struct {
     /// Rasterise a loaded font if requested size
     /// is not yet rasterised
-    pub const auto_rasterise = false;
+    pub const auto_rasterise = true;
+    /// Automatically remove least used fonts if new
+    /// fonts are rasterised and font_atlas_limit is
+    /// reached
+    pub const auto_remove = true;
+    /// If auto_remove is enabled, remove only if idle time
+    /// of least used font is above this limit, otherwise
+    /// throw error. This is to handle situations, where
+    /// all fonts are used in each frame, but the one drawn
+    /// first is idling for the longest time and hence,
+    /// would be removed.
+    pub const auto_remove_idle_time = 10; // seconds
     /// Number of font atlasses to be kept in parallel
     pub const font_atlas_limit = 10;
 };

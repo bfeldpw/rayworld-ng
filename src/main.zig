@@ -37,11 +37,12 @@ pub fn main() !void {
     defer fnt.deinit();
     try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
     try fnt.rasterise("anka", 32, gfx.getTextureId());
+    // std.time.sleep(1.0e9 * 4);
     try fnt.rasterise("anka", 64, gfx.getTextureId());
     try fnt.setFont("anka", 32);
-    fnt.setFont("anka", 16) catch |err| {
-        std.log.debug("{}", .{err});
-    };
+    // fnt.setFont("anka", 16) catch |err| {
+    //     std.log.debug("{}", .{err});
+    // };
     // fnt.setFont("anka", 16) catch |err| {
     //     std.log.debug("{}", .{err});
     //     try fnt.rasterise("anka", 16, gfx.getTextureId());
@@ -97,6 +98,8 @@ pub fn main() !void {
 
     sim.stop();
     if (cfg.multithreading) sim_thread.join();
+
+    fnt.printIdleTimes();
 
     perf_map.printStats();
     perf_fps.printStats();

@@ -62,6 +62,7 @@ pub fn deinit() void {
         }
     }
     font_id_by_name.deinit();
+    font_timer_by_id.deinit();
 
     const leaked = gpa.deinit();
     if (leaked) fm_log.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -80,7 +81,7 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
                              @ptrCast([*c]const u8, fonts_map.get(font_name).?), 0);
         const font_scale = c.stbtt_ScaleForPixelHeight(&font_info, font_size);
 
-        var font_ascent: c_int = 0;
+        var font_ascent: i32 = 0;
         c.stbtt_GetFontVMetrics(&font_info, &font_ascent, 0, 0);
         const baseline = @intToFloat(f32, font_ascent) * font_scale;
         fm_log.debug("Baseline = {d:.2}", .{baseline});
@@ -108,11 +109,10 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
             current.char_info = font_char_info_by_id.get(current.tex_id).?;
             current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
             current.baseline = baseline;
+            var t = font_timer_by_id.get(current.tex_id).?;
+            t.reset();
         } else {
             if (auto_rasterise) {
-                // current.tex_id = font_id_by_name.get(font_designator).?;
-                // current.char_info = font_char_info_by_id.get(current.tex_id).?;
-                // current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
                 fm_log.debug("Unable to get information about font designator <{s}>", .{font_designator});
                 fm_log.debug("You are covered, <auto_rasterise> is enabled", .{});
                 rasterise(font_name, font_size, gfx.getTextureId()) catch |err| {
@@ -161,16 +161,42 @@ pub fn addFont(font_name: []const u8,
         fm_log.warn("{}", .{e});
         return FontError.FontLoadingFailed;
     };
-    fm_log.info("Number of fonts: {}", .{fonts_map.count()});
+    fm_log.debug("Number of fonts: {}", .{fonts_map.count()});
     current.font_name = font_name;
 
+}
+
+pub fn printIdleTimes() void {
+    var iter = font_timer_by_id.iterator();
+    while (iter.next()) |v| {
+        // allocator.free(v.value_ptr.*);
+        const t = 1.0e-9 * @intToFloat(f64, v.value_ptr.read());
+        fm_log.info("{d:.3}s", .{t});
+    }
 }
 
 pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!void {
 
     // Check for maximum number of font atlasses
-    if (font_id_by_name.count() + 1 == cfg.fnt.font_atlas_limit) {
-        return error.FontMaxNrOfAtlasses;
+    if (font_id_by_name.count() == font_atlas_limit) {
+        if (auto_remove) {
+            fm_log.debug("Feature <auto_remove> enabled", .{});
+            const tex_id_removal = findCandidateForAutoRemoval();
+
+            var t = font_timer_by_id.get(tex_id_removal).?;
+            const idle_time = 1.0e-9 * @intToFloat(f64, t.read());
+            if (idle_time > auto_remove_idle_time) {
+                fm_log.debug("Auto removing font", .{});
+                try removeFontById(tex_id_removal);
+            } else {
+                fm_log.warn("Couldn't auto remove font, all fonts seem to be used regarding " ++
+                            "minimum idle time at {d:.2}s", .{idle_time});
+                return error.FontMaxNrOfAtlasses;
+            }
+        } else {
+            fm_log.warn("Maximum number of rasterised fonts already reached: {}", .{font_atlas_limit});
+            return error.FontMaxNrOfAtlasses;
+        }
     }
 
     // Check, if font with font_name exists
@@ -229,7 +255,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                 fm_log.warn("{}", .{e});
                 return error.FontRasterisingFailed;
             };
-            const atlas_size = @intCast(c_int, font_atlas_size_default * atlas_scale);
+            const atlas_size = @intCast(i32, font_atlas_size_default * atlas_scale);
             font_atlas_size_by_id.put(tex_id, atlas_size) catch |e| {
                 fm_log.warn("{}", .{e});
                 return error.FontRasterisingFailed;
@@ -239,8 +265,8 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
             atlas_done = true;
             var pack_context: c.stbtt_pack_context = undefined;
             const r0 = c.stbtt_PackBegin(&pack_context, @ptrCast([*c]u8, atlas),
-                                         @intCast(c_int, font_atlas_size_default * atlas_scale),
-                                         @intCast(c_int, font_atlas_size_default * atlas_scale), 0, 1, null);
+                                         @intCast(i32, font_atlas_size_default * atlas_scale),
+                                         @intCast(i32, font_atlas_size_default * atlas_scale), 0, 1, null);
             if (r0 == 0) {
                 fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
                              .{font_atlas_size_default * atlas_scale});
@@ -274,27 +300,59 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                                 font_atlas_size_default * @intCast(u32, atlas_scale),
                                 font_atlas_by_id.get(tex_id).?, tex_id);
 
+            const t = std.time.Timer.start() catch |err| {
+                fm_log.warn("{}", .{err});
+                return error.FontRasterisingFailed;
+            };
+            font_timer_by_id.put(tex_id, t) catch |err| {
+                fm_log.warn("{}", .{err});
+                return error.FontRasterisingFailed;
+            };
+            current.idle_timer = font_timer_by_id.getPtr(tex_id).?;
             current.tex_id = tex_id;
             try setFont(font_name, font_size);
         }
     }
 }
 
-pub fn removeFont(name: []const u8) FontError!void {
+pub fn removeFontByDesignator(name: []const u8) FontError!void {
     var success: bool = true;
     const id = font_id_by_name.get(name);
     if (id == null) {
         success = false;
-    } else if (font_atlas_by_id.contains(id.?)) {
+    } else {
         success = success and font_id_by_name.remove(name);
         success = success and font_atlas_by_id.remove(id.?);
         success = success and font_char_info_by_id.remove(id.?);
-    } else {
-        success = false;
+        success = success and font_timer_by_id.remove(id.?);
     }
     if (!success) {
         fm_log.warn("Couldn't remove font {s}, unknown font name", .{name});
         return error.FontNameUnknown;
+    } else {
+        gfx.releaseTexture(id.?);
+    }
+}
+
+pub fn removeFontById(id: u32) FontError!void {
+    var success: bool = true;
+
+    var iter = font_id_by_name.iterator();
+    while (iter.next()) |v| {
+        if (v.value_ptr.* == id) {
+            success = success and font_id_by_name.remove(v.key_ptr.*);
+            break;
+        }
+    }
+    success = success and font_atlas_by_id.remove(id);
+    success = success and font_char_info_by_id.remove(id);
+    success = success and font_timer_by_id.remove(id);
+
+    if (!success) {
+        fm_log.warn("Couldn't remove font with id {}, unknown id", .{id});
+        return error.FontNameUnknown;
+    } else {
+        gfx.releaseTexture(id);
     }
 }
 
@@ -318,6 +376,8 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
     var glyph_quad: c.stbtt_aligned_quad = undefined;
     var offset_x: f32 = 0.0;
     var offset_y: f32 = current.baseline;
+
+    current.idle_timer.reset();
 
     gfx.setActiveTexture(current.tex_id);
     c.glEnable(c.GL_TEXTURE_2D);
@@ -361,30 +421,55 @@ const font_atlas_size_default = 32;
 const font_atlas_scale_max = 128;
 
 const current = struct {
-    var atlas_size: c_int = font_atlas_size_default;
+    var atlas_size: i32 = font_atlas_size_default;
     var baseline: f32 = 0.0;
     var char_info: []c.stbtt_packedchar = undefined;
     var font_name: []const u8 = undefined;
     var font_size: f32 = 16.0;
-    var tex_id: c_uint = 0;
+    var tex_id: u32 = 0;
+    var idle_timer: *std.time.Timer = undefined;
 };
 
+// Use local variables for config to enable runtime setting for
+// unit tests
 var auto_rasterise: bool = cfg.fnt.auto_rasterise;
+var auto_remove: bool = cfg.fnt.auto_remove;
+var auto_remove_idle_time: f64 = cfg.fnt.auto_remove_idle_time;
+var font_atlas_limit: u8 = cfg.fnt.font_atlas_limit;
 
 /// Raw font information as read from file
 var fonts_map = std.StringHashMap([]u8).init(allocator);
 
 /// Font information like kerning for all rasterised fonts
-var font_char_info_by_id = std.AutoHashMap(c_uint, []c.stbtt_packedchar).init(allocator);
+var font_char_info_by_id = std.AutoHashMap(u32, []c.stbtt_packedchar).init(allocator);
 
 /// Access atlas by given texture id
-var font_atlas_by_id = std.AutoHashMap(c_uint, []u8).init(allocator);
+var font_atlas_by_id = std.AutoHashMap(u32, []u8).init(allocator);
 
 /// Access atlas sizes by given texture id
-var font_atlas_size_by_id = std.AutoHashMap(c_uint, c_int).init(allocator);
+var font_atlas_size_by_id = std.AutoHashMap(u32, i32).init(allocator);
 
 /// Texture id of font atlas for a given font name
 var font_id_by_name = std.StringHashMap(u32).init(allocator);
+
+/// Timer of fonts idle time to decide which font to remove when
+/// reaching the font_atlas_limit
+var font_timer_by_id = std.AutoHashMap(u32, std.time.Timer).init(allocator);
+
+fn findCandidateForAutoRemoval() u32 {
+    var iter = font_timer_by_id.iterator();
+    var tex_id_max_idle: u32 = 0;
+    var t_max_idle: u64 = 0;
+    while (iter.next()) |v| {
+        if (v.value_ptr.read() > t_max_idle) {
+            t_max_idle = v.value_ptr.read();
+            tex_id_max_idle = v.key_ptr.*;
+        }
+    }
+    fm_log.debug("Candidate found with maximum idle time t = {d:.2}s",
+                 .{1.0e-9 * @intToFloat(f64, t_max_idle)});
+    return tex_id_max_idle;
+}
 
 //-----------------------------------------------------------------------------//
 //   Tests
@@ -397,6 +482,7 @@ test "open_font_file_fail_expected" {
     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
     try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
     try std.testing.expectEqual(fonts_map.count(), 0);
 }
 
@@ -405,14 +491,17 @@ test "open_font_file" {
     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
     try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "rasterise_font" {
+    font_atlas_limit = 3;
     try rasterise("anka", 16, 0);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
@@ -421,6 +510,7 @@ test "rasterise_font_twice" {
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
@@ -431,24 +521,27 @@ test "rasterise_font_fail_expected" {
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "remove_font_fail_expected" {
-    const actual = removeFont("anka_17");
+    const actual = removeFontByDesignator("anka_17");
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "remove_font" {
-    try removeFont("anka_16");
+    try removeFontByDesignator("anka_16");
     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
     try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
@@ -456,6 +549,12 @@ test "set_font_fail_expected_01" {
     const actual = setFont("anka_bad", 16);
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "set_font_fail_expected_02" {
@@ -463,15 +562,84 @@ test "set_font_fail_expected_02" {
     const actual = setFont("anka", 16);
     const expected = error.FontDesignatorUnknown;
     try std.testing.expectError(expected, actual);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "set_font_auto_rasterise" {
     auto_rasterise = true;
     try setFont("anka", 16);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
 test "set_font" {
     auto_rasterise = false;
     try rasterise("anka", 32, 1);
     try setFont("anka", 16);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 2);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 2);
+    try std.testing.expectEqual(font_id_by_name.count(), 2);
+    try std.testing.expectEqual(font_timer_by_id.count(), 2);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "font_atlas_limit_fail_expected" {
+    auto_remove = false;
+
+    try rasterise("anka", 64, 2);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 3);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 3);
+    try std.testing.expectEqual(font_id_by_name.count(), 3);
+    try std.testing.expectEqual(font_timer_by_id.count(), 3);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+
+    const actual = rasterise("anka", 128, 3);
+    const expected = error.FontMaxNrOfAtlasses;
+    try std.testing.expectError(expected, actual);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 3);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 3);
+    try std.testing.expectEqual(font_id_by_name.count(), 3);
+    try std.testing.expectEqual(font_timer_by_id.count(), 3);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "auto_remove_time_limit_fail_expected" {
+    auto_remove = true;
+    auto_remove_idle_time = 100.0;
+
+    const actual = rasterise("anka", 128, 3);
+    const expected = error.FontMaxNrOfAtlasses;
+    try std.testing.expectError(expected, actual);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 3);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 3);
+    try std.testing.expectEqual(font_id_by_name.count(), 3);
+    try std.testing.expectEqual(font_timer_by_id.count(), 3);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "auto_remove" {
+    auto_remove = true;
+    auto_remove_idle_time = 0.1;
+    std.time.sleep(0.2e9);
+
+    try rasterise("anka", 128, 3);
+
+    try std.testing.expectEqual(font_atlas_by_id.count(), 3);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 3);
+    try std.testing.expectEqual(font_id_by_name.count(), 3);
+    try std.testing.expectEqual(font_timer_by_id.count(), 3);
+    try std.testing.expectEqual(fonts_map.count(), 1);
 }

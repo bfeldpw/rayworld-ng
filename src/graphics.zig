@@ -148,6 +148,10 @@ pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
     log_gfx.debug("Texture generated with ID={}", .{tex_id});
 }
 
+pub fn releaseTexture(tex_id: u32) void {
+    c.glDeleteTextures(1, tex_id);
+}
+
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     var tex: c.GLuint = 0;
     c.glGenTextures(1, &tex);
