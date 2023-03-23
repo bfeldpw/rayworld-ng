@@ -37,9 +37,9 @@ pub fn main() !void {
     defer fnt.deinit();
     try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
     try fnt.rasterise("anka", 32, gfx.getTextureId());
-    // std.time.sleep(1.0e9 * 4);
     try fnt.rasterise("anka", 64, gfx.getTextureId());
     try fnt.setFont("anka", 32);
+    // std.log.debug("Text length of <Rayworld> = {d:.2}", .{fnt.getTextLength("Rayworld")});
     // fnt.setFont("anka", 16) catch |err| {
     //     std.log.debug("{}", .{err});
     // };
@@ -86,9 +86,9 @@ pub fn main() !void {
         try gfx.renderFrame();
         rc.createMap();
         sim.createScene();
-        perf_ren.stopMeasurement();
-
         try displayHelp();
+
+        perf_ren.stopMeasurement();
 
         try gfx.finishFrame();
         perf_fps.stopMeasurement();
@@ -121,12 +121,15 @@ fn adjustFovOnAspectChange() void {
 
 fn displayHelp() !void {
     if (input.getF1()) {
+        const l = fnt.getTextLength(help_message);
         const h = @intToFloat(f32, gfx.getWindowHeight());
         const w = @intToFloat(f32, gfx.getWindowWidth());
+        const b = (w-l) / 2;
+
         gfx.setColor4(0.0, 1.0, 0.0, 0.2);
-        gfx.drawQuad(w*0.1, h*0.1, w*0.9, h*0.9);
+        gfx.drawQuad(0.9*b, h*0.1, w-0.9*b, h*0.9);
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
-        try fnt.renderText(help_message, w*0.2, h*0.2);
+        try fnt.renderText(help_message, b, h*0.2);
     }
 }
 

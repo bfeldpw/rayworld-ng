@@ -72,6 +72,27 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
+pub fn getTextLength(text: []const u8) f32 {
+    var length: f32 = 0.0;
+    var length_max: f32 = 0.0;
+    var b: c.stbtt_packedchar = undefined;
+    for (text) |ch| {
+        if (ch == 10) { // Handle line feed
+            if (length > length_max) {
+                length_max = length;
+            }
+            length = 0.0;
+        } else {
+            b = current.char_info[ch - ascii_first];
+            length += b.xadvance;
+        }
+    }
+    if (length > length_max) {
+        length_max = length;
+    }
+    return length_max;
+}
+
 pub fn setFont(font_name: []const u8, font_size: f32) !void {
     if (fonts_map.contains(font_name)) {
 
