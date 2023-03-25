@@ -149,7 +149,8 @@ pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
 }
 
 pub fn releaseTexture(tex_id: u32) void {
-    c.glDeleteTextures(1, tex_id);
+    log_gfx.debug("Releasing texture with ID={}", .{tex_id});
+    c.glDeleteTextures(1, &tex_id);
 }
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {

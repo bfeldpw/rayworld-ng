@@ -72,9 +72,15 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub fn getTextLength(text: []const u8) f32 {
+const TextSize = struct {
+    w: f32,
+    h: f32,
+};
+
+pub fn getTextSize(text: []const u8) TextSize {
     var length: f32 = 0.0;
     var length_max: f32 = 0.0;
+    var height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     for (text) |ch| {
         if (ch == 10) { // Handle line feed
@@ -82,6 +88,7 @@ pub fn getTextLength(text: []const u8) f32 {
                 length_max = length;
             }
             length = 0.0;
+            height += current.font_size;
         } else {
             b = current.char_info[ch - ascii_first];
             length += b.xadvance;
@@ -90,7 +97,7 @@ pub fn getTextLength(text: []const u8) f32 {
     if (length > length_max) {
         length_max = length;
     }
-    return length_max;
+    return .{.w=length_max, .h=height};
 }
 
 pub fn setFont(font_name: []const u8, font_size: f32) !void {
@@ -105,7 +112,6 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
         var font_ascent: i32 = 0;
         c.stbtt_GetFontVMetrics(&font_info, &font_ascent, 0, 0);
         const baseline = @intToFloat(f32, font_ascent) * font_scale;
-        fm_log.debug("Baseline = {d:.2}", .{baseline});
 
         // Setup parameters for current font
         const font_designator = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
@@ -198,28 +204,6 @@ pub fn printIdleTimes() void {
 
 pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!void {
 
-    // Check for maximum number of font atlasses
-    if (font_id_by_name.count() == font_atlas_limit) {
-        if (auto_remove) {
-            fm_log.debug("Feature <auto_remove> enabled", .{});
-            const tex_id_removal = findCandidateForAutoRemoval();
-
-            var t = font_timer_by_id.get(tex_id_removal).?;
-            const idle_time = 1.0e-9 * @intToFloat(f64, t.read());
-            if (idle_time > auto_remove_idle_time) {
-                fm_log.debug("Auto removing font", .{});
-                try removeFontById(tex_id_removal);
-            } else {
-                fm_log.warn("Couldn't auto remove font, all fonts seem to be used regarding " ++
-                            "minimum idle time at {d:.2}s", .{idle_time});
-                return error.FontMaxNrOfAtlasses;
-            }
-        } else {
-            fm_log.warn("Maximum number of rasterised fonts already reached: {}", .{font_atlas_limit});
-            return error.FontMaxNrOfAtlasses;
-        }
-    }
-
     // Check, if font with font_name exists
     if (!fonts_map.contains(font_name)) return error.FontNameUnknown;
 
@@ -236,6 +220,28 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
         fm_log.debug("Font <{s}> already rasterised, skipping", .{font_designator});
         allocator.free(font_designator);
     } else {
+        // Check for maximum number of font atlasses
+        if (font_id_by_name.count() == font_atlas_limit) {
+            if (auto_remove) {
+                fm_log.debug("Feature <auto_remove> enabled", .{});
+                const tex_id_removal = findCandidateForAutoRemoval();
+
+                var t = font_timer_by_id.get(tex_id_removal).?;
+                const idle_time = 1.0e-9 * @intToFloat(f64, t.read());
+                if (idle_time > auto_remove_idle_time) {
+                    fm_log.debug("Auto removing font to be replaced by <{s}>", .{font_designator});
+                    try removeFontById(tex_id_removal);
+                } else {
+                    fm_log.warn("Couldn't auto remove font, all fonts seem to be used regarding " ++
+                                "minimum idle time at {d:.2}s", .{idle_time});
+                    return error.FontMaxNrOfAtlasses;
+                }
+            } else {
+                fm_log.warn("Maximum number of rasterised fonts already reached: {}", .{font_atlas_limit});
+                return error.FontMaxNrOfAtlasses;
+            }
+        }
+
         font_id_by_name.put(font_designator, @intCast(u32, tex_id)) catch |e| {
             fm_log.warn("{}", .{e});
             return error.FontRasterisingFailed;
@@ -343,12 +349,15 @@ pub fn removeFontByDesignator(name: []const u8) FontError!void {
         success = false;
     } else {
         success = success and font_id_by_name.remove(name);
+        // allocator.free(name);
+        allocator.free(font_atlas_by_id.get(id.?).?);
+        allocator.free(font_char_info_by_id.get(id.?).?);
         success = success and font_atlas_by_id.remove(id.?);
         success = success and font_char_info_by_id.remove(id.?);
         success = success and font_timer_by_id.remove(id.?);
     }
     if (!success) {
-        fm_log.warn("Couldn't remove font {s}, unknown font name", .{name});
+        fm_log.warn("Couldn't remove font <{s}>, unknown font name", .{name});
         return error.FontNameUnknown;
     } else {
         gfx.releaseTexture(id.?);
@@ -358,19 +367,26 @@ pub fn removeFontByDesignator(name: []const u8) FontError!void {
 pub fn removeFontById(id: u32) FontError!void {
     var success: bool = true;
 
+    var font_name: []const u8 = "";
     var iter = font_id_by_name.iterator();
     while (iter.next()) |v| {
         if (v.value_ptr.* == id) {
-            success = success and font_id_by_name.remove(v.key_ptr.*);
+            font_name = v.key_ptr.*;
             break;
         }
     }
+
+    fm_log.debug("Removing font <{s}> with id {}", .{font_name, id});
+    success = success and font_id_by_name.remove(font_name);
+    allocator.free(font_name);
+    allocator.free(font_atlas_by_id.get(id).?);
+    allocator.free(font_char_info_by_id.get(id).?);
     success = success and font_atlas_by_id.remove(id);
     success = success and font_char_info_by_id.remove(id);
     success = success and font_timer_by_id.remove(id);
 
     if (!success) {
-        fm_log.warn("Couldn't remove font with id {}, unknown id", .{id});
+        fm_log.warn("Couldn't remove font <{s}> with id {}, unknown id", .{font_name, id});
         return error.FontNameUnknown;
     } else {
         gfx.releaseTexture(id);

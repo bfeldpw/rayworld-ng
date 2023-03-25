@@ -36,6 +36,7 @@ pub fn main() !void {
     fnt.init();
     defer fnt.deinit();
     try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
+    try fnt.rasterise("anka", 16, gfx.getTextureId());
     try fnt.rasterise("anka", 32, gfx.getTextureId());
     try fnt.rasterise("anka", 64, gfx.getTextureId());
     try fnt.setFont("anka", 32);
@@ -119,17 +120,32 @@ fn adjustFovOnAspectChange() void {
     }
 }
 
+var font_size_help_message: f32 = 32;
 fn displayHelp() !void {
     if (input.getF1()) {
-        const l = fnt.getTextLength(help_message);
+        try fnt.setFont("anka", font_size_help_message);
+        var size = fnt.getTextSize(help_message);
         const h = @intToFloat(f32, gfx.getWindowHeight());
         const w = @intToFloat(f32, gfx.getWindowWidth());
-        const b = (w-l) / 2;
+        if (size.w > w or size.h > h) {
+            if (font_size_help_message > 8) {
+                font_size_help_message -= 8;
+                try fnt.setFont("anka", font_size_help_message);
+                size = fnt.getTextSize(help_message);
+            }
+        }
+        if (size.w < 0.75*w and size.h < 0.75*h) {
+            font_size_help_message += 8;
+            try fnt.setFont("anka", font_size_help_message);
+            size = fnt.getTextSize(help_message);
+        }
+        const b_w = (w-size.w) / 2;
+        const b_h = (h-size.h) / 2;
 
         gfx.setColor4(0.0, 1.0, 0.0, 0.2);
-        gfx.drawQuad(0.9*b, h*0.1, w-0.9*b, h*0.9);
+        gfx.drawQuad(0.9*b_w, 0.9*b_h, w-0.9*b_w, h-0.9*b_h);
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
-        try fnt.renderText(help_message, b, h*0.2);
+        try fnt.renderText(help_message, b_w, b_h);
     }
 }
 

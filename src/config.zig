@@ -22,9 +22,9 @@ pub const fnt = struct {
     /// all fonts are used in each frame, but the one drawn
     /// first is idling for the longest time and hence,
     /// would be removed.
-    pub const auto_remove_idle_time = 10; // seconds
+    pub const auto_remove_idle_time = 1; // seconds
     /// Number of font atlasses to be kept in parallel
-    pub const font_atlas_limit = 10;
+    pub const font_atlas_limit = 5;
 };
 
 pub const gfx = struct {
