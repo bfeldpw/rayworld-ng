@@ -11,7 +11,7 @@ Simple Raycaster to learn Zig
 My first steps in Zig, importing native C with Glfw and OpenGL for learning purposes. Code might be hacky in some places, hopefully improving while learning. OpenGL fixed function pipeline is used purely out of lazyness and the fact, that a simple vertical line (maybe textured) is all that is needed for a raycasting algorithm in its most simplistic form. Might switch to core profile later, but that's secondary. Same applies for parameters and resources, for now, the map is hardcoded as are parameters (nevertheless there are parameters and not some magic numbers ;-)). Later, a map, its features, and configuration should be loaded from files, of course.
 
 ## News
-**2023-03-26** In the last two weeks, a font manager has been implemented using stb_truetype.c for rasterisation. It features
+**2023-03-26** In the last two weeks, a font manager has been implemented using stb_truetype for rasterisation. It features
 * Loading fonts
 * Rasterising fonts
 * Configuration option for auto-rasterisation. Enabling this rasterises fonts on the fly if required
@@ -21,6 +21,8 @@ My first steps in Zig, importing native C with Glfw and OpenGL for learning purp
 * Calculating text length and height including new lines to scale output
 * Rendering font atlasses and text: Both functions rely on a gfx_impl.zig file that can be adjusted to the graphics engine by the user
 * Several unit tests have been implemented
+
+Overall, the font manager is a good candidate to be separated as a library to be used outside of rayworld. I will try to create a MIT-licensed version on GitHub soon.
 The next image depicts rendering the help information to the screen:
 ![font](screenshots/font_rendering_01.jpg?raw=true)
 
