@@ -24,7 +24,7 @@ pub const fnt = struct {
     /// would be removed.
     pub const auto_remove_idle_time = 1; // seconds
     /// Number of font atlasses to be kept in parallel
-    pub const font_atlas_limit = 5;
+    pub const font_atlas_limit = 10;
 };
 
 pub const gfx = struct {

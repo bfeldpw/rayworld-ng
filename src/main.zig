@@ -119,7 +119,8 @@ fn adjustFovOnAspectChange() void {
     }
 }
 
-var font_size_help_message: f32 = 32;
+const font_size_help_message_default = 32;
+var font_size_help_message: f32 = font_size_help_message_default;
 fn displayHelp() !void {
     if (input.getF1()) {
         try fnt.setFont("anka", font_size_help_message);
@@ -134,19 +135,21 @@ fn displayHelp() !void {
             }
         }
         if (size.w < 0.75*w and size.h < 0.75*h) {
-            font_size_help_message += 8;
-            try fnt.setFont("anka", font_size_help_message);
-            size = fnt.getTextSize(help_message);
+            if (font_size_help_message < font_size_help_message_default) {
+                font_size_help_message += 8;
+                try fnt.setFont("anka", font_size_help_message);
+                size = fnt.getTextSize(help_message);
+            }
         }
         const b_w = (w-size.w) / 2;
         const b_h = (h-size.h) / 2;
 
-        // gfx.setColor4(0.0, 1.0, 0.0, 0.2);
-        try gui.drawOverlay(.{.title = .{.text = "Help", .col = .{0.0, 1.0, 0.0, 0.8}},
-                              .width = size.w,
-                              .height = size.h,
+        try gui.drawOverlay(.{.title = .{.is_enabled = false, .col = .{0.0, 1.0, 0.0, 0.8}},
+                              .width = size.w+10,
+                              .height = size.h+10,
                               .col = .{0.0, 1.0, 0.0, 0.2}});
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
+        try fnt.setFont("anka", font_size_help_message);
         try fnt.renderText(help_message, b_w, b_h);
     }
 }
