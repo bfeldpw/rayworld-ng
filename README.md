@@ -11,6 +11,19 @@ Simple Raycaster to learn Zig
 My first steps in Zig, importing native C with Glfw and OpenGL for learning purposes. Code might be hacky in some places, hopefully improving while learning. OpenGL fixed function pipeline is used purely out of lazyness and the fact, that a simple vertical line (maybe textured) is all that is needed for a raycasting algorithm in its most simplistic form. Might switch to core profile later, but that's secondary. Same applies for parameters and resources, for now, the map is hardcoded as are parameters (nevertheless there are parameters and not some magic numbers ;-)). Later, a map, its features, and configuration should be loaded from files, of course.
 
 ## News
+**2023-03-26** In the last two weeks, a font manager has been implemented using stb_truetype.c for rasterisation. It features
+* Loading fonts
+* Rasterising fonts
+* Configuration option for auto-rasterisation. Enabling this rasterises fonts on the fly if required
+* Limiting the maximum number of font atlasses and auto removing idle fonts
+  * The configuration sets a boolean for auto removal. If a new font is to be rasterised and the maximum number of font atlasses is reached, the most idle font (not used for the longest time) is removed
+  * Minimum idle time: Another configuration parameter sets the minimum time for auto removal. If there is no font with a larger idle time, an error is thrown. This is to handle situations, where the maximum number of rasterised fonts is used in a single frame and hence, the first font drawn in the frame (with the highest idle time) would be removed.
+* Calculating text length and height including new lines to scale output
+* Rendering font atlasses and text: Both functions rely on a gfx_impl.zig file that can be adjusted to the graphics engine by the user
+* Several unit tests have been implemented
+The next image depicts rendering the help information to the screen:
+![font](screenshots/font_rendering_01.jpg?raw=true)
+
 **2023-03-10** Apart from adding CI via GitHub Actions, two major features were implemented in the past 6 weeks:
 * Subsampling of rays is now possible. When subsampling, quads are drawn instead of lines. Since texture coordinates and heights are interpolated correctly and material transitions and depth discontinuities are taken into account, visual quality doesn't noticably decrease if not subsampling excessively. Additionally, each reflecting wall element can be configured individually to increase subsampling in order to reduce processing costs.
 * Background simulation: In a spontaneous attempt to add some story, a background simulation has been implemented. The player is on a space station, orbiting a planet with space debris/asteroids. Utilising SIMD operations, a threads computes 10 000 objects orbiting the planet without too much impact on performance. A system map depicting planet, station and debris can be overlayed.
