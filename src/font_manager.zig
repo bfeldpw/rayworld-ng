@@ -1,6 +1,6 @@
 const std = @import("std");
 const cfg = @import("config.zig");
-const gfx = @import("graphics.zig");
+const gfx_impl = @import("gfx_impl.zig");
 const c = @cImport({
     @cInclude("GL/gl.h");
     @cInclude("stb_truetype.h");
@@ -142,7 +142,7 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
             if (auto_rasterise) {
                 fm_log.debug("Unable to get information about font designator <{s}>", .{font_designator});
                 fm_log.debug("You are covered, <auto_rasterise> is enabled", .{});
-                rasterise(font_name, font_size, gfx.getTextureId()) catch |err| {
+                rasterise(font_name, font_size, gfx_impl.getNewTextureId()) catch |err| {
                     return err;
                 };
 
@@ -326,9 +326,9 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                         .{font_atlas_size_default * atlas_scale});
             return error.FontRasterisingFailed;
         } else {
-            gfx.createTexture1C(font_atlas_size_default * @intCast(u32, atlas_scale),
-                                font_atlas_size_default * @intCast(u32, atlas_scale),
-                                font_atlas_by_id.get(tex_id).?, tex_id);
+            gfx_impl.createTextureAlpha(font_atlas_size_default * @intCast(u32, atlas_scale),
+                                        font_atlas_size_default * @intCast(u32, atlas_scale),
+                                        font_atlas_by_id.get(tex_id).?, tex_id);
 
             const t = std.time.Timer.start() catch |err| {
                 fm_log.warn("{}", .{err});
@@ -363,7 +363,7 @@ pub fn removeFontByDesignator(name: []const u8) FontError!void {
         fm_log.warn("Couldn't remove font <{s}>, unknown font name", .{name});
         return error.FontNameUnknown;
     } else {
-        gfx.releaseTexture(id.?);
+        gfx_impl.releaseTexture(id.?);
     }
 }
 
@@ -392,12 +392,12 @@ pub fn removeFontById(id: u32) FontError!void {
         fm_log.warn("Couldn't remove font <{s}> with id {}, unknown id", .{font_name, id});
         return error.FontNameUnknown;
     } else {
-        gfx.releaseTexture(id);
+        gfx_impl.releaseTexture(id);
     }
 }
 
 pub fn renderAtlas() !void {
-    gfx.setActiveTexture(current.tex_id);
+    gfx_impl.setActiveTexture(current.tex_id);
     c.glEnable(c.GL_TEXTURE_2D);
 
     const x0 = 100;
@@ -419,7 +419,7 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
 
     current.idle_timer.reset();
 
-    gfx.setActiveTexture(current.tex_id);
+    gfx_impl.setActiveTexture(current.tex_id);
     c.glEnable(c.GL_TEXTURE_2D);
 
     c.glBegin(c.GL_QUADS);
