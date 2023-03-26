@@ -1,6 +1,7 @@
 const std = @import("std");
 const cfg = @import("config.zig");
 const gfx = @import("graphics.zig");
+const gfx_impl = @import("gfx_impl.zig");
 const map = @import("map.zig");
 const stats = @import("stats.zig");
 const plr = @import("player.zig");
@@ -43,27 +44,27 @@ pub fn createMap() void {
     const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
     const o = win_h - f * map_cells_y; // y-offset for map drawing in px
 
-    gfx.startBatchQuads();
+    gfx_impl.beginBatchQuads();
     for (m, 0..) |y, j| {
         for (y, 0..) |cell, i| {
             const c = map.getColor(j, i);
             switch (cell) {
                 .floor => {
-                    gfx.setColor4(0.2 + 0.1 * c.r, 0.2 + 0.1 * c.g, 0.2 + 0.1 * c.b, cfg.rc.map_display_opacity);
+                    gfx_impl.setColor(0.2 + 0.1 * c.r, 0.2 + 0.1 * c.g, 0.2 + 0.1 * c.b, cfg.rc.map_display_opacity);
                 },
                 .wall, .wall_thin, .mirror, .glass, .pillar => {
-                    gfx.setColor4(0.3 + 0.3 * c.r, 0.3 + 0.3 * c.g, 0.3 + 0.3 * c.b, cfg.rc.map_display_opacity);
+                    gfx_impl.setColor(0.3 + 0.3 * c.r, 0.3 + 0.3 * c.g, 0.3 + 0.3 * c.b, cfg.rc.map_display_opacity);
                 },
             }
 
-            gfx.addQuad(@intToFloat(f32, i) * f, o + @intToFloat(f32, j) * f, @intToFloat(f32, (i + 1)) * f, o + @intToFloat(f32, (j + 1)) * f);
+            gfx_impl.addBatchQuad(@intToFloat(f32, i) * f, o + @intToFloat(f32, j) * f, @intToFloat(f32, (i + 1)) * f, o + @intToFloat(f32, (j + 1)) * f);
         }
     }
-    gfx.endBatch();
+    gfx_impl.endBatch();
 
     var i: usize = 0;
 
-    gfx.setColor4(0.0, 0.0, 1.0, 0.1);
+    gfx_impl.setColor(0.0, 0.0, 1.0, 0.1);
     gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
         if (i % cfg.rc.map_display_every_nth_line == 0) {
@@ -78,9 +79,9 @@ pub fn createMap() void {
             while (j >= j0) : (j -= 1) {
                 const color_grade = color_step * @intToFloat(f32, @intCast(usize, j) - j0);
                 if (j == j0) {
-                    gfx.setColor4(0.0, 0.0, 1.0, 0.5);
+                    gfx_impl.setColor(0.0, 0.0, 1.0, 0.5);
                 } else {
-                    gfx.setColor4(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
+                    gfx_impl.setColor(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
                 }
                 const k = @intCast(usize, j);
                 gfx.addLine(segments.x0[k] * f, o + segments.y0[k] * f, segments.x1[k] * f, o + segments.y1[k] * f);
@@ -94,7 +95,7 @@ pub fn createMap() void {
     const w = 0.1;
     const h = 0.5;
     const d = plr.getDir();
-    gfx.setColor4(0.0, 0.7, 0.0, 1.0);
+    gfx_impl.setColor(0.0, 0.7, 0.0, 1.0);
     gfx.drawTriangle((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f, (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f, (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f);
 }
 

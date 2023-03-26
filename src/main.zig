@@ -86,6 +86,7 @@ pub fn main() !void {
         try gfx.renderFrame();
         rc.createMap();
         try sim.createScene();
+        try fnt.renderAtlas();
         try displayHelp();
 
         perf_ren.stopMeasurement();

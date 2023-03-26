@@ -2,7 +2,6 @@ const std = @import("std");
 const cfg = @import("config.zig");
 const gfx_impl = @import("gfx_impl.zig");
 const c = @cImport({
-    @cInclude("GL/gl.h");
     @cInclude("stb_truetype.h");
     @cInclude("stb_rect_pack.h");
 });
@@ -397,19 +396,13 @@ pub fn removeFontById(id: u32) FontError!void {
 }
 
 pub fn renderAtlas() !void {
-    gfx_impl.setActiveTexture(current.tex_id);
-    c.glEnable(c.GL_TEXTURE_2D);
+    gfx_impl.bindTexture(current.tex_id);
 
     const x0 = 100;
     const x1 = 612;
     const y0 = 100;
     const y1 = 612;
-    c.glBegin(c.GL_QUADS);
-        c.glTexCoord2f(0.0, 0.0); c.glVertex2f(x0, y0);
-        c.glTexCoord2f(1.0, 0.0); c.glVertex2f(x1, y0);
-        c.glTexCoord2f(1.0, 1.0); c.glVertex2f(x1, y1);
-        c.glTexCoord2f(0.0, 1.0); c.glVertex2f(x0, y1);
-    c.glEnd();
+    gfx_impl.addImmediateQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0);
 }
 
 pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
@@ -419,10 +412,8 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
 
     current.idle_timer.reset();
 
-    gfx_impl.setActiveTexture(current.tex_id);
-    c.glEnable(c.GL_TEXTURE_2D);
-
-    c.glBegin(c.GL_QUADS);
+    gfx_impl.bindTexture(current.tex_id);
+    gfx_impl.beginBatchQuadsTextured();
     for (text) |ch| {
 
         if (ch == 10) { // Handle line feed
@@ -434,15 +425,11 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
                                   ch - ascii_first,
                                   &offset_x, &offset_y, &glyph_quad, 0);
 
-            c.glTexCoord2f(glyph_quad.s0, glyph_quad.t0); c.glVertex2f(glyph_quad.x0+x, glyph_quad.y0+y);
-            c.glTexCoord2f(glyph_quad.s1, glyph_quad.t0); c.glVertex2f(glyph_quad.x1+x, glyph_quad.y0+y);
-            c.glTexCoord2f(glyph_quad.s1, glyph_quad.t1); c.glVertex2f(glyph_quad.x1+x, glyph_quad.y1+y);
-            c.glTexCoord2f(glyph_quad.s0, glyph_quad.t1); c.glVertex2f(glyph_quad.x0+x, glyph_quad.y1+y);
+            gfx_impl.addBatchQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
+                                          glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1);
         }
     }
-    c.glEnd();
-
-    c.glDisable(c.GL_TEXTURE_2D);
+    gfx_impl.endBatch();
 }
 
 //-----------------------------------------------------------------------------//

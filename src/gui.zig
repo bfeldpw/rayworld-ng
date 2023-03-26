@@ -32,7 +32,7 @@ pub fn drawOverlay(prm: ParamOverlay) !void {
     }
 
     gfx_impl.setColor(prm.col[0], prm.col[1], prm.col[2], prm.col[3]);
-    gfx_impl.createQuad(ul_x, ul_y, ul_x+prm.width, ul_y+prm.height);
+    gfx_impl.addImmediateQuad(ul_x, ul_y, ul_x+prm.width, ul_y+prm.height);
 
     if (prm.title.is_enabled) {
         try fnt.setFont(prm.title.font_name, prm.title.font_size);

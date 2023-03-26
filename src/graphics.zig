@@ -98,9 +98,26 @@ pub inline fn getWindowWidth() u64 {
     return window_w;
 }
 
-pub fn setActiveTexture(tex: u32) void {
-    c.glActiveTexture(c.GL_TEXTURE0);
-    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex));
+pub fn enableTexturing() void {
+    if (!state.is_texturing_enabled) {
+        c.glEnable(c.GL_TEXTURE_2D);
+        state.is_texturing_enabled = true;
+    }
+}
+
+pub fn disableTexturing() void {
+    if (state.is_texturing_enabled) {
+        c.glDisable(c.GL_TEXTURE_2D);
+        state.is_texturing_enabled = false;
+    }
+}
+
+pub fn bindTexture(tex_id: u32) void {
+    if (state.bound_texture != tex_id) {
+        c.glActiveTexture(c.GL_TEXTURE0);
+        c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex_id));
+        state.bound_texture = tex_id;
+    }
 }
 
 pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
@@ -212,27 +229,65 @@ pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 }
 
 pub fn startBatchLine() void {
+    disableTexturing();
     c.glBegin(c.GL_LINES);
 }
 
 pub fn startBatchLineTextured() void {
-    c.glEnable(c.GL_TEXTURE_2D);
+    enableTexturing();
     c.glBegin(c.GL_LINES);
 }
 
 pub fn startBatchQuads() void {
+    disableTexturing();
+    c.glBegin(c.GL_QUADS);
+}
+
+pub fn startBatchQuadsTextured() void {
+    enableTexturing();
     c.glBegin(c.GL_QUADS);
 }
 
 pub fn drawCircle(x: f32, y: f32, r: f32) void {
     const nr_of_segments = 100.0;
 
+    enableTexturing();
     c.glBegin(c.GL_LINE_LOOP);
     var angle: f32 = 0.0;
     const inc = 2.0 * std.math.pi / nr_of_segments;
     while (angle < 2.0 * std.math.pi) : (angle += inc) {
         c.glVertex2f(r * @cos(angle) + x, r * @sin(angle) + y);
     }
+    c.glEnd();
+}
+
+pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    disableTexturing();
+    c.glBegin(c.GL_QUADS);
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y0);
+    c.glVertex2f(x1, y1);
+    c.glVertex2f(x0, y1);
+    c.glEnd();
+}
+
+pub fn drawQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
+                        u_0: f32, v0: f32, u_1: f32, v1: f32) void {
+    enableTexturing();
+    c.glBegin(c.GL_QUADS);
+    c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
+    c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
+    c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
+    c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
+    c.glEnd();
+}
+
+pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
+    disableTexturing();
+    c.glBegin(c.GL_TRIANGLES);
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y1);
+    c.glVertex2f(x2, y2);
     c.glEnd();
 }
 
@@ -246,6 +301,14 @@ pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     c.glVertex2f(x1, y0);
     c.glVertex2f(x1, y1);
     c.glVertex2f(x0, y1);
+}
+
+pub fn addQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
+                       u_0: f32, v0: f32, u_1: f32, v1: f32) void {
+    c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
+    c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
+    c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
+    c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
 }
 
 pub fn addVerticalLine(x: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
@@ -616,25 +679,6 @@ pub fn endBatch() void {
 
 pub fn endBatchTextured() void {
     c.glEnd();
-    c.glDisable(c.GL_TEXTURE_2D);
-}
-
-pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
-    c.glDisable(c.GL_TEXTURE_2D);
-    c.glBegin(c.GL_QUADS);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x0, y1);
-    c.glEnd();
-}
-
-pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
-    c.glBegin(c.GL_TRIANGLES);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x2, y2);
-    c.glEnd();
 }
 
 pub fn finishFrame() !void {
@@ -687,7 +731,7 @@ pub fn renderFrame() !void {
         var iter_tex = lines_textured.iterator();
         while (iter_tex.next()) |v| {
             if (v.value_ptr.n[d] > 0) {
-                setActiveTexture(v.key_ptr.*);
+                bindTexture(v.key_ptr.*);
                 c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.verts[d]));
                 c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.cols[d]));
                 c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.texcs[d]));
@@ -703,7 +747,7 @@ pub fn renderFrame() !void {
         var iter_quad_tex = quads_textured.iterator();
         while (iter_quad_tex.next()) |v| {
             if (v.value_ptr.n[d] > 0) {
-                setActiveTexture(v.key_ptr.*);
+                bindTexture(v.key_ptr.*);
                 c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.verts[d]));
                 c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.cols[d]));
                 c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.texcs[d]));
@@ -837,6 +881,11 @@ var lines = std.AutoHashMap(u8, Lines).init(allocator);
 var lines_textured = std.AutoHashMap(u32, TexturedLines).init(allocator);
 var quads = std.AutoHashMap(u8, Quads).init(allocator);
 var quads_textured = std.AutoHashMap(u32, TexturedQuads).init(allocator);
+
+const state = struct {
+    var bound_texture: u32 = 0;
+    var is_texturing_enabled: bool = false;
+};
 
 fn allocMemory() !void {
     lines.put(1, .{ .verts = undefined, .cols = undefined, .i_verts = undefined, .i_cols = undefined, .n = undefined }) catch |e| {
