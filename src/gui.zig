@@ -3,6 +3,8 @@ const gfx_impl = @import("gfx_impl.zig");
 
 pub const Title = struct {
     text: []const u8 = "Title",
+    font_name: []const u8 = "anka",
+    font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     is_centered: bool = true,
     is_enabled: bool = true,
@@ -33,6 +35,7 @@ pub fn drawOverlay(prm: ParamOverlay) !void {
     gfx_impl.createQuad(ul_x, ul_y, ul_x+prm.width, ul_y+prm.height);
 
     if (prm.title.is_enabled) {
+        try fnt.setFont(prm.title.font_name, prm.title.font_size);
         if (prm.title.is_centered) {
             const s = fnt.getTextSize(prm.title.text);
             ul_x = ul_x + (prm.width-s.w) * 0.5;

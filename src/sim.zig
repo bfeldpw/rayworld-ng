@@ -1,6 +1,7 @@
 const std = @import("std");
 const cfg = @import("config.zig");
 const gfx = @import("graphics.zig");
+const gui = @import("gui.zig");
 const stats = @import("stats.zig");
 
 //-----------------------------------------------------------------------------//
@@ -46,7 +47,7 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn createScene() void {
+pub fn createScene() !void {
 
     if (is_map_displayed) {
         const win_w = @intToFloat(f32, gfx.getWindowWidth());
@@ -63,10 +64,15 @@ pub fn createScene() void {
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
                         @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
 
+        try gui.drawOverlay(.{.title = .{.text = "System Map",
+                                         .font_size = 64,
+                                         .col = .{1.0, 0.5, 0.0, 0.8}},
+                            .width = win_w,
+                            .height = win_h,
+                            .col = .{1.0, 0.5, 0.0, 0.3}});
+
         gfx.startBatchQuads();
 
-            gfx.setColor4(1.0, 0.5, 0.0, 0.3);
-            gfx.addQuad(0, 0 ,win_w , win_h);
             gfx.setColor4(1.0, 0.5, 0.0, 0.8);
 
             var i: usize = 2;

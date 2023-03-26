@@ -77,8 +77,6 @@ pub fn main() !void {
 
         perf_rc.startMeasurement();
         try rc.processRays(cfg.multithreading);
-        // var rc_thread = try std.Thread.spawn(.{}, rc.processRays, .{multithreading});
-        // rc_thread.join();
         perf_rc.stopMeasurement();
 
         if (!cfg.multithreading) sim.step();
@@ -87,7 +85,7 @@ pub fn main() !void {
         rc.createScene();
         try gfx.renderFrame();
         rc.createMap();
-        sim.createScene();
+        try sim.createScene();
         try displayHelp();
 
         perf_ren.stopMeasurement();

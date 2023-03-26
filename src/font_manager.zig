@@ -194,11 +194,14 @@ pub fn addFont(font_name: []const u8,
 }
 
 pub fn printIdleTimes() void {
-    var iter = font_timer_by_id.iterator();
+    var iter = font_id_by_name.iterator();
+    // var iter = font_timer_by_id.iterator();
     while (iter.next()) |v| {
-        // allocator.free(v.value_ptr.*);
-        const t = 1.0e-9 * @intToFloat(f64, v.value_ptr.read());
-        fm_log.info("{d:.3}s", .{t});
+        const tex_id = v.value_ptr.*;
+        const name = v.key_ptr.*;
+        var timer = font_timer_by_id.get(tex_id).?;
+        const t = 1.0e-9 * @intToFloat(f64, timer.read());
+        fm_log.debug("Font <{s}>, ID={}, t_idle = {d:.3}s", .{name, tex_id, t});
     }
 }
 
@@ -438,6 +441,8 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
         }
     }
     c.glEnd();
+
+    c.glDisable(c.GL_TEXTURE_2D);
 }
 
 //-----------------------------------------------------------------------------//
