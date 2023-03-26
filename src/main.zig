@@ -3,6 +3,7 @@ const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
 const gfx = @import("graphics.zig");
+const gui = @import("gui.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
@@ -142,8 +143,11 @@ fn displayHelp() !void {
         const b_w = (w-size.w) / 2;
         const b_h = (h-size.h) / 2;
 
-        gfx.setColor4(0.0, 1.0, 0.0, 0.2);
-        gfx.drawQuad(0.9*b_w, 0.9*b_h, w-0.9*b_w, h-0.9*b_h);
+        // gfx.setColor4(0.0, 1.0, 0.0, 0.2);
+        try gui.drawOverlay(.{.title = .{.text = "Help", .col = .{0.0, 1.0, 0.0, 0.8}},
+                              .width = size.w,
+                              .height = size.h,
+                              .col = .{0.0, 1.0, 0.0, 0.2}});
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
         try fnt.renderText(help_message, b_w, b_h);
     }
