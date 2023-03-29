@@ -36,11 +36,9 @@ pub fn main() !void {
 
     fnt.init();
     defer fnt.deinit();
-    try fnt.addFont("anka", "resource/AnkaCoder-r.ttf");
-    try fnt.rasterise("anka", 16, gfx.getTextureId());
-    try fnt.rasterise("anka", 32, gfx.getTextureId());
-    try fnt.rasterise("anka", 64, gfx.getTextureId());
-    try fnt.setFont("anka", 32);
+    try fnt.addFont("anka_b", "resource/AnkaCoder-C87-b.ttf");
+    try fnt.addFont("anka_i", "resource/AnkaCoder-C87-i.ttf");
+    try fnt.addFont("anka_r", "resource/AnkaCoder-C87-r.ttf");
 
     var perf_map = try stats.Performance.init("Map");
     perf_map.startMeasurement();
@@ -132,7 +130,7 @@ fn displayFontStats() !void {
                             .width = 300,
                             .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
                             .col = .{0.0, 1.0, 0.0, 0.2}});
-        try fnt.setFont("anka", font_size);
+        try fnt.setFont("anka_r", font_size);
         var y: f32 = font_size + border;
         var iter = names.iterator();
         while (iter.next()) |v| {
@@ -154,21 +152,21 @@ var font_size_help_message: f32 = font_size_help_message_default;
 
 fn displayHelp() !void {
     if (input.getF1()) {
-        try fnt.setFont("anka", font_size_help_message);
+        try fnt.setFont("anka_r", font_size_help_message);
         var size = fnt.getTextSize(help_message);
         const h = @intToFloat(f32, gfx.getWindowHeight());
         const w = @intToFloat(f32, gfx.getWindowWidth());
         if (size.w > w or size.h > h) {
             if (font_size_help_message > 8) {
                 font_size_help_message -= 8;
-                try fnt.setFont("anka", font_size_help_message);
+                try fnt.setFont("anka_r", font_size_help_message);
                 size = fnt.getTextSize(help_message);
             }
         }
         if (size.w < 0.75*w and size.h < 0.75*h) {
             if (font_size_help_message < font_size_help_message_default) {
                 font_size_help_message += 8;
-                try fnt.setFont("anka", font_size_help_message);
+                try fnt.setFont("anka_r", font_size_help_message);
                 size = fnt.getTextSize(help_message);
             }
         }
@@ -180,22 +178,10 @@ fn displayHelp() !void {
                               .height = size.h+10,
                               .col = .{0.0, 1.0, 0.0, 0.2}});
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
-        try fnt.setFont("anka", font_size_help_message);
+        try fnt.setFont("anka_r", font_size_help_message);
         try fnt.renderText(help_message, b_w, b_h);
     }
 }
-
-// fn init() void {
-//     const style_1 = .{.title = .{.text = "Font idle times",
-//                                  .col = .{0.0, 1.0, 0.0, 0.8},
-//                                  .font_size = 24},
-//                       .is_centered = false,
-//                       .ul_x = 10,
-//                       .ul_y = 10,
-//                       .width = 300,
-//                       .height =  * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
-//                       .col = .{0.0, 1.0, 0.0, 0.2}};
-// }
 
 fn printUsage() void {
     std.debug.print(help_message, .{});

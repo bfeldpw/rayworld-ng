@@ -261,6 +261,14 @@ pub fn drawCircle(x: f32, y: f32, r: f32) void {
     c.glEnd();
 }
 
+pub fn drawLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    disableTexturing();
+    c.glBegin(c.GL_LINES);
+    c.glVertex2f(x0, y0);
+    c.glVertex2f(x1, y1);
+    c.glEnd();
+}
+
 pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
     disableTexturing();
     c.glBegin(c.GL_QUADS);

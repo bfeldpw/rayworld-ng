@@ -23,6 +23,13 @@ pub inline fn addBatchQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
     gfx.addQuadTextured(x0, y0, x1, y1, u_0, v0, u_1, v1);
 }
 
+/// Immediately draw a line. Internal handling is implementation
+/// specific and may also happen within a batch, though this is
+/// typically called for a few single line
+pub inline fn addImmediateLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
+    gfx.drawLine(x0, y0, x1, y1);
+}
+
 /// Immediately draw a quad. Internal handling is implementation
 /// specific and may also happen within a batch, though this is
 /// typically called for a few single quads

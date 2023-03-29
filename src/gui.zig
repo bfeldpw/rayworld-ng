@@ -7,7 +7,7 @@ const presets = std.StringHashMap(ParamOverlay).init(allocator);
 
 pub const Title = struct {
     text: []const u8 = "Title",
-    font_name: []const u8 = "anka",
+    font_name: []const u8 = "anka_b",
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     is_centered: bool = true,
