@@ -844,3 +844,13 @@ inline fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, 
 //-----------------------------------------------------------------------------//
 //   Tests
 //-----------------------------------------------------------------------------//
+
+test "init" {
+    try gfx.init();
+    try init();
+    try map.init();
+    defer gfx.deinit();
+    defer deinit();
+    defer map.deinit();
+    // try processRays(false);
+}

@@ -48,6 +48,8 @@ pub fn build(b: *std.Build) void {
     exe_tests.linkLibC();
     exe_tests.linkSystemLibrary("gl");
     exe_tests.linkSystemLibrary("glfw");
+    exe_tests.addModule("zstbi", zstbi_pkg.zstbi);
+    zstbi_pkg.link(exe_tests);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);

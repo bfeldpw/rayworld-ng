@@ -41,14 +41,6 @@ pub fn main() !void {
     try fnt.rasterise("anka", 32, gfx.getTextureId());
     try fnt.rasterise("anka", 64, gfx.getTextureId());
     try fnt.setFont("anka", 32);
-    // std.log.debug("Text length of <Rayworld> = {d:.2}", .{fnt.getTextLength("Rayworld")});
-    // fnt.setFont("anka", 16) catch |err| {
-    //     std.log.debug("{}", .{err});
-    // };
-    // fnt.setFont("anka", 16) catch |err| {
-    //     std.log.debug("{}", .{err});
-    //     try fnt.rasterise("anka", 16, gfx.getTextureId());
-    // };
 
     var perf_map = try stats.Performance.init("Map");
     perf_map.startMeasurement();
@@ -86,7 +78,8 @@ pub fn main() !void {
         try gfx.renderFrame();
         rc.createMap();
         try sim.createScene();
-        try fnt.renderAtlas();
+        // try fnt.renderAtlas();
+        try displayFontStats();
         try displayHelp();
 
         perf_ren.stopMeasurement();
@@ -119,9 +112,46 @@ fn adjustFovOnAspectChange() void {
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
 }
+var buffer: [cfg.fnt.font_atlas_limit * 256]u8 = undefined;
+var fba = std.heap.FixedBufferAllocator.init(&buffer);
+const allocator = fba.allocator();
+
+fn displayFontStats() !void {
+    if (input.getF2()) {
+        const font_size = 24;
+        const border = 10;
+        const names = fnt.getIdByName();
+        const timers = fnt.getTimerById();
+
+        try gui.drawOverlay(.{.title = .{.text = "Font idle times",
+                                         .col = .{0.0, 1.0, 0.0, 0.8},
+                                         .font_size = font_size},
+                            .is_centered = false,
+                            .ul_x = 10,
+                            .ul_y = 10,
+                            .width = 300,
+                            .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
+                            .col = .{0.0, 1.0, 0.0, 0.2}});
+        try fnt.setFont("anka", font_size);
+        var y: f32 = font_size + border;
+        var iter = names.iterator();
+        while (iter.next()) |v| {
+            const name = v.key_ptr.*;
+            var timer = timers.get(v.value_ptr.*).?;
+
+            const timer_printout = try std.fmt.allocPrint(allocator,
+                                                        "{s}: {d:.2}s",
+                                                        .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
+            try fnt.renderText(timer_printout, 10+border, y);
+            allocator.free(timer_printout);
+            y += font_size;
+        }
+    }
+}
 
 const font_size_help_message_default = 32;
 var font_size_help_message: f32 = font_size_help_message_default;
+
 fn displayHelp() !void {
     if (input.getF1()) {
         try fnt.setFont("anka", font_size_help_message);
@@ -155,6 +185,18 @@ fn displayHelp() !void {
     }
 }
 
+// fn init() void {
+//     const style_1 = .{.title = .{.text = "Font idle times",
+//                                  .col = .{0.0, 1.0, 0.0, 0.8},
+//                                  .font_size = 24},
+//                       .is_centered = false,
+//                       .ul_x = 10,
+//                       .ul_y = 10,
+//                       .width = 300,
+//                       .height =  * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
+//                       .col = .{0.0, 1.0, 0.0, 0.2}};
+// }
+
 fn printUsage() void {
     std.debug.print(help_message, .{});
 }
@@ -164,6 +206,7 @@ const help_message = "=====================\n" ++
             "=====================\n\n" ++
             "GENERAL\n" ++
             "  F1:    this help\n" ++
+            "  F2:    font info\n" ++
             "  Q:     quit\n" ++
             "MOVEMENT\n" ++
             "  Use mouse to turn/look around\n" ++

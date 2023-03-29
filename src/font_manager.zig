@@ -76,6 +76,14 @@ const TextSize = struct {
     h: f32,
 };
 
+pub inline fn getTimerById() *const std.AutoHashMap(u32, std.time.Timer) {
+    return &font_timer_by_id;
+}
+
+pub inline fn getIdByName() *const std.StringHashMap(u32) {
+    return &font_id_by_name;
+}
+
 pub fn getTextSize(text: []const u8) TextSize {
     var length: f32 = 0.0;
     var length_max: f32 = 0.0;
@@ -134,6 +142,7 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
             current.tex_id = font_id_by_name.get(font_designator).?;
             current.char_info = font_char_info_by_id.get(current.tex_id).?;
             current.atlas_size = font_atlas_size_by_id.get(current.tex_id).?;
+            current.idle_timer = font_timer_by_id.getPtr(current.tex_id).?;
             current.baseline = baseline;
             var t = font_timer_by_id.get(current.tex_id).?;
             t.reset();

@@ -1,5 +1,9 @@
+const std = @import("std");
+const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
 const gfx_impl = @import("gfx_impl.zig");
+
+const presets = std.StringHashMap(ParamOverlay).init(allocator);
 
 pub const Title = struct {
     text: []const u8 = "Title",
@@ -44,3 +48,14 @@ pub fn drawOverlay(prm: ParamOverlay) !void {
         try fnt.renderText(prm.title.text, ul_x, ul_y);
     }
 }
+
+//-----------------------------------------------------------------------------//
+//   Internal
+//-----------------------------------------------------------------------------//
+
+/// Font manager logging scope
+const gui_log = std.log.scoped(.fnt);
+
+var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
+          else std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();

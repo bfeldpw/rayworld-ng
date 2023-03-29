@@ -52,6 +52,11 @@ pub inline fn getF1() bool {
     return is_f1;
 }
 
+var is_f2: bool = false;
+pub inline fn getF2() bool {
+    return is_f2;
+}
+
 pub inline fn setWindow(win: ?*c.GLFWwindow) void {
     window = win;
 }
@@ -79,6 +84,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     _ = mods;
 
     if (key == c.GLFW_KEY_F1 and action == c.GLFW_PRESS) is_f1 = is_f1 != true;
+    if (key == c.GLFW_KEY_F2 and action == c.GLFW_PRESS) is_f2 = is_f2 != true;
     if (key == c.GLFW_KEY_F5 and action == c.GLFW_PRESS) sim.timing.decelerate();
     if (key == c.GLFW_KEY_F6 and action == c.GLFW_PRESS) sim.timing.accelerate();
     if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
