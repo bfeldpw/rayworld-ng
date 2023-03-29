@@ -846,7 +846,7 @@ inline fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, 
 //-----------------------------------------------------------------------------//
 
 test "init" {
-    try gfx.init();
+    // try gfx.init();
     try init();
     try map.init();
     defer gfx.deinit();
