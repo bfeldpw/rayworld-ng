@@ -173,10 +173,14 @@ fn displayHelp() !void {
         const b_w = (w-size.w) / 2;
         const b_h = (h-size.h) / 2;
 
-        try gui.drawOverlay(.{.title = .{.is_enabled = false, .col = .{0.0, 1.0, 0.0, 0.8}},
+        // var text_widget: gui.TextWidget = .{.text = help_message};
+        try gui.drawOverlay(.{.title = .{.is_enabled = false,
+                                         .col = .{0.0, 1.0, 0.0, 0.8}},
                               .width = size.w+10,
                               .height = size.h+10,
-                              .col = .{0.0, 1.0, 0.0, 0.2}});
+                              .col = .{0.0, 1.0, 0.0, 0.2},
+                              });
+                              // .widget = &text_widget});
         gfx.setColor4(0.0, 1.0, 0.0, 0.8);
         try fnt.setFont("anka_r", font_size_help_message);
         try fnt.renderText(help_message, b_w, b_h);
