@@ -14,6 +14,16 @@ pub const Title = struct {
     is_enabled: bool = true,
 };
 
+pub const TextWidget = struct {
+
+    text: []const u8 = undefined,
+
+};
+
+pub fn draw(text: []const u8) !void {
+    try fnt.renderText(text, 0.0, 0.0);
+}
+
 pub const ParamOverlay = struct {
     width: f32 = 100.0,
     height: f32 = 100.0,
@@ -22,6 +32,7 @@ pub const ParamOverlay = struct {
     ul_y: f32 = 0.0,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     title: Title,
+    widget: ?*anyopaque = null,
 };
 
 pub fn drawOverlay(prm: ParamOverlay) !void {
@@ -46,6 +57,13 @@ pub fn drawOverlay(prm: ParamOverlay) !void {
         }
         gfx_impl.setColor(prm.title.col[0], prm.title.col[1], prm.title.col[2], prm.title.col[3]);
         try fnt.renderText(prm.title.text, ul_x, ul_y);
+    }
+    // if (prm.widget != null) {
+    //     try draw(prm.widget.?.text);
+    // }
+    if (prm.widget != null) {
+        const text_widget = @ptrCast(?*TextWidget, @alignCast(@alignOf(TextWidget), prm.widget));
+        try draw(text_widget.?.text);
     }
 }
 
