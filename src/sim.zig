@@ -64,12 +64,12 @@ pub fn createScene() !void {
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
                         @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
 
-        try gui.drawOverlay(.{.title = .{.text = "System Map",
-                                         .font_size = 64,
-                                         .col = .{1.0, 0.5, 0.0, 0.8}},
-                            .width = win_w,
-                            .height = win_h,
-                            .col = .{1.0, 0.5, 0.0, 0.3}});
+        // try gui.drawOverlay(.{.title = .{.text = "System Map",
+        //                                  .font_size = 64,
+        //                                  .col = .{1.0, 0.5, 0.0, 0.8}},
+        //                     .width = win_w,
+        //                     .height = win_h,
+        //                     .col = .{1.0, 0.5, 0.0, 0.3}});
 
         gfx.startBatchQuads();
 

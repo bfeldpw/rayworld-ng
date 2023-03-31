@@ -15,14 +15,18 @@ pub const Title = struct {
 };
 
 pub const TextWidget = struct {
-
+    overlay: ParamOverlay,
     text: []const u8 = undefined,
+    font_name: []const u8 = "anka_b",
+    font_size: f32 = 32,
+    col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
+    frame: [2]f32 = .{10.0, 10.0},
+
+    fn draw(self: *TextWidget, x: f32, y: f32) !void {
+        try fnt.renderText(self.text, x + self.frame[0], y + self.frame[1]);
+    }
 
 };
-
-pub fn draw(text: []const u8) !void {
-    try fnt.renderText(text, 0.0, 0.0);
-}
 
 pub const ParamOverlay = struct {
     width: f32 = 100.0,
@@ -32,10 +36,10 @@ pub const ParamOverlay = struct {
     ul_y: f32 = 0.0,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     title: Title,
-    widget: ?*anyopaque = null,
+    overlay_type: OverlayType = .none,
 };
 
-pub fn drawOverlay(prm: ParamOverlay) !void {
+pub fn drawOverlay(prm: *ParamOverlay) !void {
     const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
     const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
 
@@ -58,12 +62,12 @@ pub fn drawOverlay(prm: ParamOverlay) !void {
         gfx_impl.setColor(prm.title.col[0], prm.title.col[1], prm.title.col[2], prm.title.col[3]);
         try fnt.renderText(prm.title.text, ul_x, ul_y);
     }
-    // if (prm.widget != null) {
-    //     try draw(prm.widget.?.text);
-    // }
-    if (prm.widget != null) {
-        const text_widget = @ptrCast(?*TextWidget, @alignCast(@alignOf(TextWidget), prm.widget));
-        try draw(text_widget.?.text);
+
+    if (prm.overlay_type == .text) {
+        const tw = @fieldParentPtr(TextWidget, "overlay", prm);
+        try fnt.setFont(tw.font_name, tw.font_size);
+        gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
+        try tw.draw(ul_x, ul_y);
     }
 }
 
@@ -77,3 +81,8 @@ const gui_log = std.log.scoped(.fnt);
 var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
           else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
+
+const OverlayType = enum {
+    none,
+    text,
+};

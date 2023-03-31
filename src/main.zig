@@ -116,34 +116,34 @@ const allocator = fba.allocator();
 
 fn displayFontStats() !void {
     if (input.getF2()) {
-        const font_size = 24;
-        const border = 10;
-        const names = fnt.getIdByName();
-        const timers = fnt.getTimerById();
+        // const font_size = 24;
+        // const border = 10;
+        // const names = fnt.getIdByName();
+        // const timers = fnt.getTimerById();
 
-        try gui.drawOverlay(.{.title = .{.text = "Font idle times",
-                                         .col = .{0.0, 1.0, 0.0, 0.8},
-                                         .font_size = font_size},
-                            .is_centered = false,
-                            .ul_x = 10,
-                            .ul_y = 10,
-                            .width = 300,
-                            .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
-                            .col = .{0.0, 1.0, 0.0, 0.2}});
-        try fnt.setFont("anka_r", font_size);
-        var y: f32 = font_size + border;
-        var iter = names.iterator();
-        while (iter.next()) |v| {
-            const name = v.key_ptr.*;
-            var timer = timers.get(v.value_ptr.*).?;
+        // try gui.drawOverlay(.{.title = .{.text = "Font idle times",
+        //                                  .col = .{0.0, 1.0, 0.0, 0.8},
+        //                                  .font_size = font_size},
+        //                     .is_centered = false,
+        //                     .ul_x = 10,
+        //                     .ul_y = 10,
+        //                     .width = 300,
+        //                     .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
+        //                     .col = .{0.0, 1.0, 0.0, 0.2}});
+        // try fnt.setFont("anka_r", font_size);
+        // var y: f32 = font_size + border;
+        // var iter = names.iterator();
+        // while (iter.next()) |v| {
+        //     const name = v.key_ptr.*;
+        //     var timer = timers.get(v.value_ptr.*).?;
 
-            const timer_printout = try std.fmt.allocPrint(allocator,
-                                                        "{s}: {d:.2}s",
-                                                        .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
-            try fnt.renderText(timer_printout, 10+border, y);
-            allocator.free(timer_printout);
-            y += font_size;
-        }
+        //     const timer_printout = try std.fmt.allocPrint(allocator,
+        //                                                 "{s}: {d:.2}s",
+        //                                                 .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
+        //     try fnt.renderText(timer_printout, 10+border, y);
+        //     allocator.free(timer_printout);
+        //     y += font_size;
+        // }
     }
 }
 
@@ -170,20 +170,18 @@ fn displayHelp() !void {
                 size = fnt.getTextSize(help_message);
             }
         }
-        const b_w = (w-size.w) / 2;
-        const b_h = (h-size.h) / 2;
 
-        // var text_widget: gui.TextWidget = .{.text = help_message};
-        try gui.drawOverlay(.{.title = .{.is_enabled = false,
-                                         .col = .{0.0, 1.0, 0.0, 0.8}},
-                              .width = size.w+10,
-                              .height = size.h+10,
-                              .col = .{0.0, 1.0, 0.0, 0.2},
-                              });
-                              // .widget = &text_widget});
-        gfx.setColor4(0.0, 1.0, 0.0, 0.8);
-        try fnt.setFont("anka_r", font_size_help_message);
-        try fnt.renderText(help_message, b_w, b_h);
+        const help_overlay: gui.ParamOverlay = .{.title = .{.is_enabled = false,
+                                                            .col = .{0.0, 1.0, 0.0, 0.8}},
+                                                 .width = size.w+10,
+                                                 .height = size.h+10,
+                                                 .col = .{0.0, 1.0, 0.0, 0.2},
+                                                 .overlay_type = .text,
+                                                 };
+        var text_widget: gui.TextWidget = .{.overlay = help_overlay,
+                                            .text = help_message,
+                                            .col = .{0.5, 1.0, 0.5, 0.8}};
+        try gui.drawOverlay(&text_widget.overlay);
     }
 }
 
