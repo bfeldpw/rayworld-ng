@@ -52,7 +52,7 @@ pub fn createMap() void {
                 .floor => {
                     gfx_impl.setColor(0.2 + 0.1 * c.r, 0.2 + 0.1 * c.g, 0.2 + 0.1 * c.b, cfg.rc.map_display_opacity);
                 },
-                .wall, .wall_thin, .mirror, .glass, .pillar => {
+                .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
                     gfx_impl.setColor(0.3 + 0.3 * c.r, 0.3 + 0.3 * c.g, 0.3 + 0.3 * c.b, cfg.rc.map_display_opacity);
                 },
             }
@@ -532,6 +532,9 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
                 contact_status = resolveContactGlass(&d_x, &d_y, &material_index_prev, m_x, m_y, contact_status.cell_type_prev, contact_axis, refl_lim, d_x0, d_y0);
             },
             .pillar => {
+                contact_status = resolveContactPillar(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
+            },
+            .pillar_glass => {
                 contact_status = resolveContactPillar(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
             },
         }
