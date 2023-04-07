@@ -31,6 +31,8 @@ pub const gfx = struct {
     pub const depth_levels_max = 8;
     pub const fps_target = 60; // Hz
     pub const scale_by = ScalePreference.room_height;
+    pub const ambient_normal_shading = 0.4; // interval [0, 1]
+
     pub var room_height: f32 = 2.0; // meter
     pub var player_fov: f32 = 90; // degrees
 
