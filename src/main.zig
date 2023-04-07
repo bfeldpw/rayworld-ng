@@ -98,6 +98,8 @@ pub fn main() !void {
     perf_in.printStats();
     perf_rc.printStats();
     perf_ren.printStats();
+    // const leaked = gpa.deinit();
+    // if (leaked) std.log.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 fn adjustFovOnAspectChange() void {
@@ -114,36 +116,45 @@ var buffer: [cfg.fnt.font_atlas_limit * 256]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&buffer);
 const allocator = fba.allocator();
 
+// var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
+//           else std.heap.GeneralPurposeAllocator(.{}){};
+// const allocator = gpa.allocator();
 fn displayFontStats() !void {
     if (input.getF2()) {
-        // const font_size = 24;
-        // const border = 10;
-        // const names = fnt.getIdByName();
-        // const timers = fnt.getTimerById();
+        const font_size = 24;
+        const border = 10;
+        const names = fnt.getIdByName();
+        const timers = fnt.getTimerById();
 
-        // try gui.drawOverlay(.{.title = .{.text = "Font idle times",
-        //                                  .col = .{0.0, 1.0, 0.0, 0.8},
-        //                                  .font_size = font_size},
-        //                     .is_centered = false,
-        //                     .ul_x = 10,
-        //                     .ul_y = 10,
-        //                     .width = 300,
-        //                     .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
-        //                     .col = .{0.0, 1.0, 0.0, 0.2}});
-        // try fnt.setFont("anka_r", font_size);
-        // var y: f32 = font_size + border;
-        // var iter = names.iterator();
-        // while (iter.next()) |v| {
-        //     const name = v.key_ptr.*;
-        //     var timer = timers.get(v.value_ptr.*).?;
+        var y: f32 = font_size + border;
+        var iter = names.iterator();
+        var timer_printout = std.ArrayList(u8).init(allocator);
 
-        //     const timer_printout = try std.fmt.allocPrint(allocator,
-        //                                                 "{s}: {d:.2}s",
-        //                                                 .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
-        //     try fnt.renderText(timer_printout, 10+border, y);
-        //     allocator.free(timer_printout);
-        //     y += font_size;
-        // }
+        while (iter.next()) |v| {
+            const name = v.key_ptr.*;
+            var timer = timers.get(v.value_ptr.*).?;
+
+            const tmp = try std.fmt.allocPrint(allocator,
+                                               "{s}: {d:.2}s\n",
+                                               .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
+            try timer_printout.appendSlice(tmp);
+            allocator.free(tmp);
+
+            y += font_size;
+        }
+        const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
+                                                            .col  = .{0.0, 1.0, 0.0, 0.8}},
+                                                 .width = 300,
+                                                 .height = font_size * (@intToFloat(f32, fnt.getIdByName().count()) + 1),
+                                                 .col = .{0.0, 1.0, 0.0, 0.2},
+                                                 .overlay_type = .text,
+                                                 };
+        var text_widget: gui.TextWidget = .{.overlay = font_overlay,
+                                            .text = timer_printout.items,
+                                            .col = .{0.5, 1.0, 0.5, 0.8}};
+        try gui.drawOverlay(&text_widget.overlay);
+        timer_printout.deinit();
+        fba.reset();
     }
 }
 
