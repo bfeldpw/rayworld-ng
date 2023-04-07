@@ -175,15 +175,19 @@ pub fn createScene() void {
 
                 var prev = &previous[depth_layer];
 
+                const col_amb: f32 = cfg.gfx.ambient_normal_shading;
+                var col_norm: f32 = col_amb;
                 var u_of_uv: f32 = 0;
                 if (cell_type != .pillar) {
                     if (segments.x1[k] - @trunc(segments.x1[k]) > segments.y1[k] - @trunc(segments.y1[k])) {
                         u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
+                        col_norm += (1.0 - col_amb) * std.math.fabs(@sin(ang_0 + plr.getDir()));
                         if (segments.y0[k] < segments.y1[k]) {
                             u_of_uv = 1 - u_of_uv;
                         }
                     } else {
                         u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
+                        col_norm += (1.0 - col_amb) * std.math.fabs(@cos(ang_0 + plr.getDir()));
                         if (segments.x0[k] > segments.x1[k]) {
                             u_of_uv = 1 - u_of_uv;
                         }
@@ -198,9 +202,11 @@ pub fn createScene() void {
                     if (angle > 2.0 * std.math.pi) angle -= 2.0 * std.math.pi;
                     const circ = 2.0 * std.math.pi;
                     u_of_uv = 1.0 - angle / circ;
+                    col_norm += (1.0 - col_amb) * std.math.fabs(@cos(angle - ang_0 - plr.getDir()));
                 }
 
                 const col = map.getColor(m_y, m_x);
+                const col_shading = d_norm * col_norm;
                 const canvas = map.getCanvas(m_y, m_x);
                 const tex_id = map.getTextureID(m_y, m_x).id;
 
@@ -231,17 +237,35 @@ pub fn createScene() void {
                 }
 
                 if (tex_id != 0) {
-                    gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, prev.u_of_uv, u_of_uv, 0, 1, d_norm * col.r, d_norm * col.g, d_norm * col.b, col.a, depth_layer, tex_id);
+                    gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, prev.u_of_uv, u_of_uv, 0, 1,
+                                                 col_shading * col.r,
+                                                 col_shading * col.g,
+                                                 col_shading * col.b, col.a, depth_layer, tex_id);
                 } else {
-                    gfx.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, d_norm * col.r, d_norm * col.g, d_norm * col.b, col.a, depth_layer);
+                    gfx.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
+                                         col_shading * col.r,
+                                         col_shading * col.g,
+                                         col_shading * col.b, col.a, depth_layer);
                 }
                 if (canvas.bottom + canvas.top > 0.0) {
                     if (canvas.tex_id != 0) {
-                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0, prev.u_of_uv, u_of_uv, 0, canvas.top, d_norm * canvas.r, d_norm * canvas.g, d_norm * canvas.b, canvas.a, depth_layer, canvas.tex_id);
-                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1, prev.u_of_uv, u_of_uv, 1, 1 - canvas.bottom, d_norm * canvas.r, d_norm * canvas.g, d_norm * canvas.b, canvas.a, depth_layer, canvas.tex_id);
+                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0, prev.u_of_uv, u_of_uv, 0, canvas.top,
+                                                     col_shading * canvas.r,
+                                                     col_shading * canvas.g,
+                                                     col_shading * canvas.b, canvas.a, depth_layer, canvas.tex_id);
+                        gfx.addVerticalTexturedQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1, prev.u_of_uv, u_of_uv, 1, 1 - canvas.bottom,
+                                                     col_shading * canvas.r,
+                                                     col_shading * canvas.g,
+                                                     col_shading * canvas.b, canvas.a, depth_layer, canvas.tex_id);
                     } else {
-                        gfx.addVerticalQuad(prev.x, x, y0_cvs, y0, d_norm * canvas.r, d_norm * canvas.g, d_norm * canvas.b, canvas.a, depth_layer);
-                        gfx.addVerticalQuad(prev.x, x, y1_cvs, y1, d_norm * canvas.r, d_norm * canvas.g, d_norm * canvas.b, canvas.a, depth_layer);
+                        gfx.addVerticalQuad(prev.x, x, y0_cvs, y0,
+                                            col_shading * canvas.r,
+                                            col_shading * canvas.g,
+                                            col_shading * canvas.b, canvas.a, depth_layer);
+                        gfx.addVerticalQuad(prev.x, x, y1_cvs, y1,
+                                            col_shading * canvas.r,
+                                            col_shading * canvas.g,
+                                            col_shading * canvas.b, canvas.a, depth_layer);
                     }
                 }
                 prev.cell_type = cell_type;
