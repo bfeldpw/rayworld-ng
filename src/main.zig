@@ -106,7 +106,7 @@ fn adjustFovOnAspectChange() void {
         plr.setFOV(cfg.gfx.room_height*aspect*std.math.degreesToRadians(f32, 22.5));
         cfg.gfx.player_fov = std.math.degreesToRadians(f32, plr.getFOV());
     } else { // scale_by == player_fov
-        plr.setFOV(std.math.degreesToRadians(f32, cfg.player_fov));
+        plr.setFOV(std.math.degreesToRadians(f32, cfg.gfx.player_fov));
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
 }
