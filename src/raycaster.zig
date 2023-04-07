@@ -19,9 +19,11 @@ pub fn init() !void {
 
     perf_mem.stopMeasurement();
 
-    cpus = try std.Thread.getCpuCount();
-    if (cpus > cfg.rc.threads_max) cpus = cfg.rc.threads_max;
-    log_ray.info("Utilising {} logical cpu cores for multithreading", .{cpus});
+    if (cfg.multithreading) {
+        cpus = try std.Thread.getCpuCount();
+        if (cpus > cfg.rc.threads_max) cpus = cfg.rc.threads_max;
+        log_ray.info("Utilising {} logical cpu cores for multithreading", .{cpus});
+    }
 }
 
 pub fn deinit() void {
