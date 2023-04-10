@@ -28,7 +28,16 @@ pub fn strafe(m: f32) void {
 }
 
 pub fn lookUpDown(t: f32) void {
-    tilt += t;
+    const tilt_max = 0.75;
+    if (tilt + t < tilt_max and
+        tilt + t > -tilt_max)
+        tilt += t;
+
+    const map_x = @floatToInt(u32, pos_x) / map.getResolution();
+    const map_y = @floatToInt(u32, pos_y) / map.getResolution();
+    const map_v = map.get()[map_y][map_x];
+    log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
+                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
 }
 
 pub fn turn(d: f32) void {
@@ -39,7 +48,8 @@ pub fn turn(d: f32) void {
     const map_x = @floatToInt(u32, pos_x) / map.getResolution();
     const map_y = @floatToInt(u32, pos_y) / map.getResolution();
     const map_v = map.get()[map_y][map_x];
-    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2} -> map={}", .{pos_x, pos_y, dir, map_v});
+    log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
+                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
 }
 
 //-----------------------------------------------------------------------------//
@@ -99,8 +109,8 @@ fn isColliding(x: f32, y: f32) bool {
     const map_y = @floatToInt(u32, y) / map.getResolution();
 
     const map_v = map.get()[map_y][map_x];
-    log_plr.debug("Pos: ({d:.1}, {d:.1}) / {d:.2}° -> map={}",
-                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), map_v});
+    log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
+                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
 
     if (map_v != .floor) {
         return true;
