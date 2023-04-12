@@ -542,7 +542,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
         // React to cell type
         switch (m_v) {
             .floor => {
-                contact_status = resolveContactFloor(&d_x, &d_y, &contact_status.cell_type_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
+                contact_status = resolveContactFloor(&d_x, &d_y, &material_index_prev, contact_status.cell_type_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
             },
             .wall => {
                 contact_status = resolveContactWall(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
@@ -608,10 +608,14 @@ inline fn advanceToNextCell(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, o_x: *f3
     }
 }
 
-inline fn resolveContactFloor(d_x: *f32, d_y: *f32, cell_type_prev: *map.CellType, m_x: usize, m_y: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
+inline fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev: map.CellType,
+                              m_x: usize, m_y: usize, contact_axis: Axis, refl_lim: i8,
+                              d_x0: f32, d_y0: f32) ContactStatus {
     const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
-    if (cell_type_prev.* == .glass) {
-        const n = 1.0 / map.getGlass(m_y, m_x).n;
+    var ctp = cell_type_prev;
+    if (cell_type_prev == .glass) {
+        n_prev.* = map.getGlass(m_y, m_x).n;
+        const n = 1.0 / n_prev.*;
         const refl = std.math.asin(@as(f32, n));
         if (contact_axis == .x) {
             const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
@@ -619,7 +623,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, cell_type_prev: *map.CellTyp
             if (alpha > refl) {
                 d_y.* = -d_y0;
                 d_x.* = d_x0;
-                cell_type_prev.* = .glass;
+                ctp = .glass;
             } else {
                 // const beta = std.math.asin(@sin(alpha) / n);
                 // ...
@@ -631,7 +635,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, cell_type_prev: *map.CellTyp
                 d_y.* = @cos(beta_y);
                 if (d_x0 < 0) d_x.* = -d_x.*;
                 if (d_y0 < 0) d_y.* = -d_y.*;
-                cell_type_prev.* = .floor;
+                ctp = .floor;
             }
         } else { // contact_axis == .y
             const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
@@ -639,7 +643,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, cell_type_prev: *map.CellTyp
             if (alpha > refl) {
                 d_y.* = d_y0;
                 d_x.* = -d_x0;
-                cell_type_prev.* = .glass;
+                ctp = .glass;
             } else {
                 // const beta = std.math.asin(@sin(alpha) / n);
                 // ...
@@ -651,13 +655,14 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, cell_type_prev: *map.CellTyp
                 d_x.* = @cos(beta_x);
                 if (d_x0 < 0) d_x.* = -d_x.*;
                 if (d_y0 < 0) d_y.* = -d_y.*;
-                cell_type_prev.* = .floor;
+                ctp = .floor;
             }
         }
-        return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = cell_type_prev.* };
+        return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = ctp };
     } else {
-        cell_type_prev.* = .floor;
-        return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = cell_type_prev.* };
+        ctp = .floor;
+        n_prev.* = 1.0;
+        return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = ctp };
     }
 }
 
