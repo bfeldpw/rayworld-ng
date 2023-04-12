@@ -140,10 +140,6 @@ pub fn createScene() void {
         // Angle between current ray and player direction
         const ang_0 = (@intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len) - 0.5) * plr.getFOV();
 
-        // gfx.addVerticalLineC2C(x, 0, win_h*0.5+tilt,
-        //                        0.3, 0, 1, 11);
-        // gfx.addVerticalLineC2C(x, win_h*0.5+tilt, win_h,
-        //                        0, 0.1, 1, 11);
         while (j >= j0) : (j -= 1) {
             const k = @intCast(usize, j);
             const sub_sampling = segments.sub_sample_level[k];
