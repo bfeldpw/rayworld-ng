@@ -764,7 +764,7 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_
                 d_y.* = -d_y0;
             } else {
                 const beta = std.math.asin(r);
-                d_x.* = @sin(beta);
+                d_x.* = r;
                 d_y.* = @cos(beta);
                 if (d_x0 < 0) d_x.* = -d_x.*;
                 if (d_y0 < 0) d_y.* = -d_y.*;
@@ -777,7 +777,7 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_
                 d_y.* =  d_y0;
             } else {
                 const beta = std.math.asin(r);
-                d_y.* = @sin(beta);
+                d_y.* = r;
                 d_x.* = @cos(beta);
                 if (d_x0 < 0) d_x.* = -d_x.*;
                 if (d_y0 < 0) d_y.* = -d_y.*;
