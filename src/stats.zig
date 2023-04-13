@@ -1,37 +1,65 @@
 const std = @import("std");
 
-pub const Performance = struct {
+pub fn PerFrameTimerBuffered(comptime buffer_size: usize) type {
+    return struct {
+        buf: [buffer_size]u64,
+        i: usize,
+        count_all: u64,
+        count_buf: usize,
+        sum_all: u128,
+        timer: std.time.Timer,
 
-    count: u64,
-    name: []const u8,
-    sum: u64,
-    timer: std.time.Timer,
+        const Self = @This();
 
-    pub fn init(n: []const u8) !Performance {
-        return Performance {
-            .count = 0,
-            .name = n,
-            .sum = 0,
-            .timer = try std.time.Timer.start(),
-        };
-    }
+        pub fn init() !Self {
+            return .{
+                .buf = undefined,
+                .i = 0,
+                .count_all = 0,
+                .count_buf = 0,
+                .sum_all = 0,
+                .timer = std.time.Timer.start() catch |err| {
+                    log_stats.err("Unable to initialise timer", .{});
+                    return err;
+                },
+            };
+        }
 
-    pub fn printStats(self: *Performance) void {
-        log_stats.info("{s} (n={}): {d:.2} ms",
-                       .{self.name,
-                         self.count,
-                         @intToFloat(f64, self.sum)/@intToFloat(f64, self.count) * 1e-6});
-    }
+        /// Return the average time over all buffer entries in milliseconds
+        pub fn getAvgBufMs(self: Self) f64 {
+            var sum: u128 = 0;
+            if (self.count_buf > 0) {
+                for (self.buf[0..self.count_buf-1]) |entry| {
+                    sum += entry;
+                }
+                return (@intToFloat(f64, sum) / @intToFloat(f64, self.count_buf) * 1.0e-6);
+            } else {
+                return 0.0;
+            }
+        }
 
-    pub fn startMeasurement(self: *Performance) void {
-        self.timer.reset();
-    }
+        /// Return the average time since initialisation in milliseconds
+        pub fn getAvgAllMs(self: Self) f64 {
+            return (@intToFloat(f64, self.sum_all) / @intToFloat(f64, self.count_all) * 1.0e-6);
+        }
 
-    pub fn stopMeasurement(self: *Performance) void {
-        self.sum += self.timer.read();
-        self.count += 1;
-    }
-};
+        /// (Re-)start the timer, typically done in each frame of measurement
+        pub fn start(self: *Self) void {
+            self.timer.reset();
+        }
+
+        /// Stop the timer, typically done in each frame of measurement
+        pub fn stop(self: *Self) void {
+            const t = self.timer.read();
+            self.buf[self.i] = t;
+            self.i += 1;
+            if (self.i >= buffer_size) self.i = 0;
+            if (self.count_buf < buffer_size) self.count_buf += 1;
+            self.count_all += 1;
+            self.sum_all += t;
+        }
+    };
+}
 
 pub const PerFrameCounter = struct {
 
@@ -98,17 +126,35 @@ const log_stats = std.log.scoped(.stats);
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "performance stats" {
-    var s = try Performance.init("Performance");
-    try std.testing.expect(s.count == 0);
-    try std.testing.expectEqualStrings(s.name, "Performance");
-    try std.testing.expect(s.sum == 0);
-    s.startMeasurement();
-    std.time.sleep(42); // ns
-    s.stopMeasurement();
-    try std.testing.expect(s.count == 1);
-    try std.testing.expect(s.sum > 0);
-    s.printStats();
+test "per-frame-timer stats" {
+    var s = try PerFrameTimerBuffered(3).init();
+    try std.testing.expect(s.buf.len == 3);
+    try std.testing.expect(s.i == 0);
+    try std.testing.expect(s.count_all == 0);
+    try std.testing.expect(s.count_buf == 0);
+    try std.testing.expect(s.sum_all == 0);
+    s.start();
+    std.time.sleep(42);
+    s.stop();
+    try std.testing.expect(s.i == 1);
+    try std.testing.expect(s.count_all == 1);
+    try std.testing.expect(s.count_buf == 1);
+    try std.testing.expect(s.sum_all > 0);
+    s.start();
+    std.time.sleep(42);
+    s.stop();
+    s.start();
+    std.time.sleep(42);
+    s.stop();
+    try std.testing.expect(s.i == 0);
+    try std.testing.expect(s.count_all == 3);
+    try std.testing.expect(s.count_buf == 3);
+    s.start();
+    std.time.sleep(42);
+    s.stop();
+    try std.testing.expect(s.i == 1);
+    try std.testing.expect(s.count_all == 4);
+    try std.testing.expect(s.count_buf == 3);
 }
 
 test "per-frame-counter stats" {

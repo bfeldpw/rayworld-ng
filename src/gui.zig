@@ -17,10 +17,10 @@ pub const Title = struct {
 pub const TextWidget = struct {
     overlay: ParamOverlay,
     text: []const u8 = undefined,
-    font_name: []const u8 = "anka_b",
+    font_name: []const u8 = "anka_r",
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
-    frame: [2]f32 = .{10.0, 10.0},
+    frame: [2]f32 = .{10.0, 32.0},
 
     fn draw(self: *TextWidget, x: f32, y: f32) !void {
         try fnt.renderText(self.text, x + self.frame[0], y + self.frame[1]);
@@ -67,7 +67,7 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
         const tw = @fieldParentPtr(TextWidget, "overlay", prm);
         try fnt.setFont(tw.font_name, tw.font_size);
         gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
-        try tw.draw(ul_x, ul_y);
+        try tw.draw(prm.ul_x, prm.ul_y);
     }
 }
 

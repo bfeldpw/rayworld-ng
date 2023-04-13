@@ -10,6 +10,7 @@ pub const CellType = enum {
     glass,
     pillar,
     wall_thin,
+    pillar_glass,
 };
 
 //-----------------------------------------------------------------------------//
@@ -55,6 +56,10 @@ pub inline fn get() *const [map_size_y][map_size_x]CellType {
 
 pub inline fn getCanvas(y: usize, x: usize) *AttribCanvas {
     return &attribute_components.canvas.items[map_current.i_canvas[y][x]];
+}
+
+pub inline fn getCanvasColor(y: usize, x: usize) *AttribColor {
+    return &attribute_components.color.items[attribute_components.canvas.items[map_current.i_canvas[y][x]].i_col];
 }
 
 pub inline fn getColor(y: usize, x: usize) *AttribColor {
@@ -106,11 +111,8 @@ const WallAxis = enum {
 const AttribCanvas = struct {
     top: f32,
     bottom: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
     tex_id: u32,
+    i_col: usize,
 };
 
 const AttribColor = struct {
@@ -204,7 +206,7 @@ const map_celltype_tmp = [map_size_y][map_size_x]u8{
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 2, 1, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
@@ -238,14 +240,18 @@ fn fillMap() !void {
     try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.5, .a = 0.2 });
     // -- glass
     try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.05 });
+    // -- pillar_glass
+    try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 0.0, .a = 0.2 });
+    // -- glass canvas
+    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.2 });
 
     // Default attributes canvas
     // -- miror
-    try attribute_components.canvas.append(.{ .top = 0.075, .bottom = 0.075, .r = 1.0, .g = 1.0, .b = 1.0, .a = 0.9, .tex_id = 1 });
+    try attribute_components.canvas.append(.{ .top = 0.075, .bottom = 0.075, .i_col = 1, .tex_id = 1 });
     // -- glass
-    try attribute_components.canvas.append(.{ .top = 0.01, .bottom = 0.01, .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.2, .tex_id = 1 });
+    try attribute_components.canvas.append(.{ .top = 0.01, .bottom = 0.01, .i_col = 5, .tex_id = 1 });
     // -- no canvas
-    try attribute_components.canvas.append(.{ .top = 0.0, .bottom = 0.0, .r = 1.0, .g = 1.0, .b = 1.0, .a = 1.0, .tex_id = 1 });
+    try attribute_components.canvas.append(.{ .top = 0.0, .bottom = 0.0, .i_col = 0, .tex_id = 1 });
 
     // Default attributes glass
     try attribute_components.glass.append(.{ .n = 1.46 });
@@ -306,6 +312,7 @@ fn fillMap() !void {
                     map_current.i_canvas[j][i] = 1;
                     map_current.i_color[j][i] = 3;
                     map_current.i_glass[j][i] = 0;
+                    map_current.i_pillar[j][i] = 2; // only relevant for glass_pillar
                     map_current.i_reflection[j][i] = 1;
                     map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
@@ -316,6 +323,15 @@ fn fillMap() !void {
                     map_current.i_glass[j][i] = 0;
                     map_current.i_reflection[j][i] = 0;
                     map_current.i_texture[j][i] = 1;
+                    map_current.i_wall[j][i] = 0;
+                },
+                .pillar_glass => {
+                    map_current.i_canvas[j][i] = 1;
+                    map_current.i_color[j][i] = 4;
+                    map_current.i_glass[j][i] = 0;
+                    map_current.i_pillar[j][i] = 2; // only relevant for glass_pillar
+                    map_current.i_reflection[j][i] = 1;
+                    map_current.i_texture[j][i] = 0;
                     map_current.i_wall[j][i] = 0;
                 },
             }
