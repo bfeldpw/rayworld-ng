@@ -113,12 +113,12 @@ pub fn run() !void {
 
     log_sim.info("Starting simulation", .{});
 
-    var perf = try stats.Performance.init("Sim");
+    var perf = try stats.PerFrameTimerBuffered(128).init();
     while (is_running) {
         if (timing.is_paused) {
-            perf.startMeasurement();
+            perf.start();
             step();
-            perf.stopMeasurement();
+            perf.stop();
         }
         const t = timer.read();
 
@@ -128,7 +128,7 @@ pub fn run() !void {
 
         timer.reset();
     }
-    perf.printStats();
+    prf_avg_all_ms = perf.getAvgAllMs();
 }
 
 pub fn step() void {
@@ -156,6 +156,10 @@ pub fn step() void {
         objs.items(.vel)[i] += objs.items(.acc)[i] * dt;
         objs.items(.pos)[i] += objs.items(.vel)[i] * dt;
     }
+}
+
+pub inline fn getAvgAllMs() f64 {
+    return prf_avg_all_ms;
 }
 
 pub fn stop() void {
@@ -200,6 +204,10 @@ pub inline fn zoomOutMap() void {
 }
 
 pub const timing = struct {
+
+    pub inline fn getFpsTarget() f32 {
+        return fps_target;
+    }
 
     pub fn accelerate() void {
         if (10.0 * acceleration / fps_base <= 10.0) {
@@ -262,6 +270,7 @@ const gravitational_constant = 6.6743015e-11;
 
 var is_map_displayed: bool = false;
 var is_running: bool = true;
+var prf_avg_all_ms: f64 = 0.0;
 
 const Camera = struct {
     p: vec_2d,

@@ -34,22 +34,32 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
+    var prf_fnt = try stats.PerFrameTimerBuffered(1).init();
+    prf_fnt.start();
     fnt.init();
     defer fnt.deinit();
     try fnt.addFont("anka_b", "resource/AnkaCoder-C87-b.ttf");
     try fnt.addFont("anka_i", "resource/AnkaCoder-C87-i.ttf");
     try fnt.addFont("anka_r", "resource/AnkaCoder-C87-r.ttf");
+    prf_fnt.stop();
+    std.log.info("Font loading took {d:.2}ms", .{prf_fnt.getAvgAllMs()});
 
-    var perf_map = try stats.Performance.init("Map");
-    perf_map.startMeasurement();
+    var prf_map = try stats.PerFrameTimerBuffered(1).init();
+    prf_map.start();
     try map.init();
     defer map.deinit();
-    perf_map.stopMeasurement();
+    prf_map.stop();
+    std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
-    var perf_fps = try stats.Performance.init("Frametime");
-    var perf_in = try stats.Performance.init("Input");
-    var perf_rc = try stats.Performance.init("Raycasting");
-    var perf_ren = try stats.Performance.init("Rendering");
+    var prf_idle = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_ren = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_ren_scene = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_ren_frame = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_ren_map = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_ren_sim = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_fps = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_in = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    var prf_rc = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
 
     try sim.init();
     defer sim.deinit();
@@ -59,32 +69,42 @@ pub fn main() !void {
 
     while (gfx.isWindowOpen()) {
 
-        perf_in.startMeasurement();
+        prf_in.start();
         input.processInputs(gfx.getFPS());
-        perf_in.stopMeasurement();
+        prf_in.stop();
 
         adjustFovOnAspectChange(); // Polling for now, should be event triggered
 
-        perf_rc.startMeasurement();
+        prf_rc.start();
         try rc.processRays(cfg.multithreading);
-        perf_rc.stopMeasurement();
+        prf_rc.stop();
 
         if (!cfg.multithreading) sim.step();
 
-        perf_ren.startMeasurement();
+        prf_ren.start();
+        prf_ren_scene.start();
         rc.createScene();
+        prf_ren_scene.stop();
+        prf_ren_frame.start();
         try gfx.renderFrame();
+        prf_ren_frame.stop();
+        prf_ren_map.start();
         rc.createMap();
+        prf_ren_map.stop();
+        prf_ren_sim.start();
         try sim.createScene();
+        prf_ren_sim.stop();
         // try fnt.renderAtlas();
         try displayFontStats();
         try displayHelp();
 
-        perf_ren.stopMeasurement();
+        prf_ren.stop();
 
+        prf_idle.start();
         try gfx.finishFrame();
-        perf_fps.stopMeasurement();
-        perf_fps.startMeasurement();
+        prf_idle.stop();
+        prf_fps.stop();
+        prf_fps.start();
 
     }
 
@@ -93,11 +113,17 @@ pub fn main() !void {
 
     fnt.printIdleTimes();
 
-    perf_map.printStats();
-    perf_fps.printStats();
-    perf_in.printStats();
-    perf_rc.printStats();
-    perf_ren.printStats();
+    std.log.info("Sim (@{d:.0}Hz): {d:.2}ms", .{sim.timing.getFpsTarget(), sim.getAvgAllMs()});
+    std.log.info("Frametime:    {d:.2}ms", .{prf_fps.getAvgAllMs()});
+    std.log.info("  Idle:         {d:.2}ms", .{prf_idle.getAvgAllMs()});
+    std.log.info("  Input:        {d:.2}ms", .{prf_in.getAvgAllMs()});
+    std.log.info("  Sim:          {d:.2}ms", .{sim.getAvgAllMs()});
+    std.log.info("  Raycasting:   {d:.2}ms", .{prf_rc.getAvgAllMs()});
+    std.log.info("  Rendering:    {d:.2}ms", .{prf_ren.getAvgAllMs()});
+    std.log.info("    Sim:          {d:.2}ms", .{prf_ren_sim.getAvgAllMs()});
+    std.log.info("    Scene:        {d:.2}ms", .{prf_ren_scene.getAvgAllMs()});
+    std.log.info("    Frame:        {d:.2}ms", .{prf_ren_frame.getAvgAllMs()});
+    std.log.info("    Map:          {d:.2}ms", .{prf_ren_map.getAvgAllMs()});
 }
 
 fn adjustFovOnAspectChange() void {

@@ -12,12 +12,8 @@ const plr = @import("player.zig");
 
 pub fn init() !void {
     log_ray.debug("Allocating memory for ray data", .{});
-    perf_mem = try stats.Performance.init("Graphics memory allocation");
-    perf_mem.startMeasurement();
 
     try allocMemory(640);
-
-    perf_mem.stopMeasurement();
 
     if (cfg.multithreading) {
         cpus = try std.Thread.getCpuCount();
@@ -31,8 +27,6 @@ pub fn deinit() void {
 
     const leaked = gpa.deinit();
     if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
-
-    perf_mem.printStats();
 }
 
 //-----------------------------------------------------------------------------//
@@ -368,8 +362,6 @@ var segments = RaySegmentData{
     .cell_y = undefined,
 };
 
-var perf_mem: stats.Performance = undefined;
-
 fn allocMemory(n: usize) !void {
     // Allocate for memory for ray data
     rays.seg_i0 = allocator.alloc(usize, n) catch |e| {
@@ -455,13 +447,11 @@ fn freeMemory() void {
 
 fn reallocRaysOnChange() !void {
     if (gfx.getWindowWidth() / cfg.sub_sampling_base != rays.seg_i0.len) {
-        perf_mem.startMeasurement();
         log_ray.debug("Reallocating memory for ray data", .{});
 
         freeMemory();
         try allocMemory(gfx.getWindowWidth() / cfg.sub_sampling_base);
 
-        perf_mem.stopMeasurement();
         log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.seg_i0.len});
     }
 }
