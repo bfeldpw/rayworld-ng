@@ -51,15 +51,17 @@ pub fn main() !void {
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
-    var prf_idle = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_ren = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_ren_scene = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_ren_frame = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_ren_map = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_ren_sim = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_fps = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_in = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
-    var prf_rc = try stats.PerFrameTimerBuffered(cfg.gfx.fps_target).init();
+    const prf_buffer = cfg.gfx.fps_target; // 1s
+    var prf_idle = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren_scene = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren_frame = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren_gui = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren_map = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_ren_sim = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_fps = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_in = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_rc = try stats.PerFrameTimerBuffered(prf_buffer).init();
 
     try sim.init();
     defer sim.deinit();
@@ -94,7 +96,8 @@ pub fn main() !void {
         prf_ren_sim.start();
         try sim.createScene();
         prf_ren_sim.stop();
-        // try fnt.renderAtlas();
+
+        prf_ren_gui.start();
         try displayFontStats();
         try displayPerformanceStats(prf_fps.getAvgBufMs(),
                                     prf_idle.getAvgBufMs(),
@@ -103,8 +106,12 @@ pub fn main() !void {
                                     prf_ren.getAvgBufMs(),
                                     prf_ren_scene.getAvgBufMs(),
                                     prf_ren_frame.getAvgBufMs(),
-                                    prf_ren_map.getAvgBufMs());
+                                    prf_ren_map.getAvgBufMs(),
+                                    prf_ren_gui.getAvgBufMs(),
+                                    prf_ren_sim.getAvgBufMs(),
+                                    sim.getAvgBufMs());
         try displayHelp();
+        prf_ren_gui.stop();
 
         prf_ren.stop();
 
@@ -132,6 +139,7 @@ pub fn main() !void {
     std.log.info("    Scene:        {d:.2}ms", .{prf_ren_scene.getAvgAllMs()});
     std.log.info("    Frame:        {d:.2}ms", .{prf_ren_frame.getAvgAllMs()});
     std.log.info("    Map:          {d:.2}ms", .{prf_ren_map.getAvgAllMs()});
+    std.log.info("    Gui:          {d:.2}ms", .{prf_ren_gui.getAvgAllMs()});
 }
 
 fn adjustFovOnAspectChange() void {
@@ -190,7 +198,8 @@ fn displayFontStats() !void {
 }
 
 fn displayPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
-                           ren_scene: f64, ren_frame: f64, ren_map: f64) !void {
+                           ren_scene: f64, ren_frame: f64, ren_map: f64, ren_gui: f64,
+                           ren_sim: f64, simulation: f64) !void {
     if (input.getF2()) {
         const prf_printout = try std.fmt.allocPrint(allocator,
            "Frametime:    {d:.2}ms\n" ++
@@ -200,14 +209,20 @@ fn displayPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
            "  Rendering:  {d:.2}ms\n" ++
            "    Scene:    {d:.2}ms\n" ++
            "    Frame:    {d:.2}ms\n" ++
-           "    Map:      {d:.2}ms\n",
-            .{fps, idle, in, rayc, ren, ren_scene, ren_frame, ren_map}
+           "    Map:      {d:.2}ms\n" ++
+           "    Gui:      {d:.2}ms\n" ++
+           "    Sim:      {d:.2}ms\n" ++
+           "Sim-Thread:   {d:.2}ms\n" ++
+           "(@{d:.0}Hz => {d:.2}ms @{d:.0}Hz) ",
+           .{fps, idle, in, rayc, ren, ren_scene, ren_frame, ren_map, ren_gui, ren_sim, simulation,
+             sim.timing.getFpsTarget(), simulation*sim.timing.getFpsTarget()/cfg.gfx.fps_target,
+             cfg.gfx.fps_target}
         );
 
         const prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
                                                             .col  = .{0.8, 1.0, 0.8, 0.8}},
                                                  .width = 400,
-                                                 .height = 32.0 * 9,
+                                                 .height = 32.0 * 13,
                                                  .is_centered = false,
                                                  .ul_x = 330.0,
                                                  .ul_y = 10.0,
@@ -246,8 +261,8 @@ fn displayHelp() !void {
             }
         }
 
-        const help_overlay: gui.ParamOverlay = .{.title = .{.is_enabled = false,
-                                                            .col = .{0.0, 1.0, 0.0, 0.8}},
+        const help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
+                                                            .col = .{0.8, 1.0, 0.8, 0.8}},
                                                  .width = size.w+10,
                                                  .height = size.h+10,
                                                  .col = .{0.0, 1.0, 0.0, 0.2},

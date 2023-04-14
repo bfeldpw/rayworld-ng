@@ -216,7 +216,7 @@ pub fn startBatchQuadsTextured() void {
 pub fn drawCircle(x: f32, y: f32, r: f32) void {
     const nr_of_segments = 100.0;
 
-    enableTexturing();
+    disableTexturing();
     c.glBegin(c.GL_LINE_LOOP);
     var angle: f32 = 0.0;
     const inc = 2.0 * std.math.pi / nr_of_segments;

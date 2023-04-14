@@ -64,12 +64,13 @@ pub fn createScene() !void {
         gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
                         @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
 
-        // try gui.drawOverlay(.{.title = .{.text = "System Map",
-        //                                  .font_size = 64,
-        //                                  .col = .{1.0, 0.5, 0.0, 0.8}},
-        //                     .width = win_w,
-        //                     .height = win_h,
-        //                     .col = .{1.0, 0.5, 0.0, 0.3}});
+        var map_overlay: gui.ParamOverlay = .{.title = .{.text = "System Map",
+                                                         .font_size = 64,
+                                                         .col = .{1.0, 0.8, 0.3, 0.8}},
+                                              .width = win_w,
+                                              .height = win_h,
+                                              .col = .{1.0, 0.5, 0.0, 0.3}};
+        try gui.drawOverlay(&map_overlay);
 
         gfx.startBatchQuads();
 
@@ -115,11 +116,12 @@ pub fn run() !void {
 
     var perf = try stats.PerFrameTimerBuffered(128).init();
     while (is_running) {
+        perf.start();
         if (timing.is_paused) {
-            perf.start();
             step();
-            perf.stop();
         }
+        perf.stop();
+        prf_avg_buf_ms = perf.getAvgBufMs();
         const t = timer.read();
 
         const t_step = @subWithOverflow(timing.frame_time, t);
@@ -160,6 +162,10 @@ pub fn step() void {
 
 pub inline fn getAvgAllMs() f64 {
     return prf_avg_all_ms;
+}
+
+pub inline fn getAvgBufMs() f64 {
+    return prf_avg_buf_ms;
 }
 
 pub fn stop() void {
@@ -232,11 +238,9 @@ pub const timing = struct {
     }
 
     pub fn increaseFpsTarget() void {
-        if (fps_target < 1000.0) {
-            fps_target += 100.0;
-            frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
-            log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
-        }
+        fps_target += 100.0;
+        frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
+        log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
     }
 
     fn init() void {
@@ -271,6 +275,7 @@ const gravitational_constant = 6.6743015e-11;
 var is_map_displayed: bool = false;
 var is_running: bool = true;
 var prf_avg_all_ms: f64 = 0.0;
+var prf_avg_buf_ms: f64 = 0.0;
 
 const Camera = struct {
     p: vec_2d,

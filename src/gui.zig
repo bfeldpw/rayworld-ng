@@ -55,19 +55,20 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
 
     if (prm.title.is_enabled) {
         try fnt.setFont(prm.title.font_name, prm.title.font_size);
+        var title_x = ul_x;
         if (prm.title.is_centered) {
             const s = fnt.getTextSize(prm.title.text);
-            ul_x = ul_x + (prm.width-s.w) * 0.5;
+            title_x = ul_x + (prm.width-s.w) * 0.5;
         }
         gfx_impl.setColor(prm.title.col[0], prm.title.col[1], prm.title.col[2], prm.title.col[3]);
-        try fnt.renderText(prm.title.text, ul_x, ul_y);
+        try fnt.renderText(prm.title.text, title_x, ul_y);
     }
 
     if (prm.overlay_type == .text) {
         const tw = @fieldParentPtr(TextWidget, "overlay", prm);
         try fnt.setFont(tw.font_name, tw.font_size);
         gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
-        try tw.draw(prm.ul_x, prm.ul_y);
+        try tw.draw(ul_x, ul_y);
     }
 }
 
