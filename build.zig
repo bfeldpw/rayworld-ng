@@ -24,10 +24,10 @@ pub fn build(b: *std.Build) void {
     if (optimize == std.builtin.Mode.ReleaseSafe) {
         exe.strip = true;
     }
-    exe.install();
+    b.installArtifact(exe);
     exe.emit_docs = .emit;
 
-    const run_cmd = exe.run();
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 
     if (b.args) |args| {
