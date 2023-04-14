@@ -61,16 +61,21 @@ pub fn createScene() !void {
             hook = objs.items(.pos)[1];
         }
 
-        gfx.setViewport(@floatToInt(u64, win_w * 0.05), @floatToInt(u64, win_h * 0.05),
-                        @floatToInt(u64, win_w * 0.9), @floatToInt(u64, win_h * 0.9));
-
         var map_overlay: gui.ParamOverlay = .{.title = .{.text = "System Map",
                                                          .font_size = 64,
                                                          .col = .{1.0, 0.8, 0.3, 0.8}},
-                                              .width = win_w,
-                                              .height = win_h,
+                                              .frame = .{10, 64, 10, 10},
+                                              .width = win_w * 0.9,
+                                              .height = win_h * 0.9,
+                                              .ll_x = win_w * 0.05,
+                                              .ll_y = win_h * 0.05,
                                               .col = .{1.0, 0.5, 0.0, 0.3}};
         try gui.drawOverlay(&map_overlay);
+
+        gfx.setViewport(@floatToInt(u64, map_overlay.ll_x + map_overlay.frame[0]),
+                        @floatToInt(u64, map_overlay.ll_y + map_overlay.frame[3]),
+                        @floatToInt(u64, map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
+                        @floatToInt(u64, map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
 
         gfx.startBatchQuads();
 

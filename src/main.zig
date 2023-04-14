@@ -3,7 +3,7 @@ const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
 const gfx = @import("graphics.zig");
-const gui = @import("gui.zig");
+const rw_gui = @import("rw_gui.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
@@ -25,6 +25,9 @@ pub fn main() !void {
 
     printUsage();
 
+    //---------------------------------------------
+    //   Intialise window and graphics and input
+    //---------------------------------------------
     try gfx.init();
     defer gfx.deinit();
     try rc.init();
@@ -34,6 +37,9 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
+    //----------------
+    //   Load fonts
+    //----------------
     var prf_fnt = try stats.PerFrameTimerBuffered(1).init();
     prf_fnt.start();
     fnt.init();
@@ -44,6 +50,9 @@ pub fn main() !void {
     prf_fnt.stop();
     std.log.info("Font loading took {d:.2}ms", .{prf_fnt.getAvgAllMs()});
 
+    //--------------
+    //   Load map
+    //--------------
     var prf_map = try stats.PerFrameTimerBuffered(1).init();
     prf_map.start();
     try map.init();
@@ -51,6 +60,9 @@ pub fn main() !void {
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
+    //--------------------------------
+    //   Prepare performance timers
+    //--------------------------------
     const prf_buffer = cfg.gfx.fps_target; // 1s
     var prf_idle = try stats.PerFrameTimerBuffered(prf_buffer).init();
     var prf_ren = try stats.PerFrameTimerBuffered(prf_buffer).init();
@@ -63,6 +75,9 @@ pub fn main() !void {
     var prf_in = try stats.PerFrameTimerBuffered(prf_buffer).init();
     var prf_rc = try stats.PerFrameTimerBuffered(prf_buffer).init();
 
+    //--------------------------------------
+    //   Initialise background simulation
+    //--------------------------------------
     try sim.init();
     defer sim.deinit();
     var sim_thread: std.Thread = undefined;
@@ -98,19 +113,19 @@ pub fn main() !void {
         prf_ren_sim.stop();
 
         prf_ren_gui.start();
-        try displayFontStats();
-        try displayPerformanceStats(prf_fps.getAvgBufMs(),
-                                    prf_idle.getAvgBufMs(),
-                                    prf_in.getAvgBufMs(),
-                                    prf_rc.getAvgBufMs(),
-                                    prf_ren.getAvgBufMs(),
-                                    prf_ren_scene.getAvgBufMs(),
-                                    prf_ren_frame.getAvgBufMs(),
-                                    prf_ren_map.getAvgBufMs(),
-                                    prf_ren_gui.getAvgBufMs(),
-                                    prf_ren_sim.getAvgBufMs(),
-                                    sim.getAvgBufMs());
-        try displayHelp();
+        try rw_gui.displayFontStats();
+        try rw_gui.displayPerformanceStats(prf_fps.getAvgBufMs(),
+                                           prf_idle.getAvgBufMs(),
+                                           prf_in.getAvgBufMs(),
+                                           prf_rc.getAvgBufMs(),
+                                           prf_ren.getAvgBufMs(),
+                                           prf_ren_scene.getAvgBufMs(),
+                                           prf_ren_frame.getAvgBufMs(),
+                                           prf_ren_map.getAvgBufMs(),
+                                           prf_ren_gui.getAvgBufMs(),
+                                           prf_ren_sim.getAvgBufMs(),
+                                           sim.getAvgBufMs());
+        try rw_gui.displayHelp(help_message);
         prf_ren_gui.stop();
 
         prf_ren.stop();
@@ -125,21 +140,6 @@ pub fn main() !void {
 
     sim.stop();
     if (cfg.multithreading) sim_thread.join();
-
-    fnt.printIdleTimes();
-
-    std.log.info("Sim (@{d:.0}Hz): {d:.2}ms", .{sim.timing.getFpsTarget(), sim.getAvgAllMs()});
-    std.log.info("Frametime:    {d:.2}ms", .{prf_fps.getAvgAllMs()});
-    std.log.info("  Idle:         {d:.2}ms", .{prf_idle.getAvgAllMs()});
-    std.log.info("  Input:        {d:.2}ms", .{prf_in.getAvgAllMs()});
-    std.log.info("  Sim:          {d:.2}ms", .{sim.getAvgAllMs()});
-    std.log.info("  Raycasting:   {d:.2}ms", .{prf_rc.getAvgAllMs()});
-    std.log.info("  Rendering:    {d:.2}ms", .{prf_ren.getAvgAllMs()});
-    std.log.info("    Sim:          {d:.2}ms", .{prf_ren_sim.getAvgAllMs()});
-    std.log.info("    Scene:        {d:.2}ms", .{prf_ren_scene.getAvgAllMs()});
-    std.log.info("    Frame:        {d:.2}ms", .{prf_ren_frame.getAvgAllMs()});
-    std.log.info("    Map:          {d:.2}ms", .{prf_ren_map.getAvgAllMs()});
-    std.log.info("    Gui:          {d:.2}ms", .{prf_ren_gui.getAvgAllMs()});
 }
 
 fn adjustFovOnAspectChange() void {
@@ -152,128 +152,7 @@ fn adjustFovOnAspectChange() void {
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
 }
-var buffer: [cfg.fnt.font_atlas_limit * 256]u8 = undefined;
-var fba = std.heap.FixedBufferAllocator.init(&buffer);
-const allocator = fba.allocator();
-
-// var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
-//           else std.heap.GeneralPurposeAllocator(.{}){};
-// const allocator = gpa.allocator();
-fn displayFontStats() !void {
-    if (input.getF2()) {
-        const names = fnt.getIdByName();
-        const timers = fnt.getTimerById();
-
-        var iter = names.iterator();
-        var timer_printout = std.ArrayList(u8).init(allocator);
-
-        while (iter.next()) |v| {
-            const name = v.key_ptr.*;
-            var timer = timers.get(v.value_ptr.*).?;
-
-            const tmp = try std.fmt.allocPrint(allocator,
-                                               "{s}: {d:.2}s\n",
-                                               .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
-            try timer_printout.appendSlice(tmp);
-            allocator.free(tmp);
-
-        }
-        const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
-                                                            .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = 300,
-                                                 .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
-                                                 .is_centered = false,
-                                                 .ul_x = 10.0,
-                                                 .ul_y = 10.0,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = font_overlay,
-                                            .text = timer_printout.items,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-        timer_printout.deinit();
-        fba.reset();
-    }
-}
-
-fn displayPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
-                           ren_scene: f64, ren_frame: f64, ren_map: f64, ren_gui: f64,
-                           ren_sim: f64, simulation: f64) !void {
-    if (input.getF2()) {
-        const prf_printout = try std.fmt.allocPrint(allocator,
-           "Frametime:    {d:.2}ms\n" ++
-           "  Idle:       {d:.2}ms\n" ++
-           "  Input:      {d:.2}ms\n" ++
-           "  Raycasting: {d:.2}ms\n" ++
-           "  Rendering:  {d:.2}ms\n" ++
-           "    Scene:    {d:.2}ms\n" ++
-           "    Frame:    {d:.2}ms\n" ++
-           "    Map:      {d:.2}ms\n" ++
-           "    Gui:      {d:.2}ms\n" ++
-           "    Sim:      {d:.2}ms\n" ++
-           "Sim-Thread:   {d:.2}ms\n" ++
-           "(@{d:.0}Hz => {d:.2}ms @{d:.0}Hz) ",
-           .{fps, idle, in, rayc, ren, ren_scene, ren_frame, ren_map, ren_gui, ren_sim, simulation,
-             sim.timing.getFpsTarget(), simulation*sim.timing.getFpsTarget()/cfg.gfx.fps_target,
-             cfg.gfx.fps_target}
-        );
-
-        const prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
-                                                            .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = 400,
-                                                 .height = 32.0 * 13,
-                                                 .is_centered = false,
-                                                 .ul_x = 330.0,
-                                                 .ul_y = 10.0,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = prf_overlay,
-                                            .text = prf_printout,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-        fba.reset();
-    }
-}
-
-const font_size_help_message_default = 32;
-var font_size_help_message: f32 = font_size_help_message_default;
-
-fn displayHelp() !void {
-    if (input.getF1()) {
-        try fnt.setFont("anka_r", font_size_help_message);
-        var size = fnt.getTextSize(help_message);
-        const h = @intToFloat(f32, gfx.getWindowHeight());
-        const w = @intToFloat(f32, gfx.getWindowWidth());
-        if (size.w > w or size.h > h) {
-            if (font_size_help_message > 8) {
-                font_size_help_message -= 8;
-                try fnt.setFont("anka_r", font_size_help_message);
-                size = fnt.getTextSize(help_message);
-            }
-        }
-        if (size.w < 0.75*w and size.h < 0.75*h) {
-            if (font_size_help_message < font_size_help_message_default) {
-                font_size_help_message += 8;
-                try fnt.setFont("anka_r", font_size_help_message);
-                size = fnt.getTextSize(help_message);
-            }
-        }
-
-        const help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
-                                                            .col = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = size.w+10,
-                                                 .height = size.h+10,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = help_overlay,
-                                            .text = help_message,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-    }
-}
+var font_size_base: f32 = 32.0;
 
 fn printUsage() void {
     std.debug.print(help_message, .{});
