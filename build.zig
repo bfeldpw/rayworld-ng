@@ -37,20 +37,21 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const exe_tests = b.addTest(.{
+    const unit_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/test.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    exe_tests.addIncludePath("src");
-    exe_tests.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
-    exe_tests.linkLibC();
-    exe_tests.linkSystemLibrary("gl");
-    exe_tests.linkSystemLibrary("glfw");
-    exe_tests.addModule("zstbi", zstbi_pkg.zstbi);
-    zstbi_pkg.link(exe_tests);
+    unit_tests.addIncludePath("src");
+    unit_tests.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
+    unit_tests.linkLibC();
+    unit_tests.linkSystemLibrary("gl");
+    unit_tests.linkSystemLibrary("glfw");
+    unit_tests.addModule("zstbi", zstbi_pkg.zstbi);
+    zstbi_pkg.link(unit_tests);
 
+    const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&exe_tests.step);
+    test_step.dependOn(&run_unit_tests.step);
 }
