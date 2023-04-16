@@ -122,6 +122,10 @@ pub fn displayPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64
     }
 }
 
+pub fn process(x: f32, y: f32) void {
+    gui.drawCursor(x, y);
+}
+
 var buffer: [cfg.fnt.font_atlas_limit * 256]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&buffer);
 const allocator = fba.allocator();

@@ -126,6 +126,10 @@ pub fn main() !void {
                                            prf_ren_sim.getAvgBufMs(),
                                            sim.getAvgBufMs());
         try rw_gui.displayHelp(help_message);
+        var cur_x: f64 = 0;
+        var cur_y: f64 = 0;
+        input.getCursorPos(&cur_x, &cur_y);
+        rw_gui.process(@floatCast(f32, cur_x), @floatCast(f32, cur_y));
         prf_ren_gui.stop();
 
         prf_ren.stop();
@@ -162,21 +166,22 @@ const help_message = "=====================\n" ++
             " Welcome to Rayworld \n" ++
             "=====================\n\n" ++
             "GENERAL\n" ++
-            "  F1:    this help\n" ++
-            "  F2:    debug info\n" ++
-            "  Q:     quit\n" ++
+            "  F1:     this help\n" ++
+            "  F2:     debug info\n" ++
+            "  CTRL-E: toggle edit mode (preparation for map editor)\n" ++
+            "  Q:      quit\n" ++
             "MOVEMENT\n" ++
             "  Use mouse to turn/look around\n" ++
-            "  WASD:  move\n" ++
-            "  E/C:   move up/down (debug)\n" ++
+            "  WASD:   move\n" ++
+            "  E/C:    move up/down (debug)\n" ++
             "SIMULATION\n" ++
             "  Cursor Keys (l/r/u/d): move map\n" ++
-            "  M:     toggle system map\n" ++
-            "  H:     toggle station hook\n" ++
+            "  M:      toggle system map\n" ++
+            "  H:      toggle station hook\n" ++
             "SIMULATION TIMING\n" ++
-            "  P:     toggle pause\n" ++
-            "  F3/F4: zoom (out/in)\n" ++
-            "  F5/F6: time acceleration (decrease/increase x10)\n" ++
-            "  F7/F8: time acceleration thread frequency\n" ++
-            "         - 100Hz base x factor\n" ++
-            "         - automatically reduced if load too high\n\n";
+            "  P:      toggle pause\n" ++
+            "  F3/F4:  zoom (out/in)\n" ++
+            "  F5/F6:  time acceleration (decrease/increase x10)\n" ++
+            "  F7/F8:  time acceleration thread frequency\n" ++
+            "          - 100Hz base x factor\n" ++
+            "          - automatically reduced if load too high\n\n";

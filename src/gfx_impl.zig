@@ -104,3 +104,8 @@ pub inline fn releaseTexture(tex_id: u32) void {
 pub inline fn setColor(r: f32, g: f32, b: f32, a: f32) void {
     gfx.setColor4(r, g, b, a);
 }
+
+/// Set the width of lines drawn by the graphics engine
+pub inline fn setLineWidth(w: f32) void {
+    gfx.setLineWidth(w);
+}

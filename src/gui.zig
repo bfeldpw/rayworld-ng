@@ -39,6 +39,20 @@ pub const ParamOverlay = struct {
     overlay_type: OverlayType = .none,
 };
 
+pub fn drawCursor(x: f32, y: f32) void {
+    const cursor_size = 15;
+    const cursor_gap_center = 5;
+    const cursor_thickness = 3;
+    if (is_cursor_visible) {
+        gfx_impl.setColor(0.2, 1.0, 0.2, 0.5);
+        gfx_impl.setLineWidth(cursor_thickness);
+        gfx_impl.addImmediateLine(x-cursor_size, y, x-cursor_gap_center, y);
+        gfx_impl.addImmediateLine(x+cursor_gap_center, y, x+cursor_size, y);
+        gfx_impl.addImmediateLine(x, y-cursor_size, x, y-cursor_gap_center);
+        gfx_impl.addImmediateLine(x, y+cursor_gap_center, x, y+cursor_size);
+    }
+}
+
 pub fn drawOverlay(prm: *ParamOverlay) !void {
     const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
     const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
@@ -70,6 +84,15 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
     }
 }
 
+pub inline fn hideCursor() void {
+    is_cursor_visible = false;
+}
+
+pub inline fn showCursor() void {
+    is_cursor_visible = true;
+}
+
+//-----------------------------------------------------------------------------//
 //-----------------------------------------------------------------------------//
 //   Internal
 //-----------------------------------------------------------------------------//
@@ -80,6 +103,8 @@ const gui_log = std.log.scoped(.fnt);
 var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
           else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
+
+var is_cursor_visible: bool = false;
 
 const OverlayType = enum {
     none,
