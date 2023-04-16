@@ -112,6 +112,7 @@ pub fn createScene() void {
         m_x: usize,
         m_y: usize,
         u_of_uv: f32,
+        tex_id: u32,
         x: f32,
         y0: f32,
         y0_cvs: f32,
@@ -123,6 +124,7 @@ pub fn createScene() void {
     for (&previous) |*value| {
         value.m_x = 0;
         value.m_y = 0;
+        value.tex_id = 0;
     }
 
     while (i < rays.seg_i0.len) : (i += 1) {
@@ -219,6 +221,7 @@ pub fn createScene() void {
                 if (axis == .x and abs_x < 2 and m_y == prev.m_y) is_new = false;
                 if (axis == .y and abs_y < 2 and m_x == prev.m_x) is_new = false;
                 if (prev.cell_type != cell_type) is_new = true;
+                if (prev.tex_id != tex_id) is_new = true;
 
                 if (is_new) prev.x = x - @intToFloat(f32, sub_sampling * cfg.sub_sampling_base);
                 if (cfg.sub_sampling_blocky or is_new) {
@@ -264,6 +267,7 @@ pub fn createScene() void {
                 prev.cell_type = cell_type;
                 prev.m_x = m_x;
                 prev.m_y = m_y;
+                prev.tex_id = tex_id;
                 prev.x = x;
                 if (!cfg.sub_sampling_blocky) {
                     prev.u_of_uv = u_of_uv;
