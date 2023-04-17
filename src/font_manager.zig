@@ -15,6 +15,7 @@ const FontError = error{
     FontLoadingFailed,
     FontMaxNrOfAtlasses,
     FontNameUnknown,
+    FontNoneRasterised,
     FontRasterisingFailed,
 };
 
@@ -84,7 +85,15 @@ pub inline fn getIdByName() *const std.StringHashMap(u32) {
     return &font_id_by_name;
 }
 
-pub fn getTextSize(text: []const u8) TextSize {
+/// Return width and height of given text in pixel
+/// For generic fonts without line breaks consider using <getTextSizeLine>
+/// For monospace fonts without line breaks consider using <getTextSizeLineMono>
+pub fn getTextSize(text: []const u8) FontError!TextSize {
+    if (current.tex_id == 0) {
+        fm_log.warn("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
+        return error.FontNoneRasterised;
+    }
+
     var length: f32 = 0.0;
     var length_max: f32 = 0.0;
     var height: f32 = current.font_size;
@@ -105,6 +114,45 @@ pub fn getTextSize(text: []const u8) TextSize {
         length_max = length;
     }
     return .{.w=length_max, .h=height};
+}
+
+/// Return width and height of given text in pixel. This function might be used
+/// for generic fonts without line breaks to enable some optimisations.
+/// For generic fonts with line breaks use <getTextSize>
+/// For monospace fonts without line breaks consider using <getTextSizeLineMono>
+pub fn getTextSizeLine(text: []const u8) FontError!TextSize {
+    if (current.tex_id == 0) {
+        fm_log.warn("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
+        return error.FontNoneRasterised;
+    }
+
+    var length: f32 = 0.0;
+    var height: f32 = current.font_size;
+    var b: c.stbtt_packedchar = undefined;
+    for (text) |ch| {
+        b = current.char_info[ch - ascii_first];
+        length += b.xadvance;
+    }
+    return .{.w=length, .h=height};
+}
+
+/// Return width and height of given text in pixel. This function might be used
+/// for monospace fonts without line breaks to enable some optimisations.
+/// For generic fonts with line breaks use <getTextSize>
+/// For generic fonts without line breaks consider using <getTextSizeLine>
+pub fn getTextSizeLineMono(text: []const u8) FontError!TextSize {
+    if (current.tex_id == 0) {
+        fm_log.warn("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
+        return error.FontNoneRasterised;
+    }
+
+    var length: f32 = 0.0;
+    var height: f32 = current.font_size;
+    var b: c.stbtt_packedchar = undefined;
+    b = current.char_info[text[0] - ascii_first];
+    length = b.xadvance * @intToFloat(f32, text.len);
+
+    return .{.w=length, .h=height};
 }
 
 pub fn setFont(font_name: []const u8, font_size: f32) !void {
@@ -404,9 +452,12 @@ pub fn removeFontById(id: u32) FontError!void {
     }
 }
 
-pub fn renderAtlas() !void {
+pub fn renderAtlas() FontError!void {
+    if (current.tex_id == 0) {
+        fm_log.warn("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
+        return error.FontNoneRasterised;
+    }
     gfx_impl.bindTexture(current.tex_id);
-
     const x0 = 100;
     const x1 = 612;
     const y0 = 100;
@@ -415,6 +466,11 @@ pub fn renderAtlas() !void {
 }
 
 pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
+    if (current.tex_id == 0) {
+        fm_log.warn("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
+        return error.FontNoneRasterised;
+    }
+
     var glyph_quad: c.stbtt_aligned_quad = undefined;
     var offset_x: f32 = 0.0;
     var offset_y: f32 = current.baseline;
@@ -533,9 +589,23 @@ test "open_font_file" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
+test "use_font_without_rasterise_fail_expected" {
+    const expected = error.FontNoneRasterised;
+    const actual_0 = getTextSize("42");
+    try std.testing.expectError(expected, actual_0);
+    const actual_1 = getTextSizeLine("42");
+    try std.testing.expectError(expected, actual_1);
+    const actual_2 = getTextSizeLineMono("42");
+    try std.testing.expectError(expected, actual_2);
+    const actual_3 = renderAtlas();
+    try std.testing.expectError(expected, actual_3);
+    const actual_4 = renderText("42", 0.0, 0.0);
+    try std.testing.expectError(expected, actual_4);
+}
+
 test "rasterise_font" {
     font_atlas_limit = 3;
-    try rasterise("anka", 16, 0);
+    try rasterise("anka", 16, 1);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
@@ -544,7 +614,7 @@ test "rasterise_font" {
 }
 
 test "rasterise_font_twice" {
-    try rasterise("anka", 16, 0);
+    try rasterise("anka", 16, 1);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
     try std.testing.expectEqual(font_id_by_name.count(), 1);
@@ -561,6 +631,21 @@ test "rasterise_font_fail_expected" {
     try std.testing.expectEqual(font_id_by_name.count(), 1);
     try std.testing.expectEqual(font_timer_by_id.count(), 1);
     try std.testing.expectEqual(fonts_map.count(), 1);
+}
+
+test "get_text_size" {
+    const s_0 = try getTextSize("Two\nlines");
+    try std.testing.expectApproxEqAbs(s_0.w, 40.76, 0.01);
+    try std.testing.expectEqual(s_0.h, 32);
+    const s_1 = try getTextSizeLine("One line");
+    try std.testing.expectApproxEqAbs(s_1.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_1.h, 16);
+    const s_2 = try getTextSizeLineMono("One line");
+    try std.testing.expectApproxEqAbs(s_2.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_2.h, 16);
+    const s_3 = try getTextSize("One line");
+    try std.testing.expectApproxEqAbs(s_3.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_3.h, 16);
 }
 
 test "remove_font_fail_expected" {
