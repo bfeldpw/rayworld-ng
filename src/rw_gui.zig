@@ -15,47 +15,44 @@ pub fn init() !void {
     try fnt.addFont("anka_bi", "resource/AnkaCoder-C87-bi.ttf");
     try fnt.rasterise("anka_b", 32, gfx.getTextureId());
 
-    var font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
-                                                      .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                           .width = 300,
-                                           .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
-                                           .is_centered = false,
-                                           .is_enabled = false,
-                                           .ll_x = 10.0,
-                                           .ll_y = 10.0,
-                                           .col = .{0.0, 1.0, 0.0, 0.2},
-                                           };
-    const text_widget: gui.TextWidget = .{.overlay = &font_overlay,
-                                          .col = .{0.5, 1.0, 0.5, 0.8}};
+    const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
+                                                        .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                             .width = 300,
+                                             .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
+                                             .is_centered = false,
+                                             .is_enabled = false,
+                                             .ll_x = 10.0,
+                                             .ll_y = 10.0,
+                                             .col = .{0.0, 1.0, 0.0, 0.2},
+                                             };
+    const text_widget: gui.TextWidget = .{.col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("fnt_ovl", font_overlay);
     try gui.addTextWidget("fnt_ovl", "fnt_txt", text_widget);
 
-    var prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
-                                                     .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                          .width = 400,
-                                          .height = 32.0 * 13,
-                                          .is_centered = false,
-                                          .is_enabled = false,
-                                          .ll_x = 330.0,
-                                          .ll_y = 10.0,
-                                          .col = .{0.0, 1.0, 0.0, 0.2},
-                                          .widget_type = .text,
-                                          };
-    const prf_widget: gui.TextWidget = .{.overlay = &prf_overlay,
-                                         .col = .{0.5, 1.0, 0.5, 0.8}};
+    const prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
+                                                       .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                            .width = 400,
+                                            .height = 32.0 * 13,
+                                            .is_centered = false,
+                                            .is_enabled = false,
+                                            .ll_x = 330.0,
+                                            .ll_y = 10.0,
+                                            .col = .{0.0, 1.0, 0.0, 0.2},
+                                            .widget_type = .text,
+                                            };
+    const prf_widget: gui.TextWidget = .{.col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("prf_ovl", prf_overlay);
     try gui.addTextWidget("prf_ovl", "prf_txt", prf_widget);
 
-    var help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
-                                                      .col = .{0.8, 1.0, 0.8, 0.8}},
-                                           .width = 200,
-                                           .height = 200,
-                                           .is_enabled = false,
-                                           .col = .{0.0, 1.0, 0.0, 0.2},
-                                           .widget_type = .text,
-                                           };
-    const help_widget: gui.TextWidget = .{.overlay = &help_overlay,
-                                          .text = "HelpMessage",
+    const help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
+                                                        .col = .{0.8, 1.0, 0.8, 0.8}},
+                                             .width = 200,
+                                             .height = 200,
+                                             .is_enabled = false,
+                                             .col = .{0.0, 1.0, 0.0, 0.2},
+                                             .widget_type = .text,
+                                             };
+    const help_widget: gui.TextWidget = .{.text = "HelpMessage",
                                           .col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("hlp_ovl", help_overlay);
     try gui.addTextWidget("hlp_ovl", "hlp_txt", help_widget);
