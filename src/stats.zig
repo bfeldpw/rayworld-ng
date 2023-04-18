@@ -126,7 +126,7 @@ const log_stats = std.log.scoped(.stats);
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "per-frame-timer stats" {
+test "stats: per frame timer" {
     var s = try PerFrameTimerBuffered(3).init();
     try std.testing.expect(s.buf.len == 3);
     try std.testing.expect(s.i == 0);
@@ -157,7 +157,7 @@ test "per-frame-timer stats" {
     try std.testing.expect(s.count_buf == 3);
 }
 
-test "per-frame-counter stats" {
+test "stats: per frame counter" {
     var s = PerFrameCounter.init("per-frame-counter");
     try std.testing.expectEqualStrings(s.name, "per-frame-counter");
     try std.testing.expect(s.count == 0);

@@ -951,7 +951,7 @@ inline fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, 
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "init" {
+test "raycaster: init/deinit" {
     // try gfx.init();
     try init();
     try map.init();

@@ -569,7 +569,7 @@ fn findCandidateForAutoRemoval() u32 {
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "open_font_file_fail_expected" {
+test "font: open font file (failure)" {
     const actual = addFont("non_existing_fond_name", "./this/font/does/not/exist.ttf");
     const expected = FontError.FontLoadingFailed;
     try std.testing.expectError(expected, actual);
@@ -580,7 +580,7 @@ test "open_font_file_fail_expected" {
     try std.testing.expectEqual(fonts_map.count(), 0);
 }
 
-test "open_font_file" {
+test "font: open font file" {
     try addFont("anka", "resource/AnkaCoder-r.ttf");
     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
@@ -589,7 +589,7 @@ test "open_font_file" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "use_font_without_rasterise_fail_expected" {
+test "font: use font without rasterisation (failure)" {
     const expected = error.FontNoneRasterised;
     const actual_0 = getTextSize("42");
     try std.testing.expectError(expected, actual_0);
@@ -603,7 +603,7 @@ test "use_font_without_rasterise_fail_expected" {
     try std.testing.expectError(expected, actual_4);
 }
 
-test "rasterise_font" {
+test "font: rasterise" {
     font_atlas_limit = 3;
     try rasterise("anka", 16, 1);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
@@ -613,7 +613,7 @@ test "rasterise_font" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "rasterise_font_twice" {
+test "font: rasterise twice" {
     try rasterise("anka", 16, 1);
     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
@@ -622,7 +622,7 @@ test "rasterise_font_twice" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "rasterise_font_fail_expected" {
+test "font: rasterise (failure)" {
     const actual = rasterise("no_font_name", 16, 0);
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
@@ -633,7 +633,7 @@ test "rasterise_font_fail_expected" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "get_text_size" {
+test "font: get text size" {
     const s_0 = try getTextSize("Two\nlines");
     try std.testing.expectApproxEqAbs(s_0.w, 40.76, 0.01);
     try std.testing.expectEqual(s_0.h, 32);
@@ -648,7 +648,7 @@ test "get_text_size" {
     try std.testing.expectEqual(s_3.h, 16);
 }
 
-test "remove_font_fail_expected" {
+test "font: removal (failure)" {
     const actual = removeFontByDesignator("anka_17");
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
@@ -659,7 +659,7 @@ test "remove_font_fail_expected" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "remove_font" {
+test "font: removal" {
     try removeFontByDesignator("anka_16");
     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
@@ -668,7 +668,7 @@ test "remove_font" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "set_font_fail_expected_01" {
+test "font: set font (failure 01)" {
     const actual = setFont("anka_bad", 16);
     const expected = error.FontNameUnknown;
     try std.testing.expectError(expected, actual);
@@ -680,7 +680,7 @@ test "set_font_fail_expected_01" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "set_font_fail_expected_02" {
+test "font: set font (failure 02)" {
     auto_rasterise = false;
     const actual = setFont("anka", 16);
     const expected = error.FontDesignatorUnknown;
@@ -693,7 +693,7 @@ test "set_font_fail_expected_02" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "set_font_auto_rasterise" {
+test "font: set font, auto rasterise" {
     auto_rasterise = true;
     try setFont("anka", 16);
 
@@ -704,7 +704,7 @@ test "set_font_auto_rasterise" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "set_font" {
+test "font: set font" {
     auto_rasterise = false;
     try rasterise("anka", 32, 1);
     try setFont("anka", 16);
@@ -716,7 +716,7 @@ test "set_font" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "font_atlas_limit_fail_expected" {
+test "font: atlas limit (failure)" {
     auto_remove = false;
 
     try rasterise("anka", 64, 2);
@@ -738,7 +738,7 @@ test "font_atlas_limit_fail_expected" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "auto_remove_time_limit_fail_expected" {
+test "font: auto remove time limit (failure)" {
     auto_remove = true;
     auto_remove_idle_time = 100.0;
 
@@ -753,7 +753,7 @@ test "auto_remove_time_limit_fail_expected" {
     try std.testing.expectEqual(fonts_map.count(), 1);
 }
 
-test "auto_remove" {
+test "font: auto remove" {
     auto_remove = true;
     auto_remove_idle_time = 0.1;
     std.time.sleep(0.2e9);

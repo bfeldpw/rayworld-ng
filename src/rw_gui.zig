@@ -1,91 +1,96 @@
 const std = @import("std");
+const gui = @import("gui.zig");
 const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
 const gfx = @import("graphics.zig");
-const gui = @import("gui.zig");
 const input = @import("input.zig");
 const sim = @import("sim.zig");
 
-const font_size_help_message_default = 32;
-var font_size_help_message: f32 = font_size_help_message_default;
+pub fn init() !void {
 
-pub fn displayFontStats() !void {
-    if (input.getF2()) {
-        const names = fnt.getIdByName();
-        const timers = fnt.getTimerById();
+    fnt.init();
+    try fnt.addFont("anka_b", "resource/AnkaCoder-C87-b.ttf");
+    try fnt.addFont("anka_i", "resource/AnkaCoder-C87-i.ttf");
+    try fnt.addFont("anka_r", "resource/AnkaCoder-C87-r.ttf");
+    try fnt.addFont("anka_bi", "resource/AnkaCoder-C87-bi.ttf");
+    try fnt.rasterise("anka_b", 32, gfx.getTextureId());
 
-        var iter = names.iterator();
-        var timer_printout = std.ArrayList(u8).init(allocator);
+    var font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
+                                                      .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                           .width = 300,
+                                           .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
+                                           .is_centered = false,
+                                           .is_enabled = false,
+                                           .ll_x = 10.0,
+                                           .ll_y = 10.0,
+                                           .col = .{0.0, 1.0, 0.0, 0.2},
+                                           };
+    const text_widget: gui.TextWidget = .{.overlay = &font_overlay,
+                                          .col = .{0.5, 1.0, 0.5, 0.8}};
+    try gui.addOverlay("fnt_ovl", font_overlay);
+    try gui.addTextWidget("fnt_ovl", "fnt_txt", text_widget);
 
-        while (iter.next()) |v| {
-            const name = v.key_ptr.*;
-            var timer = timers.get(v.value_ptr.*).?;
+    var prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
+                                                     .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                          .width = 400,
+                                          .height = 32.0 * 13,
+                                          .is_centered = false,
+                                          .is_enabled = false,
+                                          .ll_x = 330.0,
+                                          .ll_y = 10.0,
+                                          .col = .{0.0, 1.0, 0.0, 0.2},
+                                          .widget_type = .text,
+                                          };
+    const prf_widget: gui.TextWidget = .{.overlay = &prf_overlay,
+                                         .col = .{0.5, 1.0, 0.5, 0.8}};
+    try gui.addOverlay("prf_ovl", prf_overlay);
+    try gui.addTextWidget("prf_ovl", "prf_txt", prf_widget);
 
-            const tmp = try std.fmt.allocPrint(allocator,
-                                               "{s}: {d:.2}s\n",
-                                               .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
-            try timer_printout.appendSlice(tmp);
-            allocator.free(tmp);
+    var help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
+                                                      .col = .{0.8, 1.0, 0.8, 0.8}},
+                                           .width = 200,
+                                           .height = 200,
+                                           .is_enabled = false,
+                                           .col = .{0.0, 1.0, 0.0, 0.2},
+                                           .widget_type = .text,
+                                           };
+    const help_widget: gui.TextWidget = .{.overlay = &help_overlay,
+                                          .text = "HelpMessage",
+                                          .col = .{0.5, 1.0, 0.5, 0.8}};
+    try gui.addOverlay("hlp_ovl", help_overlay);
+    try gui.addTextWidget("hlp_ovl", "hlp_txt", help_widget);
+}
 
-        }
-        const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
-                                                            .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = 300,
-                                                 .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
-                                                 .is_centered = false,
-                                                 .ll_x = 10.0,
-                                                 .ll_y = 10.0,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = font_overlay,
-                                            .text = timer_printout.items,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-        timer_printout.deinit();
-        fba.reset();
+pub fn deinit() void {
+    gui.deinit();
+    fnt.deinit();
+    arena.deinit();
+}
+
+pub fn setHelpMessage(msg: []const u8) !void {
+    const hlp_txt = try gui.getTextWidget("hlp_txt");
+    hlp_txt.text = msg;
+    const hlp_ovl = try gui.getOverlay("hlp_ovl");
+    const s = try fnt.getTextSize(msg);
+    hlp_ovl.width = s.w + hlp_ovl.frame[0] + hlp_ovl.frame[2];
+    hlp_ovl.height = s.h + hlp_ovl.frame[1] + hlp_ovl.frame[3];
+}
+
+pub fn toggleEditMode() void {
+    is_edit_mode_enabled = is_edit_mode_enabled != true;
+
+    if (is_edit_mode_enabled) {
+        gui.showCursor();
+    } else {
+        gui.hideCursor();
     }
 }
 
-pub fn displayHelp(msg: []const u8) !void {
-    if (input.getF1()) {
-        try fnt.setFont("anka_r", font_size_help_message);
-        var size = fnt.getTextSize(msg);
-        const h = @intToFloat(f32, gfx.getWindowHeight());
-        const w = @intToFloat(f32, gfx.getWindowWidth());
-        if (size.w > w or size.h > h) {
-            if (font_size_help_message > 8) {
-                font_size_help_message -= 8;
-                try fnt.setFont("anka_r", font_size_help_message);
-                size = fnt.getTextSize(msg);
-            }
-        }
-        if (size.w < 0.75*w and size.h < 0.75*h) {
-            if (font_size_help_message < font_size_help_message_default) {
-                font_size_help_message += 8;
-                try fnt.setFont("anka_r", font_size_help_message);
-                size = fnt.getTextSize(msg);
-            }
-        }
-
-        const help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
-                                                            .col = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = size.w+10,
-                                                 .height = size.h+10,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = help_overlay,
-                                            .text = msg,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-    }
-}
-
-pub fn displayPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
-                               ren_scene: f64, ren_frame: f64, ren_map: f64, ren_gui: f64,
-                               ren_sim: f64, simulation: f64) !void {
-    if (input.getF2()) {
+pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
+                              ren_scene: f64, ren_frame: f64, ren_map: f64, ren_gui: f64,
+                              ren_sim: f64, simulation: f64) !void {
+    const ovl = try gui.getOverlay("prf_ovl");
+    if (ovl.is_enabled) {
         const prf_printout = try std.fmt.allocPrint(allocator,
            "Frametime:    {d:.2}ms\n" ++
            "  Idle:       {d:.2}ms\n" ++
