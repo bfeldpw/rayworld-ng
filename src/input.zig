@@ -1,8 +1,8 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const gfx = @import("graphics.zig");
-const gui = @import("gui.zig");
 const plr = @import("player.zig");
+const rw_gui = @import("rw_gui.zig");
 const sim = @import("sim.zig");
 
 //-----------------------------------------------------------------------------//
@@ -54,6 +54,10 @@ pub inline fn getCursorPos(x: *f64, y: *f64) void {
     c.glfwGetCursorPos(window, @ptrCast([*c]f64, x), @ptrCast([*c]f64, y));
 }
 
+pub inline fn isMouseButtonLeftPressed() bool {
+    return c.glfwGetMouseButton(window, c.GLFW_MOUSE_BUTTON_LEFT) == c.GLFW_PRESS;
+}
+
 var is_f1: bool = false;
 pub inline fn getF1() bool {
     return is_f1;
@@ -98,13 +102,12 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
     if (key == c.GLFW_KEY_F8 and action == c.GLFW_PRESS) sim.timing.increaseFpsTarget();
     if (key == c.GLFW_KEY_E and mods == c.GLFW_MOD_CONTROL and action == c.GLFW_PRESS) {
+        rw_gui.toggleEditMode();
         is_edit_mode_enabled = is_edit_mode_enabled != true;
         if (is_edit_mode_enabled) {
-            gui.showCursor();
             _ = c.glfwSetCursorPos(window, @intToFloat(f64, gfx.getWindowWidth()/2),
                                            @intToFloat(f64, gfx.getWindowHeight()/2));
         } else {
-            gui.hideCursor();
             _ = c.glfwSetCursorPos(window, 0.0, 0.0);
         }
     }

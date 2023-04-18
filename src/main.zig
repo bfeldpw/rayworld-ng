@@ -1,7 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
-const fnt = @import("font_manager.zig");
 const gfx = @import("graphics.zig");
 const rw_gui = @import("rw_gui.zig");
 const input = @import("input.zig");
@@ -37,19 +36,6 @@ pub fn main() !void {
     input.setWindow(gfx.getWindow());
     input.init();
 
-    //----------------
-    //   Load fonts
-    //----------------
-    var prf_fnt = try stats.PerFrameTimerBuffered(1).init();
-    prf_fnt.start();
-    fnt.init();
-    defer fnt.deinit();
-    try fnt.addFont("anka_b", "resource/AnkaCoder-C87-b.ttf");
-    try fnt.addFont("anka_i", "resource/AnkaCoder-C87-i.ttf");
-    try fnt.addFont("anka_r", "resource/AnkaCoder-C87-r.ttf");
-    prf_fnt.stop();
-    std.log.info("Font loading took {d:.2}ms", .{prf_fnt.getAvgAllMs()});
-
     //--------------
     //   Load map
     //--------------
@@ -59,6 +45,13 @@ pub fn main() !void {
     defer map.deinit();
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
+
+    //----------------
+    //   Init gui
+    //----------------
+    try rw_gui.init();
+    try rw_gui.setHelpMessage(help_message);
+    defer rw_gui.deinit();
 
     //--------------------------------
     //   Prepare performance timers
@@ -113,23 +106,21 @@ pub fn main() !void {
         prf_ren_sim.stop();
 
         prf_ren_gui.start();
-        try rw_gui.displayFontStats();
-        try rw_gui.displayPerformanceStats(prf_fps.getAvgBufMs(),
-                                           prf_idle.getAvgBufMs(),
-                                           prf_in.getAvgBufMs(),
-                                           prf_rc.getAvgBufMs(),
-                                           prf_ren.getAvgBufMs(),
-                                           prf_ren_scene.getAvgBufMs(),
-                                           prf_ren_frame.getAvgBufMs(),
-                                           prf_ren_map.getAvgBufMs(),
-                                           prf_ren_gui.getAvgBufMs(),
-                                           prf_ren_sim.getAvgBufMs(),
-                                           sim.getAvgBufMs());
-        try rw_gui.displayHelp(help_message);
+        try rw_gui.updatePerformanceStats(prf_fps.getAvgBufMs(),
+                                          prf_idle.getAvgBufMs(),
+                                          prf_in.getAvgBufMs(),
+                                          prf_rc.getAvgBufMs(),
+                                          prf_ren.getAvgBufMs(),
+                                          prf_ren_scene.getAvgBufMs(),
+                                          prf_ren_frame.getAvgBufMs(),
+                                          prf_ren_map.getAvgBufMs(),
+                                          prf_ren_gui.getAvgBufMs(),
+                                          prf_ren_sim.getAvgBufMs(),
+                                          sim.getAvgBufMs());
         var cur_x: f64 = 0;
         var cur_y: f64 = 0;
         input.getCursorPos(&cur_x, &cur_y);
-        rw_gui.process(@floatCast(f32, cur_x), @floatCast(f32, cur_y));
+        try rw_gui.process(@floatCast(f32, cur_x), @floatCast(f32, cur_y), input.isMouseButtonLeftPressed());
         prf_ren_gui.stop();
 
         prf_ren.stop();

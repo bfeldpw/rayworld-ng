@@ -109,28 +109,79 @@ pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
              cfg.gfx.fps_target}
         );
 
-        const prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
-                                                            .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                                 .width = 400,
-                                                 .height = 32.0 * 13,
-                                                 .is_centered = false,
-                                                 .ll_x = 330.0,
-                                                 .ll_y = 10.0,
-                                                 .col = .{0.0, 1.0, 0.0, 0.2},
-                                                 .overlay_type = .text,
-                                                 };
-        var text_widget: gui.TextWidget = .{.overlay = prf_overlay,
-                                            .text = prf_printout,
-                                            .col = .{0.5, 1.0, 0.5, 0.8}};
-        try gui.drawOverlay(&text_widget.overlay);
-        fba.reset();
+        var t = try gui.getTextWidget("prf_txt");
+        t.text = prf_printout;
     }
 }
 
-pub fn process(x: f32, y: f32) void {
-    gui.drawCursor(x, y);
+pub fn process(x: f32, y: f32, mouse_l: bool) !void {
+    {
+        const ovl = try gui.getOverlay("hlp_ovl");
+        if (input.getF1()) {
+            ovl.is_enabled = true;
+        } else {
+            ovl.is_enabled = false;
+        }
+    }
+    {
+        const ovl_fnt = try gui.getOverlay("fnt_ovl");
+        const ovl_prf = try gui.getOverlay("prf_ovl");
+        if (input.getF2()) {
+            ovl_fnt.is_enabled = true;
+            ovl_prf.is_enabled = true;
+        } else {
+            ovl_fnt.is_enabled = false;
+            ovl_prf.is_enabled = false;
+        }
+    }
+
+    try updateFontStats();
+    try gui.processOverlays();
+
+    if (is_edit_mode_enabled) {
+        try fnt.setFont("anka_bi", 48);
+        gfx.setColor4(1.0, 0.2, 0.2, 0.8);
+        const t = "EDIT MODE";
+        const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
+        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
+        gui.drawCursor(x, y);
+        _ = mouse_l;
+        _ = arena.reset(.retain_capacity);
+    }
 }
 
-var buffer: [cfg.fnt.font_atlas_limit * 256]u8 = undefined;
-var fba = std.heap.FixedBufferAllocator.init(&buffer);
-const allocator = fba.allocator();
+//-----------------------------------------------------------------------------//
+//   Internal
+//-----------------------------------------------------------------------------//
+
+var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+const allocator = arena.allocator();
+
+var is_edit_mode_enabled: bool = false;
+
+fn updateFontStats() !void {
+    const ovl = try gui.getOverlay("fnt_ovl");
+    if (ovl.is_enabled) {
+        const names = fnt.getIdByName();
+        const timers = fnt.getTimerById();
+
+        var iter = names.iterator();
+        var timer_printout = std.ArrayList(u8).init(allocator);
+
+        while (iter.next()) |v| {
+            const name = v.key_ptr.*;
+            var timer = timers.get(v.value_ptr.*).?;
+
+            const tmp = try std.fmt.allocPrint(allocator,
+                                               "{s}: {d:.2}s\n",
+                                               .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
+            try timer_printout.appendSlice(tmp);
+            allocator.free(tmp);
+
+        }
+        var t = try gui.getTextWidget("fnt_txt");
+        t.text = try timer_printout.toOwnedSlice();
+        var o = try gui.getOverlay("fnt_ovl");
+        o.height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1));
+    }
+}
