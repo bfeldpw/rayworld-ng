@@ -122,7 +122,10 @@ pub fn setFpsTarget(f: f32) void {
 }
 
 pub inline fn setLineWidth(w: f32) void {
-    c.glLineWidth(w);
+    if (w != state.line_width) {
+        c.glLineWidth(w);
+        state.line_width = w;
+    }
 }
 
 pub inline fn setViewport(x: u64, y: u64, w: u64, h: u64) void {
@@ -653,6 +656,7 @@ var quads_textured = std.AutoHashMap(u32, TexturedQuads).init(allocator);
 const state = struct {
     var bound_texture: u32 = 0;
     var is_texturing_enabled: bool = false;
+    var line_width: f32 = 1.0;
 };
 
 fn allocMemory() !void {
