@@ -18,7 +18,7 @@ pub fn init() !void {
     const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
                                                         .col  = .{0.8, 1.0, 0.8, 0.8}},
                                              .width = 300,
-                                             .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1)),
+                                             .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
                                              .is_centered = false,
                                              .is_enabled = false,
                                              .ll_x = 10.0,
@@ -100,7 +100,7 @@ pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
            "    Gui:      {d:.2}ms\n" ++
            "    Sim:      {d:.2}ms\n" ++
            "Sim-Thread:   {d:.2}ms\n" ++
-           "(@{d:.0}Hz => {d:.2}ms @{d:.0}Hz) ",
+           "(@{d:.0}Hz => {d:.2}ms @{d:.0}Hz)",
            .{fps, idle, in, rayc, ren, ren_scene, ren_frame, ren_map, ren_gui, ren_sim, simulation,
              sim.timing.getFpsTarget(), simulation*sim.timing.getFpsTarget()/cfg.gfx.fps_target,
              cfg.gfx.fps_target}
@@ -176,9 +176,8 @@ fn updateFontStats() !void {
             allocator.free(tmp);
 
         }
+        _ = timer_printout.pop(); // Remove last carriage return
         var t = try gui.getTextWidget("fnt_txt");
         t.text = try timer_printout.toOwnedSlice();
-        var o = try gui.getOverlay("fnt_ovl");
-        o.height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count()+1));
     }
 }

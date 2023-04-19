@@ -147,10 +147,9 @@ fn adjustFovOnAspectChange() void {
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
     }
 }
-var font_size_base: f32 = 32.0;
 
 fn printUsage() void {
-    std.debug.print(help_message, .{});
+    std.debug.print(help_message ++ "\n", .{});
 }
 
 const help_message = "=====================\n" ++
@@ -175,4 +174,4 @@ const help_message = "=====================\n" ++
             "  F5/F6:  time acceleration (decrease/increase x10)\n" ++
             "  F7/F8:  time acceleration thread frequency\n" ++
             "          - 100Hz base x factor\n" ++
-            "          - automatically reduced if load too high\n\n";
+            "          - automatically reduced if load too high";

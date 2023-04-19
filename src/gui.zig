@@ -11,6 +11,24 @@ const GuiError = error {
     GuiUnknownOverlay,
     GuiUnknownWidget,
     GuiWidgetCastingFailed,
+    GuiWidgetNoOverlay,
+};
+
+const AlignmentHorizontal = enum {
+    centered,
+    left,
+    right,
+};
+
+const AlignmentVertical = enum {
+    centered,
+    top,
+    bottom,
+};
+
+const OverlayResizeMode = enum {
+    none,
+    auto,
 };
 
 pub const Title = struct {
@@ -18,32 +36,73 @@ pub const Title = struct {
     font_name: []const u8 = "anka_b",
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
-    is_centered: bool = true,
+    frame: f32 = 10.0,
+    alignment: AlignmentHorizontal = .centered,
     is_enabled: bool = true,
+    is_separator_enabled: bool = true,
+    separator_thickness: f32 = 1.0,
 };
 
 pub const TextWidget = struct {
-    overlay: *ParamOverlay = undefined,
+    overlay: ?*ParamOverlay = null,
     text: []const u8 = "TextWidget",
     font_name: []const u8 = "anka_r",
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
+    align_h: AlignmentHorizontal = .centered,
+    align_v: AlignmentVertical = .centered,
 
-    fn draw(self: *TextWidget, x: f32, y: f32) !void {
-        try fnt.renderText(self.text, x + self.overlay.frame[0], y + self.overlay.frame[1]);
+    // fn draw(self: *TextWidget, x: f32, y: f32) !void {
+    fn draw(self: *TextWidget) !void {
+        if (self.overlay == null) {
+            gui_log.err("Widget is not bound to overlay", .{});
+            return error.GuiWidgetNoOverlay;
+        }
+        var ovl = self.overlay.?;
+        var x_a: f32 = 0.0;
+        var y_a: f32 = 0.0;
+        const s = try fnt.getTextSize(self.text);
+        if (ovl.resize_mode == .auto) {
+            ovl.width = s.w + ovl.frame[0] + ovl.frame[2];
+            ovl.height = s.h + ovl.frame[1] + ovl.frame[3] + ovl.title.font_size;
+        }
+        switch (self.align_h) {
+            .centered => {
+                x_a = (ovl.width - s.w) * 0.5 + ovl.ll_x;
+            },
+            .left => {
+                x_a = ovl.ll_x + ovl.frame[0];
+            },
+            .right => {
+                x_a = ovl.ll_x + ovl.width - ovl.frame[2] - s.w;
+            }
+        }
+        switch (self.align_v) {
+            .centered => {
+                y_a = (ovl.height - ovl.title.font_size - s.h) * 0.5 + ovl.ll_y + ovl.title.font_size;
+            },
+            .bottom => {
+                y_a = ovl.ll_y + ovl.height - ovl.frame[3] - s.h;
+            },
+            .top => {
+                y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
+            }
+        }
+        try fnt.renderText(self.text, x_a, y_a);
     }
 };
 
 pub const ParamOverlay = struct {
     width: f32 = 100.0,
     height: f32 = 100.0,
+    resize_mode: OverlayResizeMode = .auto,
     is_centered: bool = true,
     is_enabled: bool = true,
     ll_x: f32 = 0.0,
     ll_y: f32 = 0.0,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     title: Title = .{},
-    frame: [4]f32 = .{10.0, 32.0, 10.0, 10.0},
+    frame: [4]f32 = .{10.0, 10.0, 10.0, 10.0},
     widget: ?*anyopaque = null,
     widget_type: WidgetType = .none,
 };
@@ -63,12 +122,44 @@ pub fn addTextWidget(name_ol: []const u8, name_tw: []const u8, tw: TextWidget) !
     text_widgets.getPtr(name_tw).?.overlay = ol;
 }
 
+//-----------------------------------------------------------------------------//
+//   Init / DeInit
+//-----------------------------------------------------------------------------//
+
 pub fn deinit() void {
     overlays.deinit();
     text_widgets.deinit();
 
     const leaked = gpa.deinit();
     if (leaked) std.log.err("Memory leaked in GeneralPurposeAllocator", .{});
+}
+
+//-----------------------------------------------------------------------------//
+//   Getter/Setter
+//-----------------------------------------------------------------------------//
+
+pub inline fn getOverlay(name: []const u8) GuiError!*ParamOverlay {
+    return overlays.getPtr(name) orelse {
+        gui_log.err("Unknown overlay <{s}>", .{name});
+        return error.GuiUnknownOverlay;
+    };
+}
+
+pub inline fn getTextWidget(name: []const u8) GuiError!*TextWidget {
+    return text_widgets.getPtr(name) orelse {
+        gui_log.err("Unknown text widget <{s}>", .{name});
+        return error.GuiUnknownWidget;
+    };
+}
+
+//-----------------------------------------------------------------------------//
+//   Processing
+//-----------------------------------------------------------------------------//
+
+pub fn moveOverlay(x: f32, y: f32) void {
+    const ovl = overlays.getPtr("fnt_ovl").?;
+    ovl.ll_x += x;// * 0.01;
+    ovl.ll_y += y;// * 0.01;
 }
 
 pub fn drawCursor(x: f32, y: f32) void {
@@ -100,12 +191,27 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
     if (prm.title.is_enabled) {
         try fnt.setFont(prm.title.font_name, prm.title.font_size);
         var title_x = prm.ll_x;
-        if (prm.title.is_centered) {
-            const s = try fnt.getTextSize(prm.title.text);
-            title_x = prm.ll_x + (prm.width-s.w) * 0.5;
+        switch (prm.title.alignment) {
+            .centered => {
+                const s = try fnt.getTextSize(prm.title.text);
+                title_x = prm.ll_x + (prm.width-s.w) * 0.5;
+            },
+            .left => {
+                title_x += prm.title.frame;
+            },
+            .right => {
+                const s = try fnt.getTextSize(prm.title.text);
+                title_x = prm.ll_x + prm.width - s.w - prm.title.frame;
+            }
         }
         gfx_impl.setColor(prm.title.col[0], prm.title.col[1], prm.title.col[2], prm.title.col[3]);
         try fnt.renderText(prm.title.text, title_x, prm.ll_y);
+
+        if (prm.title.is_separator_enabled) {
+            gfx_impl.setLineWidth(prm.title.separator_thickness);
+            gfx_impl.addImmediateLine(prm.ll_x + prm.title.frame, prm.ll_y + prm.title.font_size,
+                                      prm.ll_x + prm.width - prm.title.frame, prm.ll_y + prm.title.font_size);
+        }
     }
 
     if (prm.widget_type == .text and prm.widget != null) {
@@ -115,7 +221,7 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
         };
         try fnt.setFont(tw.font_name, tw.font_size);
         gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
-        try tw.draw(prm.ll_x, prm.ll_y);
+        try tw.draw();
     }
 }
 
@@ -125,20 +231,6 @@ pub fn processOverlays() !void {
     while (iter.next()) |v| {
         if (v.value_ptr.is_enabled) try drawOverlay(v.value_ptr);
     }
-}
-
-pub inline fn getOverlay(name: []const u8) GuiError!*ParamOverlay {
-    return overlays.getPtr(name) orelse {
-        gui_log.err("Unknown overlay <{s}>", .{name});
-        return error.GuiUnknownOverlay;
-    };
-}
-
-pub inline fn getTextWidget(name: []const u8) GuiError!*TextWidget {
-    return text_widgets.getPtr(name) orelse {
-        gui_log.err("Unknown text widget <{s}>", .{name});
-        return error.GuiUnknownWidget;
-    };
 }
 
 pub inline fn hideCursor() void {
@@ -201,4 +293,11 @@ test "gui: add overlay" {
 test "gui: add text widget" {
     const w = TextWidget{};
     try addTextWidget("valid_overlay", "valid_widget", w);
+}
+
+test "gui: draw text widget (failure)" {
+    var w = TextWidget{};
+    const actual = w.draw();
+    const expected = GuiError.GuiWidgetNoOverlay;
+    try std.testing.expectError(expected, actual);
 }
