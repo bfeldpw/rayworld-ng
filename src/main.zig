@@ -120,10 +120,13 @@ pub fn main() !void {
         var cur_x: f64 = 0;
         var cur_y: f64 = 0;
         input.getCursorPos(&cur_x, &cur_y);
-        try rw_gui.process(@floatCast(f32, cur_x), @floatCast(f32, cur_y), input.isMouseButtonLeftPressed());
+        try rw_gui.process(@floatCast(f32, cur_x), @floatCast(f32, cur_y),
+                           input.isMouseButtonLeftPressed(), input.getMouseState().wheel);
         prf_ren_gui.stop();
 
         prf_ren.stop();
+
+        input.resetStates();
 
         prf_idle.start();
         try gfx.finishFrame();

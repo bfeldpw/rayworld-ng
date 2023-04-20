@@ -14,13 +14,15 @@ const GuiError = error {
     GuiWidgetNoOverlay,
 };
 
-const AlignmentHorizontal = enum {
+const AlignH = enum {
+    none,
     centered,
     left,
     right,
 };
 
-const AlignmentVertical = enum {
+const AlignV = enum {
+    none,
     centered,
     top,
     bottom,
@@ -37,20 +39,20 @@ pub const Title = struct {
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
     frame: f32 = 10.0,
-    alignment: AlignmentHorizontal = .centered,
+    alignment: AlignH = .centered,
     is_enabled: bool = true,
     is_separator_enabled: bool = true,
     separator_thickness: f32 = 1.0,
 };
 
 pub const TextWidget = struct {
-    overlay: ?*ParamOverlay = null,
+    overlay: ?*Overlay = null,
     text: []const u8 = "TextWidget",
     font_name: []const u8 = "anka_r",
     font_size: f32 = 32,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
-    align_h: AlignmentHorizontal = .centered,
-    align_v: AlignmentVertical = .centered,
+    align_h: AlignH = .centered,
+    align_v: AlignV = .centered,
 
     // fn draw(self: *TextWidget, x: f32, y: f32) !void {
     fn draw(self: *TextWidget) !void {
@@ -70,12 +72,12 @@ pub const TextWidget = struct {
             .centered => {
                 x_a = (ovl.width - s.w) * 0.5 + ovl.ll_x;
             },
-            .left => {
+            .left, .none => {
                 x_a = ovl.ll_x + ovl.frame[0];
             },
             .right => {
                 x_a = ovl.ll_x + ovl.width - ovl.frame[2] - s.w;
-            }
+            },
         }
         switch (self.align_v) {
             .centered => {
@@ -84,7 +86,7 @@ pub const TextWidget = struct {
             .bottom => {
                 y_a = ovl.ll_y + ovl.height - ovl.frame[3] - s.h;
             },
-            .top => {
+            .top, .none => {
                 y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
             }
         }
@@ -92,12 +94,15 @@ pub const TextWidget = struct {
     }
 };
 
-pub const ParamOverlay = struct {
+pub const Overlay = struct {
     width: f32 = 100.0,
     height: f32 = 100.0,
     resize_mode: OverlayResizeMode = .auto,
-    is_centered: bool = true,
+    align_h: AlignH = .none,
+    align_v: AlignV = .none,
+    align_border: f32 = 10.0,
     is_enabled: bool = true,
+    is_focussed: bool = true,
     ll_x: f32 = 0.0,
     ll_y: f32 = 0.0,
     col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
@@ -107,7 +112,10 @@ pub const ParamOverlay = struct {
     widget_type: WidgetType = .none,
 };
 
-pub fn addOverlay(name: []const u8, overlay: ParamOverlay) !void {
+pub fn addOverlay(name: []const u8, overlay: Overlay) !void {
+    // try overlays.append(overlay);
+    // const ovl = &overlays.items[overlays.items.len-1];
+    // try overlays_by_name.put(name, ovl);
     try overlays.put(name, overlay);
 }
 
@@ -138,7 +146,7 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub inline fn getOverlay(name: []const u8) GuiError!*ParamOverlay {
+pub inline fn getOverlay(name: []const u8) GuiError!*Overlay {
     return overlays.getPtr(name) orelse {
         gui_log.err("Unknown overlay <{s}>", .{name});
         return error.GuiUnknownOverlay;
@@ -158,8 +166,10 @@ pub inline fn getTextWidget(name: []const u8) GuiError!*TextWidget {
 
 pub fn moveOverlay(x: f32, y: f32) void {
     const ovl = overlays.getPtr("fnt_ovl").?;
-    ovl.ll_x += x;// * 0.01;
-    ovl.ll_y += y;// * 0.01;
+    ovl.align_h = .none;
+    ovl.align_v = .none;
+    ovl.ll_x += x;
+    ovl.ll_y += y;
 }
 
 pub fn drawCursor(x: f32, y: f32) void {
@@ -176,46 +186,77 @@ pub fn drawCursor(x: f32, y: f32) void {
     }
 }
 
-pub fn drawOverlay(prm: *ParamOverlay) !void {
+pub fn drawOverlay(ovl: *Overlay) !void {
     const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
     const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
 
-    if (prm.is_centered) {
-        prm.ll_x = (win_w-prm.width) * 0.5;
-        prm.ll_y = (win_h-prm.height) * 0.5;
+    switch (ovl.align_h) {
+        .centered => {
+            ovl.ll_x = (win_w-ovl.width) * 0.5;
+        },
+        .left => {
+            ovl.ll_x = ovl.align_border;
+        },
+        .right => {
+            ovl.ll_x = win_w-ovl.width-ovl.align_border;
+        },
+        else => {}
+    }
+    switch (ovl.align_v) {
+        .centered => {
+            ovl.ll_y = (win_h-ovl.height) * 0.5;
+        },
+        .top => {
+            ovl.ll_y = ovl.align_border;
+        },
+        .bottom => {
+            ovl.ll_y = win_h-ovl.height-ovl.align_border;
+        },
+        else => {}
     }
 
-    gfx_impl.setColor(prm.col[0], prm.col[1], prm.col[2], prm.col[3]);
-    gfx_impl.addImmediateQuad(prm.ll_x, prm.ll_y, prm.ll_x+prm.width, prm.ll_y+prm.height);
+    gfx_impl.setColor(ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
+    gfx_impl.addImmediateQuad(ovl.ll_x, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
 
-    if (prm.title.is_enabled) {
-        try fnt.setFont(prm.title.font_name, prm.title.font_size);
-        var title_x = prm.ll_x;
-        switch (prm.title.alignment) {
+    //----------------
+    // Draw the title
+    //----------------
+    if (ovl.title.is_enabled) {
+        try fnt.setFont(ovl.title.font_name, ovl.title.font_size);
+        var title_x = ovl.ll_x;
+        switch (ovl.title.alignment) {
             .centered => {
-                const s = try fnt.getTextSize(prm.title.text);
-                title_x = prm.ll_x + (prm.width-s.w) * 0.5;
+                const s = try fnt.getTextSize(ovl.title.text);
+                title_x = ovl.ll_x + (ovl.width-s.w) * 0.5;
             },
-            .left => {
-                title_x += prm.title.frame;
+            .left, .none => {
+                title_x += ovl.title.frame;
             },
             .right => {
-                const s = try fnt.getTextSize(prm.title.text);
-                title_x = prm.ll_x + prm.width - s.w - prm.title.frame;
-            }
+                const s = try fnt.getTextSize(ovl.title.text);
+                title_x = ovl.ll_x + ovl.width - s.w - ovl.title.frame;
+            },
         }
-        gfx_impl.setColor(prm.title.col[0], prm.title.col[1], prm.title.col[2], prm.title.col[3]);
-        try fnt.renderText(prm.title.text, title_x, prm.ll_y);
+        gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
+        try fnt.renderText(ovl.title.text, title_x, ovl.ll_y);
 
-        if (prm.title.is_separator_enabled) {
-            gfx_impl.setLineWidth(prm.title.separator_thickness);
-            gfx_impl.addImmediateLine(prm.ll_x + prm.title.frame, prm.ll_y + prm.title.font_size,
-                                      prm.ll_x + prm.width - prm.title.frame, prm.ll_y + prm.title.font_size);
+        if (ovl.title.is_separator_enabled) {
+            gfx_impl.setLineWidth(ovl.title.separator_thickness);
+            gfx_impl.addImmediateLine(ovl.ll_x + ovl.title.frame, ovl.ll_y + ovl.title.font_size,
+                                      ovl.ll_x + ovl.width - ovl.title.frame, ovl.ll_y + ovl.title.font_size);
         }
     }
+    if (ovl.is_focussed) {
+        gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
+        gfx_impl.setLineWidth(1.0);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y);
+        gfx_impl.addImmediateLine(ovl.ll_x+ovl.width, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y+ovl.height, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x, ovl.ll_y+ovl.height);
+    }
 
-    if (prm.widget_type == .text and prm.widget != null) {
-        const tw = @ptrCast(?*TextWidget, @alignCast(@alignOf(TextWidget), prm.widget)) orelse {
+    if (ovl.widget_type == .text and ovl.widget != null) {
+        const tw = @ptrCast(?*TextWidget, @alignCast(@alignOf(TextWidget), ovl.widget)) orelse {
             gui_log.err("Unable to access widget for drawing", .{});
             return error.GuiWidgetCastFailed;
         };
@@ -225,20 +266,70 @@ pub fn drawOverlay(prm: *ParamOverlay) !void {
     }
 }
 
-pub fn processOverlays() !void {
-    var iter = overlays.iterator();
+pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
 
-    while (iter.next()) |v| {
-        if (v.value_ptr.is_enabled) try drawOverlay(v.value_ptr);
+    if (mouse_l and !edit_mode.mouse_l_prev) {
+        edit_mode.mouse_x_prev = x;
+        edit_mode.mouse_y_prev = y;
+        edit_mode.mouse_l_prev = true;
+    }
+    if (mouse_l and edit_mode.mouse_l_prev) {
+        edit_mode.mouse_dx = x - edit_mode.mouse_x_prev;
+        edit_mode.mouse_dy = y - edit_mode.mouse_y_prev;
+        edit_mode.mouse_x_prev = x;
+        edit_mode.mouse_y_prev = y;
+    }
+    edit_mode.mouse_l_prev = mouse_l;
+    if (mouse_l) moveOverlay(edit_mode.mouse_dx, edit_mode.mouse_dy);
+
+    {
+        var iter = overlays.iterator();
+
+        edit_mode.overlay_focussed = null;
+        while (iter.next()) |v| {
+            const ovl = v.value_ptr;
+            if (ovl.is_enabled and edit_mode.is_enabled) {
+                if (x > ovl.ll_x and x < ovl.ll_x + ovl.width and
+                    y > ovl.ll_y and y < ovl.ll_y + ovl.height) {
+
+                    // focus first occurance
+                    // if ovl != edit_mode.ovl
+
+                    if (ovl == edit_mode.overlay_focussed and
+                        mouse_wheel == 0.0) {
+                    // } else {
+                        edit_mode.overlay_focussed = ovl;
+                        break;
+                    }
+                    // if (ovl.is_focussed and mouse_wheel == 0.0) break;
+                }
+            } else {
+                ovl.is_focussed = false;
+            }
+        }
+    }
+    {
+        var iter = overlays.iterator();
+
+        while (iter.next()) |v| {
+            const ovl = v.value_ptr;
+            if (edit_mode.overlay_focussed == ovl)
+                 ovl.is_focussed = true
+            else ovl.is_focussed = false;
+
+            if (ovl.is_enabled) try drawOverlay(ovl);
+        }
     }
 }
 
-pub inline fn hideCursor() void {
-    is_cursor_visible = false;
-}
+pub fn toggleEditMode() void {
+    edit_mode.is_enabled = edit_mode.is_enabled != true;
 
-pub inline fn showCursor() void {
-    is_cursor_visible = true;
+    if (edit_mode.is_enabled) {
+        is_cursor_visible = true;
+    } else {
+        is_cursor_visible = false;
+    }
 }
 
 //-----------------------------------------------------------------------------//
@@ -259,8 +350,21 @@ const WidgetType = enum {
     text,
 };
 
-var overlays = std.StringHashMap(ParamOverlay).init(allocator);
+var overlays = std.StringHashMap(Overlay).init(allocator);
+// var overlays = std.ArrayList(Overlay).init(allocator);
+// var overlays_by_name = std.StringHashMap(*Overlay).init(allocator);
 var text_widgets = std.StringHashMap(TextWidget).init(allocator);
+
+const edit_mode = struct {
+    var is_enabled: bool = false;
+    var overlay_focussed: ?*Overlay = null;
+    var overlay_focussed_prev: ?*Overlay = null;
+    var mouse_x_prev: f32 = 0.0;
+    var mouse_y_prev: f32 = 0.0;
+    var mouse_l_prev: bool = false;
+    var mouse_dx: f32 = 0.0;
+    var mouse_dy: f32 = 0.0;
+};
 
 //-----------------------------------------------------------------------------//
 //   Tests
@@ -286,7 +390,7 @@ test "gui: get widget (failure)" {
 }
 
 test "gui: add overlay" {
-    const ovl = ParamOverlay{};
+    const ovl = Overlay{};
     try addOverlay("valid_overlay", ovl);
 }
 

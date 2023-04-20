@@ -15,6 +15,8 @@ pub fn init() void {
     _ = glfwCheckError();
     _ = c.glfwSetKeyCallback(window, processKeyPressEvent);
     _ = glfwCheckError();
+    _ = c.glfwSetScrollCallback(window, processScrollEvent);
+    _ = glfwCheckError();
     _ = c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
     _ = glfwCheckError();
     _ = c.glfwSetCursorPos(window, 0.0, 0.0);
@@ -68,6 +70,14 @@ pub inline fn getF2() bool {
     return is_f2;
 }
 
+pub inline fn getMouseState() MouseState {
+    return mouse_state;
+}
+
+pub fn resetStates() void {
+    mouse_state.wheel = 0.0;
+}
+
 pub inline fn setWindow(win: ?*c.GLFWwindow) void {
     window = win;
 }
@@ -80,6 +90,11 @@ const log_input = std.log.scoped(.input);
 
 var window: ?*c.GLFWwindow = null;
 var is_edit_mode_enabled = false;
+
+const MouseState = struct {
+    wheel: f32 = 0.0,
+};
+var mouse_state: MouseState = .{};
 
 fn glfwCheckError() bool {
     const code = c.glfwGetError(null);
@@ -137,4 +152,11 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
 
         _ = c.glfwSetCursorPos(window, 0.0, 0.0);
     }
+}
+
+fn processScrollEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
+    _ = win;
+    // _ = x;
+    mouse_state.wheel = @floatCast(f32, y);
+    log_input.debug("Mouse scroll event, offset: {d:.0}, {d:.0}", .{x, y});
 }

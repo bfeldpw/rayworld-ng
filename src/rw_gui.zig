@@ -15,43 +15,45 @@ pub fn init() !void {
     try fnt.addFont("anka_bi", "resource/AnkaCoder-C87-bi.ttf");
     try fnt.rasterise("anka_b", 32, gfx.getTextureId());
 
-    const font_overlay: gui.ParamOverlay = .{.title = .{.text = "Font Idle Timers",
-                                                        .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                             .width = 300,
-                                             .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
-                                             .is_centered = false,
-                                             .is_enabled = false,
-                                             .ll_x = 10.0,
-                                             .ll_y = 10.0,
-                                             .col = .{0.0, 1.0, 0.0, 0.2},
-                                             };
+    const font_overlay: gui.Overlay = .{.title = .{.text = "Font Idle Timers",
+                                                   .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                        .width = 300,
+                                        .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
+                                        .is_enabled = false,
+                                        .ll_x = 10.0,
+                                        .ll_y = 10.0,
+                                        .col = .{0.0, 1.0, 0.0, 0.2},
+                                        };
     const text_widget: gui.TextWidget = .{.col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("fnt_ovl", font_overlay);
     try gui.addTextWidget("fnt_ovl", "fnt_txt", text_widget);
 
-    const prf_overlay: gui.ParamOverlay = .{.title = .{.text = "Performance Stats",
-                                                       .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                            .width = 400,
-                                            .height = 32.0 * 13,
-                                            .is_centered = false,
-                                            .is_enabled = false,
-                                            .ll_x = 330.0,
-                                            .ll_y = 10.0,
-                                            .col = .{0.0, 1.0, 0.0, 0.2},
-                                            .widget_type = .text,
-                                            };
+    const prf_overlay: gui.Overlay = .{.title = .{.text = "Performance Stats",
+                                                  .col  = .{0.8, 1.0, 0.8, 0.8}},
+                                       .width = 400,
+                                       .height = 32.0 * 13,
+                                       .align_h = .right,
+                                       .align_v = .top,
+                                       .is_enabled = false,
+                                       .ll_x = 330.0,
+                                       .ll_y = 10.0,
+                                       .col = .{0.0, 1.0, 0.0, 0.2},
+                                       .widget_type = .text,
+                                       };
     const prf_widget: gui.TextWidget = .{.col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("prf_ovl", prf_overlay);
     try gui.addTextWidget("prf_ovl", "prf_txt", prf_widget);
 
-    const help_overlay: gui.ParamOverlay = .{.title = .{.text = "Help",
-                                                        .col = .{0.8, 1.0, 0.8, 0.8}},
-                                             .width = 200,
-                                             .height = 200,
-                                             .is_enabled = false,
-                                             .col = .{0.0, 1.0, 0.0, 0.2},
-                                             .widget_type = .text,
-                                             };
+    const help_overlay: gui.Overlay = .{.title = .{.text = "Help",
+                                                   .col = .{0.8, 1.0, 0.8, 0.8}},
+                                        .width = 200,
+                                        .height = 200,
+                                        .align_h = .centered,
+                                        .align_v = .centered,
+                                        .is_enabled = false,
+                                        .col = .{0.0, 1.0, 0.0, 0.2},
+                                        .widget_type = .text,
+                                        };
     const help_widget: gui.TextWidget = .{.text = "HelpMessage",
                                           .col = .{0.5, 1.0, 0.5, 0.8}};
     try gui.addOverlay("hlp_ovl", help_overlay);
@@ -75,12 +77,7 @@ pub fn setHelpMessage(msg: []const u8) !void {
 
 pub fn toggleEditMode() void {
     is_edit_mode_enabled = is_edit_mode_enabled != true;
-
-    if (is_edit_mode_enabled) {
-        gui.showCursor();
-    } else {
-        gui.hideCursor();
-    }
+    gui.toggleEditMode();
 }
 
 pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
@@ -110,8 +107,24 @@ pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
         t.text = prf_printout;
     }
 }
+var is_moving: bool = false;
+var x0: f32 = 0;
+var y0: f32 = 0;
 
-pub fn process(x: f32, y: f32, mouse_l: bool) !void {
+pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
+    try updateFontStats();
+    try gui.processOverlays(x, y, mouse_l, mouse_wheel);
+
+    if (is_edit_mode_enabled) {
+        try fnt.setFont("anka_bi", 48);
+        gfx.setColor4(1.0, 0.2, 0.2, 0.8);
+        const t = "EDIT MODE";
+        const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
+        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
+        gui.drawCursor(x, y);
+
+        _ = arena.reset(.retain_capacity);
+    }
     {
         const ovl = try gui.getOverlay("hlp_ovl");
         if (input.getF1()) {
@@ -132,19 +145,6 @@ pub fn process(x: f32, y: f32, mouse_l: bool) !void {
         }
     }
 
-    try updateFontStats();
-    try gui.processOverlays();
-
-    if (is_edit_mode_enabled) {
-        try fnt.setFont("anka_bi", 48);
-        gfx.setColor4(1.0, 0.2, 0.2, 0.8);
-        const t = "EDIT MODE";
-        const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
-        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
-        gui.drawCursor(x, y);
-        _ = mouse_l;
-        _ = arena.reset(.retain_capacity);
-    }
 }
 
 //-----------------------------------------------------------------------------//

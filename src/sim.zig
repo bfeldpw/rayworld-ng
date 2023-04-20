@@ -61,15 +61,15 @@ pub fn createScene() !void {
             hook = objs.items(.pos)[1];
         }
 
-        var map_overlay: gui.ParamOverlay = .{.title = .{.text = "System Map",
-                                                         .font_size = 64,
-                                                         .col = .{1.0, 0.8, 0.3, 0.8}},
-                                              .frame = .{10, 64, 10, 10},
-                                              .width = win_w * 0.9,
-                                              .height = win_h * 0.9,
-                                              .ll_x = win_w * 0.05,
-                                              .ll_y = win_h * 0.05,
-                                              .col = .{1.0, 0.5, 0.0, 0.3}};
+        var map_overlay: gui.Overlay = .{.title = .{.text = "System Map",
+                                                    .font_size = 64,
+                                                    .col = .{1.0, 0.8, 0.3, 0.8}},
+                                         .frame = .{10, 64, 10, 10},
+                                         .width = win_w * 0.9,
+                                         .height = win_h * 0.9,
+                                         .ll_x = win_w * 0.05,
+                                         .ll_y = win_h * 0.05,
+                                         .col = .{1.0, 0.5, 0.0, 0.3}};
         try gui.drawOverlay(&map_overlay);
 
         gfx.setViewport(@floatToInt(u64, map_overlay.ll_x + map_overlay.frame[0]),
