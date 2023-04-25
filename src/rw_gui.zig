@@ -170,7 +170,7 @@ fn updateFontStats() !void {
             var timer = timers.get(v.value_ptr.*).?;
 
             const tmp = try std.fmt.allocPrint(allocator,
-                                               "{s}: {d:.2}s\n",
+                                               "{s}: {d:.1}s\n",
                                                .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
             try timer_printout.appendSlice(tmp);
             allocator.free(tmp);

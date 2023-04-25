@@ -7,7 +7,7 @@ const gfx_impl = @import("gfx_impl.zig");
 //   Error Sets
 //-----------------------------------------------------------------------------//
 
-const GuiError = error {
+const GuiError = error{
     GuiUnknownOverlay,
     GuiUnknownWidget,
     GuiWidgetCastingFailed,
@@ -37,7 +37,7 @@ pub const Title = struct {
     text: []const u8 = "Title",
     font_name: []const u8 = "anka_b",
     font_size: f32 = 32,
-    col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
+    col: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 },
     frame: f32 = 10.0,
     alignment: AlignH = .centered,
     is_enabled: bool = true,
@@ -50,11 +50,10 @@ pub const TextWidget = struct {
     text: []const u8 = "TextWidget",
     font_name: []const u8 = "anka_r",
     font_size: f32 = 32,
-    col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
+    col: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 },
     align_h: AlignH = .centered,
     align_v: AlignV = .centered,
 
-    // fn draw(self: *TextWidget, x: f32, y: f32) !void {
     fn draw(self: *TextWidget) !void {
         if (self.overlay == null) {
             gui_log.err("Widget is not bound to overlay", .{});
@@ -88,13 +87,14 @@ pub const TextWidget = struct {
             },
             .top, .none => {
                 y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
-            }
+            },
         }
         try fnt.renderText(self.text, x_a, y_a);
     }
 };
 
 pub const Overlay = struct {
+    name: []const u8 = "Overlay",
     width: f32 = 100.0,
     height: f32 = 100.0,
     resize_mode: OverlayResizeMode = .auto,
@@ -105,23 +105,25 @@ pub const Overlay = struct {
     is_focussed: bool = true,
     ll_x: f32 = 0.0,
     ll_y: f32 = 0.0,
-    col: [4]f32 = .{1.0, 1.0, 1.0, 1.0},
+    col: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 },
     title: Title = .{},
-    frame: [4]f32 = .{10.0, 10.0, 10.0, 10.0},
+    frame: [4]f32 = .{ 10.0, 10.0, 10.0, 10.0 },
     widget: ?*anyopaque = null,
     widget_type: WidgetType = .none,
 };
 
 pub fn addOverlay(name: []const u8, overlay: Overlay) !void {
-    // try overlays.append(overlay);
-    // const ovl = &overlays.items[overlays.items.len-1];
-    // try overlays_by_name.put(name, ovl);
-    try overlays.put(name, overlay);
+    try overlays.append(overlay);
+    const ovl = &overlays.items[overlays.items.len - 1];
+    try overlays_sorted.append(ovl);
+    ovl.name = name;
+    try overlays_by_name.put(name, ovl);
 }
 
 pub fn addTextWidget(name_ol: []const u8, name_tw: []const u8, tw: TextWidget) !void {
     try text_widgets.put(name_tw, tw);
-    const ol = overlays.getPtr(name_ol) orelse {
+    const ol = overlays_by_name.get(name_ol) orelse {
+        _ = text_widgets.remove(name_tw);
         gui_log.err("Unknown overlay <{s}>, cannot add widget", .{name_ol});
         return error.GuiUnknownOverlay;
     };
@@ -136,6 +138,8 @@ pub fn addTextWidget(name_ol: []const u8, name_tw: []const u8, tw: TextWidget) !
 
 pub fn deinit() void {
     overlays.deinit();
+    overlays_sorted.deinit();
+    overlays_by_name.deinit();
     text_widgets.deinit();
 
     const leaked = gpa.deinit();
@@ -147,7 +151,7 @@ pub fn deinit() void {
 //-----------------------------------------------------------------------------//
 
 pub inline fn getOverlay(name: []const u8) GuiError!*Overlay {
-    return overlays.getPtr(name) orelse {
+    return overlays_by_name.get(name) orelse {
         gui_log.err("Unknown overlay <{s}>", .{name});
         return error.GuiUnknownOverlay;
     };
@@ -164,14 +168,6 @@ pub inline fn getTextWidget(name: []const u8) GuiError!*TextWidget {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn moveOverlay(x: f32, y: f32) void {
-    const ovl = overlays.getPtr("fnt_ovl").?;
-    ovl.align_h = .none;
-    ovl.align_v = .none;
-    ovl.ll_x += x;
-    ovl.ll_y += y;
-}
-
 pub fn drawCursor(x: f32, y: f32) void {
     const cursor_size = 15;
     const cursor_gap_center = 5;
@@ -179,10 +175,10 @@ pub fn drawCursor(x: f32, y: f32) void {
     if (is_cursor_visible) {
         gfx_impl.setColor(0.2, 1.0, 0.2, 0.5);
         gfx_impl.setLineWidth(cursor_thickness);
-        gfx_impl.addImmediateLine(x-cursor_size, y, x-cursor_gap_center, y);
-        gfx_impl.addImmediateLine(x+cursor_gap_center, y, x+cursor_size, y);
-        gfx_impl.addImmediateLine(x, y-cursor_size, x, y-cursor_gap_center);
-        gfx_impl.addImmediateLine(x, y+cursor_gap_center, x, y+cursor_size);
+        gfx_impl.addImmediateLine(x - cursor_size, y, x - cursor_gap_center, y);
+        gfx_impl.addImmediateLine(x + cursor_gap_center, y, x + cursor_size, y);
+        gfx_impl.addImmediateLine(x, y - cursor_size, x, y - cursor_gap_center);
+        gfx_impl.addImmediateLine(x, y + cursor_gap_center, x, y + cursor_size);
     }
 }
 
@@ -192,31 +188,31 @@ pub fn drawOverlay(ovl: *Overlay) !void {
 
     switch (ovl.align_h) {
         .centered => {
-            ovl.ll_x = (win_w-ovl.width) * 0.5;
+            ovl.ll_x = (win_w - ovl.width) * 0.5;
         },
         .left => {
             ovl.ll_x = ovl.align_border;
         },
         .right => {
-            ovl.ll_x = win_w-ovl.width-ovl.align_border;
+            ovl.ll_x = win_w - ovl.width - ovl.align_border;
         },
-        else => {}
+        else => {},
     }
     switch (ovl.align_v) {
         .centered => {
-            ovl.ll_y = (win_h-ovl.height) * 0.5;
+            ovl.ll_y = (win_h - ovl.height) * 0.5;
         },
         .top => {
             ovl.ll_y = ovl.align_border;
         },
         .bottom => {
-            ovl.ll_y = win_h-ovl.height-ovl.align_border;
+            ovl.ll_y = win_h - ovl.height - ovl.align_border;
         },
-        else => {}
+        else => {},
     }
 
     gfx_impl.setColor(ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
-    gfx_impl.addImmediateQuad(ovl.ll_x, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
+    gfx_impl.addImmediateQuad(ovl.ll_x, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
 
     //----------------
     // Draw the title
@@ -227,7 +223,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
         switch (ovl.title.alignment) {
             .centered => {
                 const s = try fnt.getTextSize(ovl.title.text);
-                title_x = ovl.ll_x + (ovl.width-s.w) * 0.5;
+                title_x = ovl.ll_x + (ovl.width - s.w) * 0.5;
             },
             .left, .none => {
                 title_x += ovl.title.frame;
@@ -242,17 +238,16 @@ pub fn drawOverlay(ovl: *Overlay) !void {
 
         if (ovl.title.is_separator_enabled) {
             gfx_impl.setLineWidth(ovl.title.separator_thickness);
-            gfx_impl.addImmediateLine(ovl.ll_x + ovl.title.frame, ovl.ll_y + ovl.title.font_size,
-                                      ovl.ll_x + ovl.width - ovl.title.frame, ovl.ll_y + ovl.title.font_size);
+            gfx_impl.addImmediateLine(ovl.ll_x + ovl.title.frame, ovl.ll_y + ovl.title.font_size, ovl.ll_x + ovl.width - ovl.title.frame, ovl.ll_y + ovl.title.font_size);
         }
     }
     if (ovl.is_focussed) {
         gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
         gfx_impl.setLineWidth(1.0);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y);
-        gfx_impl.addImmediateLine(ovl.ll_x+ovl.width, ovl.ll_y, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y+ovl.height, ovl.ll_x+ovl.width, ovl.ll_y+ovl.height);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x, ovl.ll_y+ovl.height);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y);
+        gfx_impl.addImmediateLine(ovl.ll_x + ovl.width, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y + ovl.height, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
+        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x, ovl.ll_y + ovl.height);
     }
 
     if (ovl.widget_type == .text and ovl.widget != null) {
@@ -267,11 +262,10 @@ pub fn drawOverlay(ovl: *Overlay) !void {
 }
 
 pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
-
     if (mouse_l and !edit_mode.mouse_l_prev) {
         edit_mode.mouse_x_prev = x;
         edit_mode.mouse_y_prev = y;
-        edit_mode.mouse_l_prev = true;
+        // edit_mode.mouse_l_prev = true;
     }
     if (mouse_l and edit_mode.mouse_l_prev) {
         edit_mode.mouse_dx = x - edit_mode.mouse_x_prev;
@@ -279,29 +273,27 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         edit_mode.mouse_x_prev = x;
         edit_mode.mouse_y_prev = y;
     }
-    edit_mode.mouse_l_prev = mouse_l;
-    if (mouse_l) moveOverlay(edit_mode.mouse_dx, edit_mode.mouse_dy);
+    if (mouse_l) moveOverlay(overlays_sorted.items[overlays_sorted.items.len - 1],
+                             edit_mode.mouse_dx, edit_mode.mouse_dy);
+
+    _ = mouse_wheel;
 
     {
-        var iter = overlays.iterator();
-
-        edit_mode.overlay_focussed = null;
-        while (iter.next()) |v| {
-            const ovl = v.value_ptr;
+        edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
+        var j: i64 = @intCast(i64, overlays_sorted.items.len - 1);
+        while (j >= 0) : (j -= 1) {
+            var i: usize = @intCast(usize, j);
+            const ovl = overlays_sorted.items[i];
             if (ovl.is_enabled and edit_mode.is_enabled) {
                 if (x > ovl.ll_x and x < ovl.ll_x + ovl.width and
-                    y > ovl.ll_y and y < ovl.ll_y + ovl.height) {
+                    y > ovl.ll_y and y < ovl.ll_y + ovl.height)
+                {
 
-                    // focus first occurance
-                    // if ovl != edit_mode.ovl
-
-                    if (ovl == edit_mode.overlay_focussed and
-                        mouse_wheel == 0.0) {
-                    // } else {
-                        edit_mode.overlay_focussed = ovl;
-                        break;
+                    if (mouse_l and !edit_mode.mouse_l_prev) {
+                        std.mem.swap(*Overlay, &overlays_sorted.items[i], &overlays_sorted.items[overlays_sorted.items.len - 1]);
+                        edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
                     }
-                    // if (ovl.is_focussed and mouse_wheel == 0.0) break;
+                    break;
                 }
             } else {
                 ovl.is_focussed = false;
@@ -309,17 +301,13 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         }
     }
     {
-        var iter = overlays.iterator();
-
-        while (iter.next()) |v| {
-            const ovl = v.value_ptr;
-            if (edit_mode.overlay_focussed == ovl)
-                 ovl.is_focussed = true
-            else ovl.is_focussed = false;
+        for (overlays_sorted.items) |ovl| {
+            if (edit_mode.overlay_focussed == ovl) ovl.is_focussed = true else ovl.is_focussed = false;
 
             if (ovl.is_enabled) try drawOverlay(ovl);
         }
     }
+    edit_mode.mouse_l_prev = mouse_l;
 }
 
 pub fn toggleEditMode() void {
@@ -339,8 +327,7 @@ pub fn toggleEditMode() void {
 /// Font manager logging scope
 const gui_log = std.log.scoped(.fnt);
 
-var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){}
-          else std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
 var is_cursor_visible: bool = false;
@@ -350,9 +337,9 @@ const WidgetType = enum {
     text,
 };
 
-var overlays = std.StringHashMap(Overlay).init(allocator);
-// var overlays = std.ArrayList(Overlay).init(allocator);
-// var overlays_by_name = std.StringHashMap(*Overlay).init(allocator);
+var overlays = std.ArrayList(Overlay).init(allocator);
+var overlays_sorted = std.ArrayList(*Overlay).init(allocator);
+var overlays_by_name = std.StringHashMap(*Overlay).init(allocator);
 var text_widgets = std.StringHashMap(TextWidget).init(allocator);
 
 const edit_mode = struct {
@@ -366,6 +353,13 @@ const edit_mode = struct {
     var mouse_dy: f32 = 0.0;
 };
 
+fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
+    ovl.align_h = .none;
+    ovl.align_v = .none;
+    ovl.ll_x += x;
+    ovl.ll_y += y;
+}
+
 //-----------------------------------------------------------------------------//
 //   Tests
 //-----------------------------------------------------------------------------//
@@ -375,6 +369,10 @@ test "gui: add widget (failure)" {
     const actual = addTextWidget("non_existing_overlay", "widget", w);
     const expected = GuiError.GuiUnknownOverlay;
     try std.testing.expectError(expected, actual);
+    try std.testing.expectEqual(overlays.items.len, 0);
+    try std.testing.expectEqual(overlays_sorted.items.len, 0);
+    try std.testing.expectEqual(overlays_by_name.count(), 0);
+    try std.testing.expectEqual(text_widgets.count(), 0);
 }
 
 test "gui: get overlay (failure)" {
@@ -392,11 +390,19 @@ test "gui: get widget (failure)" {
 test "gui: add overlay" {
     const ovl = Overlay{};
     try addOverlay("valid_overlay", ovl);
+    try std.testing.expectEqual(overlays.items.len, 1);
+    try std.testing.expectEqual(overlays_sorted.items.len, 1);
+    try std.testing.expectEqual(overlays_by_name.count(), 1);
+    try std.testing.expectEqual(text_widgets.count(), 0);
 }
 
 test "gui: add text widget" {
     const w = TextWidget{};
     try addTextWidget("valid_overlay", "valid_widget", w);
+    try std.testing.expectEqual(overlays.items.len, 1);
+    try std.testing.expectEqual(overlays_sorted.items.len, 1);
+    try std.testing.expectEqual(overlays_by_name.count(), 1);
+    try std.testing.expectEqual(text_widgets.count(), 1);
 }
 
 test "gui: draw text widget (failure)" {
