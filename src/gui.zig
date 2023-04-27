@@ -62,7 +62,7 @@ pub const TextWidget = struct {
         var ovl = self.overlay.?;
         var x_a: f32 = 0.0;
         var y_a: f32 = 0.0;
-        const s = try fnt.getTextSize(self.text);
+        const s = try fnt.getTextSize(self.text, 0.0);
         if (ovl.resize_mode == .auto) {
             ovl.width = s.w + ovl.frame[0] + ovl.frame[2];
             ovl.height = s.h + ovl.frame[1] + ovl.frame[3] + ovl.title.font_size;
@@ -89,7 +89,7 @@ pub const TextWidget = struct {
                 y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
             },
         }
-        try fnt.renderText(self.text, x_a, y_a);
+        try fnt.renderText(self.text, x_a, y_a, 0.0);
     }
 };
 
@@ -222,19 +222,19 @@ pub fn drawOverlay(ovl: *Overlay) !void {
         var title_x = ovl.ll_x;
         switch (ovl.title.alignment) {
             .centered => {
-                const s = try fnt.getTextSize(ovl.title.text);
+                const s = try fnt.getTextSizeLine(ovl.title.text);
                 title_x = ovl.ll_x + (ovl.width - s.w) * 0.5;
             },
             .left, .none => {
                 title_x += ovl.title.frame;
             },
             .right => {
-                const s = try fnt.getTextSize(ovl.title.text);
+                const s = try fnt.getTextSizeLine(ovl.title.text);
                 title_x = ovl.ll_x + ovl.width - s.w - ovl.title.frame;
             },
         }
         gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
-        try fnt.renderText(ovl.title.text, title_x, ovl.ll_y);
+        try fnt.renderText(ovl.title.text, title_x, ovl.ll_y, 0.0);
 
         if (ovl.title.is_separator_enabled) {
             gfx_impl.setLineWidth(ovl.title.separator_thickness);

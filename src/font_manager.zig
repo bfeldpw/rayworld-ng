@@ -88,7 +88,7 @@ pub inline fn getIdByName() *const std.StringHashMap(u32) {
 /// Return width and height of given text in pixel
 /// For generic fonts without line breaks consider using <getTextSizeLine>
 /// For monospace fonts without line breaks consider using <getTextSizeLineMono>
-pub fn getTextSize(text: []const u8) FontError!TextSize {
+pub fn getTextSize(text: []const u8, ww: f32) FontError!TextSize {
     if (current.tex_id == 0) {
         fm_log.err("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
         return error.FontNoneRasterised;
@@ -99,7 +99,7 @@ pub fn getTextSize(text: []const u8) FontError!TextSize {
     var height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     for (text) |ch| {
-        if (ch == 10) { // Handle line feed
+        if (ch == 10 or (ww > 0.0 and length > ww)) { // Handle line feed
             if (length > length_max) {
                 length_max = length;
             }
@@ -465,7 +465,7 @@ pub fn renderAtlas() FontError!void {
     gfx_impl.addImmediateQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0);
 }
 
-pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
+pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
     if (current.tex_id == 0) {
         fm_log.err("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
         return error.FontNoneRasterised;
@@ -481,10 +481,11 @@ pub fn renderText(text: []const u8, x: f32, y: f32) FontError!void {
     gfx_impl.beginBatchQuadsTextured();
     for (text) |ch| {
 
-        if (ch == 10) { // Handle line feed
+        if (ch == 10 or (ww > 0 and offset_x > ww)) { // Handle line feed
             offset_x = 0.0;
             offset_y += current.font_size;
-        } else {
+        }
+        if (ch != 10) {
             c.stbtt_GetPackedQuad(@ptrCast([*c]c.stbtt_packedchar, current.char_info),
                                   current.atlas_size, current.atlas_size,
                                   ch - ascii_first,
@@ -591,7 +592,7 @@ test "font: open font file" {
 
 test "font: use font without rasterisation (failure)" {
     const expected = error.FontNoneRasterised;
-    const actual_0 = getTextSize("42");
+    const actual_0 = getTextSize("42", 0.0);
     try std.testing.expectError(expected, actual_0);
     const actual_1 = getTextSizeLine("42");
     try std.testing.expectError(expected, actual_1);
@@ -599,7 +600,7 @@ test "font: use font without rasterisation (failure)" {
     try std.testing.expectError(expected, actual_2);
     const actual_3 = renderAtlas();
     try std.testing.expectError(expected, actual_3);
-    const actual_4 = renderText("42", 0.0, 0.0);
+    const actual_4 = renderText("42", 0.0, 0.0, 0.0);
     try std.testing.expectError(expected, actual_4);
 }
 
@@ -634,7 +635,7 @@ test "font: rasterise (failure)" {
 }
 
 test "font: get text size" {
-    const s_0 = try getTextSize("Two\nlines");
+    const s_0 = try getTextSize("Two\nlines", 0.0);
     try std.testing.expectApproxEqAbs(s_0.w, 40.76, 0.01);
     try std.testing.expectEqual(s_0.h, 32);
     const s_1 = try getTextSizeLine("One line");
@@ -643,9 +644,21 @@ test "font: get text size" {
     const s_2 = try getTextSizeLineMono("One line");
     try std.testing.expectApproxEqAbs(s_2.w, 65.22, 0.01);
     try std.testing.expectEqual(s_2.h, 16);
-    const s_3 = try getTextSize("One line");
+    const s_3 = try getTextSize("One line", 0.0);
     try std.testing.expectApproxEqAbs(s_3.w, 65.22, 0.01);
     try std.testing.expectEqual(s_3.h, 16);
+}
+
+test "font: get text size word wrapped" {
+    const s_1 = try getTextSize("One line", 30.0);
+    try std.testing.expectApproxEqAbs(s_1.w, 32.61, 0.01);
+    try std.testing.expectEqual(s_1.h, 32.0);
+    const s_2 = try getTextSize("Two\nlns", 30.0);
+    try std.testing.expectApproxEqAbs(s_2.w, 24.46, 0.01);
+    try std.testing.expectEqual(s_2.h, 32.0);
+    const s_3 = try getTextSize("Two\nlines", 30.0);
+    try std.testing.expectApproxEqAbs(s_3.w, 32.61, 0.01);
+    try std.testing.expectEqual(s_3.h, 48.0);
 }
 
 test "font: removal (failure)" {

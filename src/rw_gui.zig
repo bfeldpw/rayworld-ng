@@ -70,7 +70,7 @@ pub fn setHelpMessage(msg: []const u8) !void {
     const hlp_txt = try gui.getTextWidget("hlp_txt");
     hlp_txt.text = msg;
     const hlp_ovl = try gui.getOverlay("hlp_ovl");
-    const s = try fnt.getTextSize(msg);
+    const s = try fnt.getTextSize(msg, 0.0);
     hlp_ovl.width = s.w + hlp_ovl.frame[0] + hlp_ovl.frame[2];
     hlp_ovl.height = s.h + hlp_ovl.frame[1] + hlp_ovl.frame[3];
 }
@@ -117,7 +117,7 @@ pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         gfx.setColor4(1.0, 0.2, 0.2, 0.8);
         const t = "EDIT MODE";
         const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
-        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
+        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0, 0.0);
         gui.drawCursor(x, y);
     }
     {
