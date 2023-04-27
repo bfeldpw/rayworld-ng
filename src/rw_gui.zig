@@ -142,6 +142,7 @@ pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         }
     }
 
+    _ = arena.reset(.retain_capacity);
 }
 
 //-----------------------------------------------------------------------------//
