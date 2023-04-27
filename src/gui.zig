@@ -262,51 +262,66 @@ pub fn drawOverlay(ovl: *Overlay) !void {
 }
 
 pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
-    if (mouse_l and !edit_mode.mouse_l_prev) {
-        edit_mode.mouse_x_prev = x;
-        edit_mode.mouse_y_prev = y;
-        // edit_mode.mouse_l_prev = true;
-    }
-    if (mouse_l and edit_mode.mouse_l_prev) {
-        edit_mode.mouse_dx = x - edit_mode.mouse_x_prev;
-        edit_mode.mouse_dy = y - edit_mode.mouse_y_prev;
-        edit_mode.mouse_x_prev = x;
-        edit_mode.mouse_y_prev = y;
-    }
-    if (mouse_l) moveOverlay(overlays_sorted.items[overlays_sorted.items.len - 1],
-                             edit_mode.mouse_dx, edit_mode.mouse_dy);
-
     _ = mouse_wheel;
 
-    {
+    // Get relative mouse movement
+    edit_mode.mouse_dx = x - edit_mode.mouse_x_prev;
+    edit_mode.mouse_dy = y - edit_mode.mouse_y_prev;
+
+    //-----------------------------------------------------------
+    // Overlay manipulation
+    // (only relevant in edit mode if left mouse button pressed)
+    //-----------------------------------------------------------
+    if (edit_mode.is_enabled and mouse_l) {
+        // In the array of sorted overlays the last entry is the foremost one, since it
+        // is drawn last and hence, will be focussed first
         edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
+
+        // Starting from the foremost, focussed overlay, go back and check, if the mouse
+        // cursor is within that overlay
         var j: i64 = @intCast(i64, overlays_sorted.items.len - 1);
         while (j >= 0) : (j -= 1) {
             var i: usize = @intCast(usize, j);
             const ovl = overlays_sorted.items[i];
-            if (ovl.is_enabled and edit_mode.is_enabled) {
-                if (x > ovl.ll_x and x < ovl.ll_x + ovl.width and
-                    y > ovl.ll_y and y < ovl.ll_y + ovl.height)
-                {
+            const x_p = edit_mode.mouse_x_prev;
+            const y_p = edit_mode.mouse_y_prev;
 
-                    if (mouse_l and !edit_mode.mouse_l_prev) {
+                if (x_p > ovl.ll_x and x_p < ovl.ll_x + ovl.width and
+                    y_p > ovl.ll_y and y_p < ovl.ll_y + ovl.height and
+                    ovl.is_enabled)
+                {
+                    // If mouse button has just been pressed, change the focus
+                    if (!edit_mode.mouse_l_prev) {
                         std.mem.swap(*Overlay, &overlays_sorted.items[i], &overlays_sorted.items[overlays_sorted.items.len - 1]);
                         edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
                     }
+                    // Move overlay if inside focussed overlay
+                    if (edit_mode.overlay_focussed == ovl) {
+                        moveOverlay(overlays_sorted.items[overlays_sorted.items.len - 1],
+                                    edit_mode.mouse_dx, edit_mode.mouse_dy);
+                    }
                     break;
+                } else {
+                    ovl.is_focussed = false;
                 }
-            } else {
-                ovl.is_focussed = false;
-            }
         }
     }
-    {
-        for (overlays_sorted.items) |ovl| {
-            if (edit_mode.overlay_focussed == ovl) ovl.is_focussed = true else ovl.is_focussed = false;
 
-            if (ovl.is_enabled) try drawOverlay(ovl);
-        }
+    // Draw all overlays in sorted order
+    for (overlays_sorted.items) |ovl| {
+        // In edit mode, enable focus on the accordant overlay,
+        // otherwise disable focus
+        if (edit_mode.overlay_focussed == ovl and
+            edit_mode.is_enabled) {
+            ovl.is_focussed = true;
+        } else ovl.is_focussed = false;
+
+        // Draw enabled overlays
+        if (ovl.is_enabled) try drawOverlay(ovl);
     }
+
+    edit_mode.mouse_x_prev = x;
+    edit_mode.mouse_y_prev = y;
     edit_mode.mouse_l_prev = mouse_l;
 }
 
@@ -332,6 +347,12 @@ const allocator = gpa.allocator();
 
 var is_cursor_visible: bool = false;
 
+const snapping = struct {
+    var border: f32 = 30.0;
+    var release: f32 = 1.0;
+    var is_enabled: bool = true;
+};
+
 const WidgetType = enum {
     none,
     text,
@@ -354,10 +375,42 @@ const edit_mode = struct {
 };
 
 fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
-    ovl.align_h = .none;
-    ovl.align_v = .none;
     ovl.ll_x += x;
     ovl.ll_y += y;
+    if (snapping.is_enabled) {
+        const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
+        const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+
+        const c_x = ovl.ll_x + ovl.width * 0.5 - win_w * 0.5;
+        const c_y = ovl.ll_y + ovl.height * 0.5 - win_h * 0.5;
+
+        if (ovl.ll_x < snapping.border and edit_mode.mouse_dx < snapping.release) {
+            ovl.align_h = .left;
+        } else if (ovl.ll_x > win_w - ovl.width - snapping.border and edit_mode.mouse_dx > -snapping.release) {
+            ovl.align_h = .right;
+        } else if (c_x >= 0.0 and c_x < snapping.border and edit_mode.mouse_dx < snapping.release) {
+            ovl.align_h = .centered;
+        } else if (c_x < 0.0 and c_x > -snapping.border and edit_mode.mouse_dx > -snapping.release) {
+            ovl.align_h = .centered;
+        } else {
+            ovl.align_h = .none;
+        }
+
+        if (ovl.ll_y < snapping.border and edit_mode.mouse_dy < snapping.release) {
+            ovl.align_v = .top;
+        } else if (ovl.ll_y > win_h - ovl.height - snapping.border and edit_mode.mouse_dy > -snapping.release) {
+            ovl.align_v = .bottom;
+        } else if (c_y >= 0.0 and c_y < snapping.border and edit_mode.mouse_dy < snapping.release) {
+            ovl.align_v = .centered;
+        } else if (c_y < 0.0 and c_y > -snapping.border and edit_mode.mouse_dy > -snapping.release) {
+            ovl.align_v = .centered;
+        } else {
+            ovl.align_v = .none;
+        }
+    } else {
+        ovl.align_h = .none;
+        ovl.align_v = .none;
+    }
 }
 
 //-----------------------------------------------------------------------------//

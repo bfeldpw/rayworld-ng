@@ -103,13 +103,10 @@ pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
              cfg.gfx.fps_target}
         );
 
-        var t = try gui.getTextWidget("prf_txt");
+        const t = try gui.getTextWidget("prf_txt");
         t.text = prf_printout;
     }
 }
-var is_moving: bool = false;
-var x0: f32 = 0;
-var y0: f32 = 0;
 
 pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
     try updateFontStats();
