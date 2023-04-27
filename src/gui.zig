@@ -464,3 +464,13 @@ test "gui: draw text widget (failure)" {
     const expected = GuiError.GuiWidgetNoOverlay;
     try std.testing.expectError(expected, actual);
 }
+
+test "gui: toggle edit mode" {
+    edit_mode.is_enabled = true;
+    toggleEditMode();
+    try std.testing.expectEqual(edit_mode.is_enabled, false);
+    try std.testing.expectEqual(is_cursor_visible, false);
+    toggleEditMode();
+    try std.testing.expectEqual(edit_mode.is_enabled, true);
+    try std.testing.expectEqual(is_cursor_visible, true);
+}
