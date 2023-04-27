@@ -143,8 +143,8 @@ pub fn process(x: f32, y: f32, mouse_l: bool) !void {
         try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
         gui.drawCursor(x, y);
         _ = mouse_l;
-        _ = arena.reset(.retain_capacity);
     }
+    _ = arena.reset(.retain_capacity);
 }
 
 //-----------------------------------------------------------------------------//
