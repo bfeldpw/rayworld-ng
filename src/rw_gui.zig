@@ -119,8 +119,6 @@ pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
         try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0);
         gui.drawCursor(x, y);
-
-        _ = arena.reset(.retain_capacity);
     }
     {
         const ovl = try gui.getOverlay("hlp_ovl");
