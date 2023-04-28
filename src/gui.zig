@@ -31,6 +31,7 @@ const AlignV = enum {
 const OverlayResizeMode = enum {
     none,
     auto,
+    auto_vertical,
 };
 
 pub const Title = struct {
@@ -49,7 +50,9 @@ pub const TextWidget = struct {
     overlay: ?*Overlay = null,
     text: []const u8 = "TextWidget",
     font_name: []const u8 = "anka_r",
-    font_size: f32 = 32,
+    font_size: f32 = 32
+        ,
+
     col: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 },
     align_h: AlignH = .centered,
     align_v: AlignV = .centered,
@@ -62,9 +65,14 @@ pub const TextWidget = struct {
         var ovl = self.overlay.?;
         var x_a: f32 = 0.0;
         var y_a: f32 = 0.0;
-        const s = try fnt.getTextSize(self.text, 0.0);
-        if (ovl.resize_mode == .auto) {
+        var wrap: f32 = 0.0;
+        const rm = ovl.resize_mode;
+        if (rm == .none or rm == .auto_vertical) wrap = ovl.width - ovl.frame[0] - ovl.frame[2];
+        const s = try fnt.getTextSize(self.text, wrap);
+        if (rm == .auto) {
             ovl.width = s.w + ovl.frame[0] + ovl.frame[2];
+        }
+        if (rm == .auto or rm == .auto_vertical) {
             ovl.height = s.h + ovl.frame[1] + ovl.frame[3] + ovl.title.font_size;
         }
         switch (self.align_h) {
@@ -89,7 +97,7 @@ pub const TextWidget = struct {
                 y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
             },
         }
-        try fnt.renderText(self.text, x_a, y_a, 0.0);
+        try fnt.renderText(self.text, x_a, y_a, wrap);
     }
 };
 

@@ -46,8 +46,9 @@ pub fn init() !void {
 
     const help_overlay: gui.Overlay = .{.title = .{.text = "Help",
                                                    .col = .{0.8, 1.0, 0.8, 0.8}},
-                                        .width = 200,
+                                        .width = 500,
                                         .height = 200,
+                                        .resize_mode = .auto,
                                         .align_h = .centered,
                                         .align_v = .centered,
                                         .is_enabled = false,
@@ -69,10 +70,6 @@ pub fn deinit() void {
 pub fn setHelpMessage(msg: []const u8) !void {
     const hlp_txt = try gui.getTextWidget("hlp_txt");
     hlp_txt.text = msg;
-    const hlp_ovl = try gui.getOverlay("hlp_ovl");
-    const s = try fnt.getTextSize(msg, 0.0);
-    hlp_ovl.width = s.w + hlp_ovl.frame[0] + hlp_ovl.frame[2];
-    hlp_ovl.height = s.h + hlp_ovl.frame[1] + hlp_ovl.frame[3];
 }
 
 pub fn toggleEditMode() void {

@@ -99,7 +99,7 @@ pub fn getTextSize(text: []const u8, ww: f32) FontError!TextSize {
     var height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     for (text) |ch| {
-        if (ch == 10 or (ww > 0.0 and length > ww)) { // Handle line feed
+        if (ch == 10) { // Handle line feed
             if (length > length_max) {
                 length_max = length;
             }
@@ -107,7 +107,14 @@ pub fn getTextSize(text: []const u8, ww: f32) FontError!TextSize {
             height += current.font_size;
         } else {
             b = current.char_info[ch - ascii_first];
+            if (ww > 0.0 and b.xadvance + length > ww) { // Handle word wrap
+                length = 0.0;
+                height += current.font_size;
+            }
             length += b.xadvance;
+            if (length > length_max) {
+                length_max = length;
+            }
         }
     }
     if (length > length_max) {
@@ -481,16 +488,18 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
     gfx_impl.beginBatchQuadsTextured();
     for (text) |ch| {
 
-        if (ch == 10 or (ww > 0 and offset_x > ww)) { // Handle line feed
+        if (ch == 10) { // Handle line feed
             offset_x = 0.0;
             offset_y += current.font_size;
-        }
-        if (ch != 10) {
+        } else {
+            if (ww > 0 and current.char_info[ch - ascii_first].xadvance + offset_x > ww) {
+                offset_x = 0.0;
+                offset_y += current.font_size;
+            }
             c.stbtt_GetPackedQuad(@ptrCast([*c]c.stbtt_packedchar, current.char_info),
                                   current.atlas_size, current.atlas_size,
                                   ch - ascii_first,
                                   &offset_x, &offset_y, &glyph_quad, 0);
-
             gfx_impl.addBatchQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
                                           glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1);
         }
@@ -650,13 +659,13 @@ test "font: get text size" {
 }
 
 test "font: get text size word wrapped" {
-    const s_1 = try getTextSize("One line", 30.0);
+    const s_1 = try getTextSize("One line", 35.0);
     try std.testing.expectApproxEqAbs(s_1.w, 32.61, 0.01);
     try std.testing.expectEqual(s_1.h, 32.0);
-    const s_2 = try getTextSize("Two\nlns", 30.0);
+    const s_2 = try getTextSize("Two\nlns", 35.0);
     try std.testing.expectApproxEqAbs(s_2.w, 24.46, 0.01);
     try std.testing.expectEqual(s_2.h, 32.0);
-    const s_3 = try getTextSize("Two\nlines", 30.0);
+    const s_3 = try getTextSize("Two\nlines", 35.0);
     try std.testing.expectApproxEqAbs(s_3.w, 32.61, 0.01);
     try std.testing.expectEqual(s_3.h, 48.0);
 }
