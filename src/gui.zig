@@ -67,34 +67,51 @@ pub const TextWidget = struct {
         var y_a: f32 = 0.0;
         var wrap: f32 = 0.0;
         const rm = ovl.resize_mode;
-        if (rm == .none or rm == .auto_vertical) wrap = ovl.width - ovl.frame[0] - ovl.frame[2];
         const s = try fnt.getTextSize(self.text, wrap);
-        if (rm == .auto) {
-            ovl.width = s.w + ovl.frame[0] + ovl.frame[2];
+        const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
+        const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+
+        var w = ovl.width;
+        var h = ovl.height;
+        if (ovl.is_size_relative) {
+            w *= win_w;
+            h *= win_h;
+        } else { // only adjust if size is absolute
+            if (rm == .none or rm == .auto_vertical) wrap = ovl.width - ovl.frame[0] - ovl.frame[2];
+            if (rm == .auto) {
+                ovl.width = s.w + ovl.frame[0] + ovl.frame[2];
+            }
+            if (rm == .auto or rm == .auto_vertical) {
+                ovl.height = s.h + ovl.frame[1] + ovl.frame[3] + ovl.title.font_size;
+            }
         }
-        if (rm == .auto or rm == .auto_vertical) {
-            ovl.height = s.h + ovl.frame[1] + ovl.frame[3] + ovl.title.font_size;
+
+        var p_x = ovl.ll_x;
+        var p_y = ovl.ll_y;
+        if (ovl.is_position_relative) {
+            p_x *= win_w;
+            p_y *= win_h;
         }
         switch (self.align_h) {
             .centered => {
-                x_a = (ovl.width - s.w) * 0.5 + ovl.ll_x;
+                x_a = (w - s.w) * 0.5 + p_x;
             },
             .left, .none => {
-                x_a = ovl.ll_x + ovl.frame[0];
+                x_a = p_x + ovl.frame[0];
             },
             .right => {
-                x_a = ovl.ll_x + ovl.width - ovl.frame[2] - s.w;
+                x_a = p_x + w - ovl.frame[2] - s.w;
             },
         }
         switch (self.align_v) {
             .centered => {
-                y_a = (ovl.height - ovl.title.font_size - s.h) * 0.5 + ovl.ll_y + ovl.title.font_size;
+                y_a = (h - ovl.title.font_size - s.h) * 0.5 + p_y + ovl.title.font_size;
             },
             .bottom => {
-                y_a = ovl.ll_y + ovl.height - ovl.frame[3] - s.h;
+                y_a = p_y + h - ovl.frame[3] - s.h;
             },
             .top, .none => {
-                y_a = ovl.ll_y + ovl.title.font_size + ovl.frame[1];
+                y_a = p_y + ovl.title.font_size + ovl.frame[1];
             },
         }
         try fnt.renderText(self.text, x_a, y_a, wrap);
@@ -111,6 +128,8 @@ pub const Overlay = struct {
     align_border: f32 = 10.0,
     is_enabled: bool = true,
     is_focussed: bool = true,
+    is_position_relative: bool = false,
+    is_size_relative: bool = false,
     ll_x: f32 = 0.0,
     ll_y: f32 = 0.0,
     col: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 },
@@ -194,68 +213,90 @@ pub fn drawOverlay(ovl: *Overlay) !void {
     const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
     const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
 
+    var w = ovl.width;
+    var h = ovl.height;
+    if (ovl.is_size_relative) {
+        w *= win_w;
+        h *= win_h;
+        ovl.resize_mode = .none;
+    }
+
+    var p_x = ovl.ll_x;
+    var p_y = ovl.ll_y;
+    if (ovl.is_position_relative) {
+        p_x *= win_w;
+        p_y *= win_h;
+    }
     switch (ovl.align_h) {
         .centered => {
-            ovl.ll_x = (win_w - ovl.width) * 0.5;
+            p_x = (win_w - w) * 0.5;
         },
         .left => {
-            ovl.ll_x = ovl.align_border;
+            p_x = ovl.align_border;
         },
         .right => {
-            ovl.ll_x = win_w - ovl.width - ovl.align_border;
+            p_x = win_w - w - ovl.align_border;
         },
         else => {},
     }
     switch (ovl.align_v) {
         .centered => {
-            ovl.ll_y = (win_h - ovl.height) * 0.5;
+            p_y = (win_h - h) * 0.5;
         },
         .top => {
-            ovl.ll_y = ovl.align_border;
+            p_y = ovl.align_border;
         },
         .bottom => {
-            ovl.ll_y = win_h - ovl.height - ovl.align_border;
+            p_y = win_h - h - ovl.align_border;
         },
         else => {},
     }
 
+    if (ovl.is_position_relative) {
+        ovl.ll_x = p_x / win_w;
+        ovl.ll_y = p_y / win_h;
+    } else {
+        ovl.ll_x = p_x;
+        ovl.ll_y = p_y;
+    }
+
     gfx_impl.setColor(ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
-    gfx_impl.addImmediateQuad(ovl.ll_x, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
+    gfx_impl.addImmediateQuad(p_x, p_y, p_x + w, p_y + h);
 
     //----------------
     // Draw the title
     //----------------
     if (ovl.title.is_enabled) {
         try fnt.setFont(ovl.title.font_name, ovl.title.font_size);
-        var title_x = ovl.ll_x;
+        var title_x = p_x;
         switch (ovl.title.alignment) {
             .centered => {
                 const s = try fnt.getTextSizeLine(ovl.title.text);
-                title_x = ovl.ll_x + (ovl.width - s.w) * 0.5;
+                title_x = p_x + (w - s.w) * 0.5;
             },
             .left, .none => {
                 title_x += ovl.title.frame;
             },
             .right => {
                 const s = try fnt.getTextSizeLine(ovl.title.text);
-                title_x = ovl.ll_x + ovl.width - s.w - ovl.title.frame;
+                title_x = p_x + w - s.w - ovl.title.frame;
             },
         }
         gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
-        try fnt.renderText(ovl.title.text, title_x, ovl.ll_y, 0.0);
+        try fnt.renderText(ovl.title.text, title_x, p_y, 0.0);
 
         if (ovl.title.is_separator_enabled) {
             gfx_impl.setLineWidth(ovl.title.separator_thickness);
-            gfx_impl.addImmediateLine(ovl.ll_x + ovl.title.frame, ovl.ll_y + ovl.title.font_size, ovl.ll_x + ovl.width - ovl.title.frame, ovl.ll_y + ovl.title.font_size);
+            gfx_impl.addImmediateLine(p_x + ovl.title.frame, p_y + ovl.title.font_size, p_x + w - ovl.title.frame, p_y + ovl.title.font_size);
         }
     }
     if (ovl.is_focussed) {
         gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
         gfx_impl.setLineWidth(1.0);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y);
-        gfx_impl.addImmediateLine(ovl.ll_x + ovl.width, ovl.ll_y, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y + ovl.height, ovl.ll_x + ovl.width, ovl.ll_y + ovl.height);
-        gfx_impl.addImmediateLine(ovl.ll_x, ovl.ll_y, ovl.ll_x, ovl.ll_y + ovl.height);
+        gfx_impl.addImmediateLine(p_x, p_y, p_x + w, p_y);
+        gfx_impl.addImmediateLine(p_x + w, p_y, p_x + w, p_y + h);
+        gfx_impl.addImmediateLine(p_x, p_y + h, p_x + w, p_y + h);
+        gfx_impl.addImmediateLine(p_x, p_y, p_x, p_y + h);
     }
 
     if (ovl.widget_type == .text and ovl.widget != null) {
@@ -281,6 +322,9 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
     // (only relevant in edit mode if left mouse button pressed)
     //-----------------------------------------------------------
     if (edit_mode.is_enabled and mouse_l) {
+        var win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
+        var win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+
         // In the array of sorted overlays the last entry is the foremost one, since it
         // is drawn last and hence, will be focussed first
         edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
@@ -294,24 +338,37 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
             const x_p = edit_mode.mouse_x_prev;
             const y_p = edit_mode.mouse_y_prev;
 
-                if (x_p > ovl.ll_x and x_p < ovl.ll_x + ovl.width and
-                    y_p > ovl.ll_y and y_p < ovl.ll_y + ovl.height and
-                    ovl.is_enabled)
-                {
-                    // If mouse button has just been pressed, change the focus
-                    if (!edit_mode.mouse_l_prev) {
-                        std.mem.swap(*Overlay, &overlays_sorted.items[i], &overlays_sorted.items[overlays_sorted.items.len - 1]);
-                        edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
-                    }
-                    // Move overlay if inside focussed overlay
-                    if (edit_mode.overlay_focussed == ovl) {
-                        moveOverlay(overlays_sorted.items[overlays_sorted.items.len - 1],
-                                    edit_mode.mouse_dx, edit_mode.mouse_dy);
-                    }
-                    break;
-                } else {
-                    ovl.is_focussed = false;
+            var w = ovl.width;
+            var h = ovl.height;
+            if (ovl.is_size_relative) {
+                w *= win_w;
+                h *= win_h;
+            }
+            var p_x = ovl.ll_x;
+            var p_y = ovl.ll_y;
+            if (ovl.is_position_relative) {
+                p_x *= win_w;
+                p_y *= win_h;
+            }
+
+            if (x_p > p_x and x_p < p_x + w and
+                y_p > p_y and y_p < p_y + h and
+                ovl.is_enabled)
+            {
+                // If mouse button has just been pressed, change the focus
+                if (!edit_mode.mouse_l_prev) {
+                    std.mem.swap(*Overlay, &overlays_sorted.items[i], &overlays_sorted.items[overlays_sorted.items.len - 1]);
+                    edit_mode.overlay_focussed = overlays_sorted.items[overlays_sorted.items.len - 1];
                 }
+                // Move overlay if inside focussed overlay
+                if (edit_mode.overlay_focussed == ovl) {
+                    moveOverlay(overlays_sorted.items[overlays_sorted.items.len - 1],
+                                edit_mode.mouse_dx, edit_mode.mouse_dy);
+                }
+                break;
+            } else {
+                ovl.is_focussed = false;
+            }
         }
     }
 
@@ -383,18 +440,37 @@ const edit_mode = struct {
 };
 
 fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
-    ovl.ll_x += x;
-    ovl.ll_y += y;
+    const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
+    const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+
+    if (ovl.is_position_relative) {
+        ovl.ll_x += x / win_w;
+        ovl.ll_y += y / win_h;
+    } else {
+        ovl.ll_x += x;
+        ovl.ll_y += y;
+    }
     if (snapping.is_enabled) {
-        const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
-        const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
 
-        const c_x = ovl.ll_x + ovl.width * 0.5 - win_w * 0.5;
-        const c_y = ovl.ll_y + ovl.height * 0.5 - win_h * 0.5;
+        var w = ovl.width;
+        var h = ovl.height;
+        if (ovl.is_size_relative) {
+            w *= win_w;
+            h *= win_h;
+        }
+        var p_x = ovl.ll_x;
+        var p_y = ovl.ll_y;
+        if (ovl.is_position_relative) {
+            p_x *= win_w;
+            p_y *= win_h;
+        }
 
-        if (ovl.ll_x < snapping.border and edit_mode.mouse_dx < snapping.release) {
+        const c_x = p_x + w * 0.5 - win_w * 0.5;
+        const c_y = p_y + h * 0.5 - win_h * 0.5;
+
+        if (p_x < snapping.border and edit_mode.mouse_dx < snapping.release) {
             ovl.align_h = .left;
-        } else if (ovl.ll_x > win_w - ovl.width - snapping.border and edit_mode.mouse_dx > -snapping.release) {
+        } else if (p_x > win_w - w - snapping.border and edit_mode.mouse_dx > -snapping.release) {
             ovl.align_h = .right;
         } else if (c_x >= 0.0 and c_x < snapping.border and edit_mode.mouse_dx < snapping.release) {
             ovl.align_h = .centered;
@@ -404,9 +480,9 @@ fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
             ovl.align_h = .none;
         }
 
-        if (ovl.ll_y < snapping.border and edit_mode.mouse_dy < snapping.release) {
+        if (p_y < snapping.border and edit_mode.mouse_dy < snapping.release) {
             ovl.align_v = .top;
-        } else if (ovl.ll_y > win_h - ovl.height - snapping.border and edit_mode.mouse_dy > -snapping.release) {
+        } else if (p_y > win_h - h - snapping.border and edit_mode.mouse_dy > -snapping.release) {
             ovl.align_v = .bottom;
         } else if (c_y >= 0.0 and c_y < snapping.border and edit_mode.mouse_dy < snapping.release) {
             ovl.align_v = .centered;

@@ -17,11 +17,13 @@ pub fn init() !void {
 
     const font_overlay: gui.Overlay = .{.title = .{.text = "Font Idle Timers",
                                                    .col  = .{0.8, 1.0, 0.8, 0.8}},
-                                        .width = 300,
-                                        .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
+                                        .width = 0.3,
+                                        .height = 0.5, //32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
                                         .is_enabled = false,
-                                        .ll_x = 10.0,
-                                        .ll_y = 10.0,
+                                        .is_size_relative = true,
+                                        .is_position_relative = true,
+                                        .ll_x = 0.01,
+                                        .ll_y = 0.01,
                                         .col = .{0.0, 1.0, 0.0, 0.2},
                                         };
     const text_widget: gui.TextWidget = .{.col = .{0.5, 1.0, 0.5, 0.8}};
