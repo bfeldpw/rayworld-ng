@@ -138,6 +138,19 @@ pub fn main() !void {
 
     sim.stop();
     if (cfg.multithreading) sim_thread.join();
+
+    showPerformanceStats(prf_fps.getAvgAllMs(),
+                         prf_idle.getAvgAllMs(),
+                         prf_in.getAvgAllMs(),
+                         prf_rc.getAvgAllMs(),
+                         prf_ren.getAvgAllMs(),
+                         prf_ren_scene.getAvgAllMs(),
+                         prf_ren_frame.getAvgAllMs(),
+                         prf_ren_map.getAvgAllMs(),
+                         prf_ren_gui.getAvgAllMs(),
+                         prf_ren_sim.getAvgAllMs(),
+                         sim.getAvgAllMs());
+
 }
 
 fn adjustFovOnAspectChange() void {
@@ -153,6 +166,29 @@ fn adjustFovOnAspectChange() void {
 
 fn printUsage() void {
     std.debug.print(help_message ++ "\n", .{});
+}
+
+inline fn showPerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
+                               ren_scene: f64, ren_frame: f64, ren_map: f64, ren_gui: f64,
+                               ren_sim: f64, simulation: f64) void {
+
+        std.log.info(
+           "\nFrametime:    {d:.2}ms\n" ++
+           "  Idle:       {d:.2}ms\n" ++
+           "  Input:      {d:.2}ms\n" ++
+           "  Raycasting: {d:.2}ms\n" ++
+           "  Rendering:  {d:.2}ms\n" ++
+           "    Scene:    {d:.2}ms\n" ++
+           "    Frame:    {d:.2}ms\n" ++
+           "    Map:      {d:.2}ms\n" ++
+           "    Gui:      {d:.2}ms\n" ++
+           "    Sim:      {d:.2}ms\n" ++
+           "Sim-Thread:   {d:.2}ms\n" ++
+           "(@{d:.0}Hz => {d:.2}ms @{d:.0}Hz)",
+           .{fps, idle, in, rayc, ren, ren_scene, ren_frame, ren_map, ren_gui, ren_sim, simulation,
+             sim.timing.getFpsTarget(), simulation*sim.timing.getFpsTarget()/cfg.gfx.fps_target,
+             cfg.gfx.fps_target}
+        );
 }
 
 const help_message = "=====================\n" ++
