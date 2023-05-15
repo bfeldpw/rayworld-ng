@@ -179,6 +179,7 @@ const Map = struct {
     i_reflection: [map_size_y][map_size_x]usize,
     i_texture: [map_size_y][map_size_x]usize,
     i_wall: [map_size_y][map_size_x]usize,
+    i_wall_thin: [map_size_y][map_size_x]usize,
 };
 
 /// Currently used map, later to be loaded from file
@@ -206,7 +207,7 @@ const map_celltype_tmp = [map_size_y][map_size_x]u8{
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 2, 1, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
@@ -275,7 +276,7 @@ fn fillMap() !void {
     try attribute_components.texture.append(.{ .id = 0 });
 
     // Default attributes wall_thin
-    try attribute_components.wall_thin.append(.{ .axis = .x, .from = 0.4, .to = 0.6 });
+    try attribute_components.wall_thin.append(.{ .axis = .x, .from = 0.5, .to = 0.6 });
 
     // Copy tmp map and set some default values for celltypes
     for (&map_current.cell_type, 0..) |*row, j| {
@@ -283,6 +284,7 @@ fn fillMap() !void {
             value.* = @intToEnum(CellType, map_celltype_tmp[j][i]);
 
             map_current.i_pillar[j][i] = 1;
+            map_current.i_wall_thin[j][i] = 0;
             switch (value.*) {
                 .floor => {
                     map_current.i_canvas[j][i] = 2;
