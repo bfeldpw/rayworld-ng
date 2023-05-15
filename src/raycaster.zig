@@ -728,7 +728,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
                 }
             } else if (d_y0 < 0.0) {
                 const c_xw = c_x - (1.0 - to) * d_x0 / d_y0;
-                if (@fabs(c_xw) >= 0.0 and @fabs(c_xw) <= 1.0) {
+                if (c_xw >= 0.0 and c_xw <= 1.0) {
                     s_x.* -= (1.0 - to) * d_x0 / d_y0;
                     s_y.* -= 1.0 - to;
                     d_x.* = d_x0 + scatter * scatter_f;
@@ -738,14 +738,61 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
             }
         }
     } else { // if (axis == .y) {
-        // if (contact_axis.* == .x) {
-        //     const c_x = @fabs(s_x.* - @trunc(s_x.*)); // contact on x-axis within cell
-        //     if (c_x >= from and c_x <= to) {
-        //         d_x.* = d_x0 + scatter * scatter_f;
-        //         d_y.* = -d_y0;
-        //         return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
-        //     }
-        // }
+        if (contact_axis.* == .x) {
+            // c_x: contact on x-axis at cell border
+            // s_x is always positive (coordinate on map)
+            const c_x = s_x.* - @trunc(s_x.*);
+            if (c_x >= from and c_x <= to) {
+                d_x.* = d_x0 + scatter * scatter_f;
+                d_y.* = -d_y0;
+                return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+            } else if (c_x < from and d_x0 > 0.0) {
+                // c_xw: contact x on wall within cell
+                const c_xw = (from - c_x) * d_y0 / d_x0;
+                if (@fabs(c_xw) >= 0.0 and @fabs(c_xw) <= 1.0) {
+                    s_x.* += from - c_x;
+                    s_y.* += c_xw;
+                    d_x.* = -d_x0;
+                    d_y.* = d_y0 + scatter * scatter_f;
+                    contact_axis.* = .y;
+                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                }
+            } else if (c_x > to and d_x0 < 0.0) {
+                // c_xw: contact x on wall within cell
+                const c_xw = (c_x - to) * d_y0 / d_x0;
+                if (@fabs(c_xw) >= 0.0 and @fabs(c_xw) <= 1.0) {
+                    s_x.* -= c_x - to;
+                    s_y.* -= c_xw;
+                    d_x.* = -d_x0;
+                    d_y.* = d_y0 + scatter * scatter_f;
+                    contact_axis.* = .y;
+                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                }
+            }
+        } else { // if (contact_axis.* == .y) {
+            // c_y: contact on x-axis at cell border
+            // s_y is always positive (coordinate on map)
+            const c_y = s_y.* - @trunc(s_y.*);
+            if (d_x0 > 0.0) {
+                const c_yw = c_y + from * d_y0 / d_x0;
+                if (c_yw >= 0.0 and c_yw <= 1.0) {
+                    s_x.* += from;
+                    s_y.* += from * d_y0 / d_x0;
+                    d_x.* = -d_x0;
+                    d_y.* = d_y0 + scatter * scatter_f;
+                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                }
+            } else if (d_x0 < 0.0) {
+                const c_yw = c_y - (1.0 - to) * d_y0 / d_x0;
+                if (c_yw >= 0.0 and c_yw <= 1.0) {
+                    s_x.* -= 1.0 - to;
+                    s_y.* -= (1.0 - to) * d_y0 / d_x0;
+                    d_x.* = -d_x0;
+                    d_y.* = d_y0 + scatter * scatter_f;
+                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                }
+            }
+        }
     }
     // Default: nothing's hit, pass through
     return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };

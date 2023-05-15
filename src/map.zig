@@ -83,7 +83,7 @@ pub inline fn getTextureID(y: usize, x: usize) *AttribTexture {
 }
 
 pub inline fn getWallThin(y: usize, x: usize) *AttribWallThin {
-    return &attribute_components.wall_thin.items[map_current.i_wall[y][x]];
+    return &attribute_components.wall_thin.items[map_current.i_wall_thin[y][x]];
 }
 
 pub inline fn getResolution() u32 {
@@ -207,7 +207,7 @@ const map_celltype_tmp = [map_size_y][map_size_x]u8{
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 2, 2, 1, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 0, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 1, 2, 0, 2, 1, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 3, 0, 4, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
@@ -277,6 +277,7 @@ fn fillMap() !void {
 
     // Default attributes wall_thin
     try attribute_components.wall_thin.append(.{ .axis = .x, .from = 0.5, .to = 0.6 });
+    try attribute_components.wall_thin.append(.{ .axis = .y, .from = 0.5, .to = 0.6 });
 
     // Copy tmp map and set some default values for celltypes
     for (&map_current.cell_type, 0..) |*row, j| {
@@ -348,6 +349,7 @@ fn fillMap() !void {
     map_current.i_reflection[11][7] = 1;
     map_current.i_pillar[18][6] = 0;
     map_current.i_pillar[18][9] = 0;
+    map_current.i_wall_thin[19][16] = 1;
 }
 
 fn loadResources() !void {
