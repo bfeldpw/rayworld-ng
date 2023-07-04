@@ -17,8 +17,8 @@ jobs:
       - name: Compile
         run: |
           zig build -fsummary
-          zig build -Doptimize=ReleaseSafe -fsummary
+          zig build -Doptimize=ReleaseSafe --summary all
       - name: Test
         run: |
           zig build test -fsummary
-          zig build test -Doptimize=ReleaseSafe -fsummary
+          zig build test -Doptimize=ReleaseSafe --summary all
