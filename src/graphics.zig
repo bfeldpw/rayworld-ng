@@ -49,7 +49,7 @@ pub fn deinit() void {
     freeMemory();
 
     const leaked = gpa.deinit();
-    if (leaked) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -68,7 +68,7 @@ pub fn getTextureId() u32 {
     var tex_id: c.GLuint = 0;
     c.glGenTextures(1, &tex_id);
 
-    return @intCast(u32, tex_id);
+    return @intCast(tex_id);
 }
 
 /// Get the active glfw window
@@ -101,7 +101,7 @@ pub fn disableTexturing() void {
 pub fn bindTexture(tex_id: u32) void {
     if (state.bound_texture != tex_id) {
         c.glActiveTexture(c.GL_TEXTURE0);
-        c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c.GLuint, tex_id));
+        c.glBindTexture(c.GL_TEXTURE_2D, @intCast(tex_id));
         state.bound_texture = tex_id;
     }
 }
@@ -113,7 +113,7 @@ pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
 /// Set the frequency of the main loop
 pub fn setFpsTarget(f: f32) void {
     if (f > 0.0) {
-        frame_time = @floatToInt(i64, 1.0 / f * 1.0e9);
+        frame_time = @intFromFloat(1.0 / f * 1.0e9);
         log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
     } else {
         log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
@@ -129,12 +129,12 @@ pub inline fn setLineWidth(w: f32) void {
 }
 
 pub inline fn setViewport(x: u64, y: u64, w: u64, h: u64) void {
-    c.glViewport(@intCast(c_int, x), @intCast(c_int, y),
-                 @intCast(c_int, w), @intCast(c_int, h));
+    c.glViewport(@intCast(x), @intCast(y),
+                 @intCast(w), @intCast(h));
 }
 
 pub inline fn setViewportFull() void {
-    c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
+    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
 }
 
 //-----------------------------------------------------------------------------//
@@ -142,13 +142,13 @@ pub inline fn setViewportFull() void {
 //-----------------------------------------------------------------------------//
 
 pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
-    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(c_uint, tex_id));
+    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(tex_id));
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
     c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_ALPHA8,
-                   @intCast(c_int, w), @intCast(c_int, h), 0,
-                   c.GL_ALPHA, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
+                   @intCast(w), @intCast(h), 0,
+                   c.GL_ALPHA, c.GL_UNSIGNED_BYTE, @ptrCast(data));
     c.glBindTexture(c.GL_TEXTURE_2D, tex_id);
 
     log_gfx.debug("Texture generated with ID={}", .{tex_id});
@@ -166,12 +166,12 @@ pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(c_int, w), @intCast(c_int, h), 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, data));
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(w), @intCast(h), 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(data));
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
 
     log_gfx.debug("Texture generated with ID={}", .{tex});
 
-    const t = @intCast(u32, tex);
+    const t = @as(u32, tex);
     quads_textured.put(t, .{ .verts = undefined, .cols = undefined, .texcs = undefined, .i_verts = undefined, .i_cols = undefined, .i_texcs = undefined, .n = undefined }) catch |e| {
         log_gfx.err("Allocation error ", .{});
         return e;
@@ -515,7 +515,7 @@ pub fn finishFrame() !void {
     const t = timer_main.read();
 
     fps_stable_count += 1;
-    var t_s = frame_time - @intCast(i64, t);
+    var t_s = frame_time - @as(i64, @intCast(t));
     if (t_s < 0) {
         t_s = 0;
         // log_gfx.debug("Frequency target could not be reached", .{});
@@ -537,10 +537,10 @@ pub fn finishFrame() !void {
     }
 
     if (is_sleep_enabled) {
-        std.time.sleep(@intCast(u64, t_s));
-        fps = 1e6 / @intToFloat(f32, @divTrunc(frame_time, 1_000));
+        std.time.sleep(@intCast(t_s));
+        fps = 1e6 / @as(f32, @floatFromInt(@divTrunc(frame_time, 1_000)));
     } else {
-        fps = 1e6 / @intToFloat(f32, t / 1000);
+        fps = 1e6 / @as(f32, @floatFromInt(t / 1000));
     }
     timer_main.reset();
 }
@@ -556,10 +556,10 @@ pub fn renderFrame() !void {
         while (iter_quad_tex.next()) |v| {
             if (v.value_ptr.n[d] > 0) {
                 bindTexture(v.key_ptr.*);
-                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.verts[d]));
-                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.cols[d]));
-                c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.value_ptr.texcs[d]));
-                c.glDrawArrays(c.GL_QUADS, 0, @intCast(c_int, v.value_ptr.n[d]));
+                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.verts[d]));
+                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.cols[d]));
+                c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.texcs[d]));
+                c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.value_ptr.n[d]));
                 if (!glCheckError()) return GraphicsError.OpenGLFailed;
                 v.value_ptr.i_verts[d] = 0;
                 v.value_ptr.i_cols[d] = 0;
@@ -572,9 +572,9 @@ pub fn renderFrame() !void {
         c.glDisable(c.GL_TEXTURE_2D);
         var value_quads = quads.getPtr(1);
         if (value_quads) |v| {
-            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.verts[d]));
-            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast([*c]const f32, &v.cols[d]));
-            c.glDrawArrays(c.GL_QUADS, 0, @intCast(c_int, v.n[d]));
+            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.verts[d]));
+            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.cols[d]));
+            c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.n[d]));
             if (!glCheckError()) return GraphicsError.OpenGLFailed;
             v.i_verts[d] = 0;
             v.i_cols[d] = 0;
@@ -614,7 +614,7 @@ var window: ?*c.GLFWwindow = null;
 var window_w: u64 = 640; // Window width
 var window_h: u64 = 480; // Window height
 var aspect: f32 = 640 / 480;
-var frame_time: i64 = @floatToInt(i64, 1.0 / 5.0 * 1.0e9);
+var frame_time: i64 = @intFromFloat(1.0 / 5.0 * 1.0e9);
 var timer_main: std.time.Timer = undefined;
 var is_sleep_enabled: bool = true;
 var fps_drop_count: u16 = 0;
@@ -701,11 +701,11 @@ fn initGLFW() !void {
     }
     errdefer c.glfwTerminate();
 
-    window = c.glfwCreateWindow(@intCast(c_int, window_w), @intCast(c_int, window_h), "rayworld-ng", null, null);
+    window = c.glfwCreateWindow(@intCast(window_w), @intCast(window_h), "rayworld-ng", null, null);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
     errdefer c.glfwDestroyWindow(window);
 
-    aspect = @intToFloat(f32, window_w) / @intToFloat(f32, window_h);
+    aspect = @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(window_h));
 
     c.glfwMakeContextCurrent(window);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
@@ -719,12 +719,12 @@ fn initGLFW() !void {
 
 fn initOpenGL() !void {
     log_gfx.info("Initialising OpenGL ", .{});
-    c.glViewport(0, 0, @intCast(c_int, window_w), @intCast(c_int, window_h));
+    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
-    c.glOrtho(0, @intToFloat(f64, window_w), @intToFloat(f64, window_h), 0, -1, 20);
+    c.glOrtho(0, @floatFromInt(window_w), @floatFromInt(window_h), 0, -1, 20);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     c.glEnable(c.GL_BLEND);
@@ -737,13 +737,13 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     log_gfx.debug("Resize triggered by callback", .{});
     log_gfx.info("Setting window size to {}x{}.", .{ w, h });
     _ = win;
-    window_w = @intCast(u64, w);
-    window_h = @intCast(u64, h);
-    aspect = @intToFloat(f32, window_w) / @intToFloat(f32, window_h);
+    window_w = @intCast(w);
+    window_h = @intCast(h);
+    aspect = @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(window_h));
     c.glViewport(0, 0, w, h);
     c.glMatrixMode(c.GL_PROJECTION);
     c.glLoadIdentity();
-    c.glOrtho(0, @intToFloat(f64, w), @intToFloat(f64, h), 0, -1, 20);
+    c.glOrtho(0, @floatFromInt(w), @floatFromInt(h), 0, -1, 20);
 
     // Callback can't return Zig-Error
     if (!glCheckError()) {

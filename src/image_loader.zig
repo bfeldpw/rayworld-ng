@@ -28,7 +28,7 @@ pub fn deinit() void {
     // memory might be directly released
 
     const leaked = gpa.deinit();
-    if (leaked) log_img.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) log_img.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -73,8 +73,8 @@ pub fn initDrawTest() c.GLuint {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @truncate(u16, img.width), @truncate(u16, img.height), 0,
-                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast([*c]u8, img.data));
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @truncate(img.width), @truncate(img.height), 0,
+                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(img.data));
     return tex;
 }
 

@@ -18,7 +18,7 @@ pub fn init() !void {
     const font_overlay: gui.Overlay = .{.title = .{.text = "Font Idle Timers",
                                                    .col  = .{0.8, 1.0, 0.8, 0.8}},
                                         .width = 300,
-                                        .height = 32.0 * (@intToFloat(f32, fnt.getIdByName().count() + 1)),
+                                        .height = 32.0 * (@as(f32, @floatFromInt(fnt.getIdByName().count() + 1))),
                                         .is_enabled = false,
                                         .ll_x = 10.0,
                                         .ll_y = 10.0,
@@ -114,7 +114,7 @@ pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         gfx.setColor4(1.0, 0.2, 0.2, 0.8);
         const t = "EDIT MODE";
         const s = fnt.getTextSizeLine("EDIT MODE") catch {return;};
-        try fnt.renderText(t, @intToFloat(f32, gfx.getWindowWidth())-s.w-10, 0, 0.0);
+        try fnt.renderText(t, @as(f32, @floatFromInt(gfx.getWindowWidth()))-s.w-10, 0, 0.0);
         gui.drawCursor(x, y);
     }
     {
@@ -164,7 +164,7 @@ fn updateFontStats() !void {
 
             const tmp = try std.fmt.allocPrint(allocator,
                                                "{s}: {d:.1}s\n",
-                                               .{name, 1.0e-9 * @intToFloat(f64, timer.read())});
+                                               .{name, 1.0e-9 * @as(f64, @floatFromInt(timer.read()))});
             try timer_printout.appendSlice(tmp);
             allocator.free(tmp);
 

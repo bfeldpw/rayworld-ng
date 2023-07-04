@@ -68,8 +68,8 @@ pub const TextWidget = struct {
         var wrap: f32 = 0.0;
         const rm = ovl.resize_mode;
         const s = try fnt.getTextSize(self.text, wrap);
-        const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
-        const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+        const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
+        const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
 
         var w = ovl.width;
         var h = ovl.height;
@@ -170,7 +170,7 @@ pub fn deinit() void {
     text_widgets.deinit();
 
     const leaked = gpa.deinit();
-    if (leaked) std.log.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) std.log.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -210,8 +210,8 @@ pub fn drawCursor(x: f32, y: f32) void {
 }
 
 pub fn drawOverlay(ovl: *Overlay) !void {
-    const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
-    const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+    const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
+    const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
 
     var w = ovl.width;
     var h = ovl.height;
@@ -300,7 +300,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
     }
 
     if (ovl.widget_type == .text and ovl.widget != null) {
-        const tw = @ptrCast(?*TextWidget, @alignCast(@alignOf(TextWidget), ovl.widget)) orelse {
+        const tw = @as(?*TextWidget, @ptrCast(@alignCast(ovl.widget))) orelse {
             gui_log.err("Unable to access widget for drawing", .{});
             return error.GuiWidgetCastFailed;
         };
@@ -322,8 +322,8 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
     // (only relevant in edit mode if left mouse button pressed)
     //-----------------------------------------------------------
     if (edit_mode.is_enabled and mouse_l) {
-        var win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
-        var win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+        var win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
+        var win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
 
         // In the array of sorted overlays the last entry is the foremost one, since it
         // is drawn last and hence, will be focussed first
@@ -331,9 +331,9 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
 
         // Starting from the foremost, focussed overlay, go back and check, if the mouse
         // cursor is within that overlay
-        var j: i64 = @intCast(i64, overlays_sorted.items.len - 1);
+        var j: i64 = @intCast(overlays_sorted.items.len - 1);
         while (j >= 0) : (j -= 1) {
-            var i: usize = @intCast(usize, j);
+            var i: usize = @intCast(j);
             const ovl = overlays_sorted.items[i];
             const x_p = edit_mode.mouse_x_prev;
             const y_p = edit_mode.mouse_y_prev;
@@ -440,8 +440,8 @@ const edit_mode = struct {
 };
 
 fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
-    const win_w = @intToFloat(f32, gfx_impl.getWindowWidth());
-    const win_h = @intToFloat(f32, gfx_impl.getWindowHeight());
+    const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
+    const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
 
     if (ovl.is_position_relative) {
         ovl.ll_x += x / win_w;

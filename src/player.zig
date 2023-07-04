@@ -33,8 +33,8 @@ pub fn lookUpDown(t: f32) void {
         tilt + t > -tilt_max)
         tilt += t;
 
-    const map_x = @floatToInt(u32, pos_x) / map.getResolution();
-    const map_y = @floatToInt(u32, pos_y) / map.getResolution();
+    const map_x: u32 = @intFromFloat(pos_x / map.getResolution());
+    const map_y: u32 = @intFromFloat(pos_y / map.getResolution());
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
                   .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
@@ -45,8 +45,8 @@ pub fn turn(d: f32) void {
     if (dir < 0.0) dir += 2.0*std.math.pi;
     if (dir > 2.0*std.math.pi) dir -= 2.0*std.math.pi;
 
-    const map_x = @floatToInt(u32, pos_x) / map.getResolution();
-    const map_y = @floatToInt(u32, pos_y) / map.getResolution();
+    const map_x: u32 = @intFromFloat(pos_x / map.getResolution());
+    const map_y: u32 = @intFromFloat(pos_y / map.getResolution());
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
                   .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
@@ -105,13 +105,23 @@ var pos_z: f32 = 0.3;
 var tilt: f32 = 0.0;
 
 fn isColliding(x: f32, y: f32) bool {
-    const map_x = @floatToInt(u32, x) / map.getResolution();
-    const map_y = @floatToInt(u32, y) / map.getResolution();
+    const map_x: u32 = @intFromFloat(x / map.getResolution());
+    const map_y: u32 = @intFromFloat(y / map.getResolution());
 
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
                   .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
 
+    if (map_v == .wall_thin) {
+        const wt = map.getWallThin(map_y, map_x);
+        if (wt.axis == .x) {
+            const y_c = y - @trunc(y);
+            if (y_c < wt.from or y_c > wt.to) return false;
+        } else { // if (wt.axis == .y)
+            const x_c = x - @trunc(x);
+            if (x_c < wt.from or x_c > wt.to) return false;
+        }
+    }
     if (map_v != .floor) {
         return true;
     } else {

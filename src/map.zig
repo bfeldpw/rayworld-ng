@@ -44,7 +44,7 @@ pub fn deinit() void {
     attribute_components.wall_thin.deinit();
 
     const leaked = gpa.deinit();
-    if (leaked) log_map.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) log_map.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 //-----------------------------------------------------------------------------//
 //   Getter/Setter
@@ -277,12 +277,12 @@ fn fillMap() !void {
 
     // Default attributes wall_thin
     try attribute_components.wall_thin.append(.{ .axis = .x, .from = 0.5, .to = 0.6 });
-    try attribute_components.wall_thin.append(.{ .axis = .y, .from = 0.5, .to = 0.6 });
+    try attribute_components.wall_thin.append(.{ .axis = .y, .from = 0.58, .to = 0.6 });
 
     // Copy tmp map and set some default values for celltypes
     for (&map_current.cell_type, 0..) |*row, j| {
         for (&row.*, 0..) |*value, i| {
-            value.* = @intToEnum(CellType, map_celltype_tmp[j][i]);
+            value.* = @enumFromInt(map_celltype_tmp[j][i]);
 
             map_current.i_pillar[j][i] = 1;
             map_current.i_wall_thin[j][i] = 0;

@@ -26,7 +26,7 @@ pub fn deinit() void {
     freeMemory();
 
     const leaked = gpa.deinit();
-    if (leaked) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) log_ray.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -35,8 +35,8 @@ pub fn deinit() void {
 
 pub fn createMap() void {
     const m = map.get();
-    const map_cells_y = @intToFloat(f32, map.get().len);
-    const win_h = @intToFloat(f32, gfx.getWindowHeight());
+    const map_cells_y = @as(f32, map.get().len);
+    const win_h: f32 = @floatFromInt(gfx.getWindowHeight());
     const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
     const o = win_h - f * map_cells_y; // y-offset for map drawing in px
 
@@ -53,7 +53,10 @@ pub fn createMap() void {
                 },
             }
 
-            gfx_impl.addBatchQuad(@intToFloat(f32, i) * f, o + @intToFloat(f32, j) * f, @intToFloat(f32, (i + 1)) * f, o + @intToFloat(f32, (j + 1)) * f);
+            gfx_impl.addBatchQuad(@as(f32, @floatFromInt(i)) * f,
+                                  o + @as(f32, @floatFromInt(j)) * f,
+                                  @as(f32, @floatFromInt(i + 1)) * f,
+                                  o + @as(f32, @floatFromInt(j + 1)) * f);
         }
     }
     gfx_impl.endBatch();
@@ -64,22 +67,22 @@ pub fn createMap() void {
     gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
         if (i % cfg.rc.map_display_every_nth_line == 0) {
-            var j = @intCast(i32, rays.seg_i1[i]);
-            const j0 = rays.seg_i0[i];
+            var j: i32 = @intCast(rays.seg_i1[i]);
+            const j0: i32 = @intCast(rays.seg_i0[i]);
 
-            if (j - @intCast(i32, j0) > cfg.rc.map_display_reflections_max) {
-                j = @intCast(i32, j0) + cfg.rc.map_display_reflections_max;
+            if (j - j0 > cfg.rc.map_display_reflections_max) {
+                j = j0 + cfg.rc.map_display_reflections_max;
             }
-            const color_step = 1.0 / @intToFloat(f32, cfg.rc.map_display_reflections_max + 1);
+            const color_step = 1.0 / @as(f32, cfg.rc.map_display_reflections_max + 1);
 
             while (j >= j0) : (j -= 1) {
-                const color_grade = color_step * @intToFloat(f32, @intCast(usize, j) - j0);
+                const color_grade = color_step * @as(f32, @floatFromInt(j-j0));
                 if (j == j0) {
                     gfx_impl.setColor(0.0, 0.0, 1.0, 0.5);
                 } else {
                     gfx_impl.setColor(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
                 }
-                const k = @intCast(usize, j);
+                const k: usize = @intCast(j);
                 gfx.addLine(segments.x0[k] * f, o + segments.y0[k] * f, segments.x1[k] * f, o + segments.y1[k] * f);
             }
         }
@@ -96,13 +99,13 @@ pub fn createMap() void {
 }
 
 pub fn createScene() void {
-    const win_h = @intToFloat(f32, gfx.getWindowHeight());
+    const win_h: f32 = @floatFromInt(gfx.getWindowHeight());
     const tilt = -win_h * plr.getTilt();
 
-    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
-    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.0, 1.0, cfg.gfx.depth_levels_max - 1);
-    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.0, 0.2, 1.0, cfg.gfx.depth_levels_max - 1);
-    gfx.addVerticalQuadG2G(0, @intToFloat(f32, gfx.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
+    gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
+    gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.0, 1.0, cfg.gfx.depth_levels_max - 1);
+    gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.0, 0.2, 1.0, cfg.gfx.depth_levels_max - 1);
+    gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
 
     var i: usize = 0;
 
@@ -128,18 +131,19 @@ pub fn createScene() void {
     }
 
     while (i < rays.seg_i0.len) : (i += 1) {
-        const x = @intToFloat(f32, i) * cfg.sub_sampling_base;
+        const x = @as(f32, @floatFromInt(i)) * cfg.sub_sampling_base;
         const j0 = rays.seg_i0[i];
         const j1 = rays.seg_i1[i];
         var j = j1;
 
         // Angle between current ray and player direction
-        const ang_0 = (@intToFloat(f32, i) / @intToFloat(f32, rays.seg_i0.len) - 0.5) * plr.getFOV();
+        const ang_0 = (@as(f32, @floatFromInt(i)) /
+                       @as(f32, @floatFromInt(rays.seg_i0.len)) - 0.5) * plr.getFOV();
 
         while (j >= j0) : (j -= 1) {
-            const k = @intCast(usize, j);
+            const k = @as(usize, j);
             const sub_sampling = segments.sub_sample_level[k];
-            const depth_layer = @intCast(u8, j - j0 + 1);
+            const depth_layer: u8 = @intCast(j - j0 + 1);
 
             if (i % sub_sampling == 0) {
 
@@ -187,8 +191,8 @@ pub fn createScene() void {
                         }
                     }
                 } else {
-                    const p_x = segments.x1[k] - @intToFloat(f32, m_x);
-                    const p_y = segments.y1[k] - @intToFloat(f32, m_y);
+                    const p_x = segments.x1[k] - @as(f32, @floatFromInt(m_x));
+                    const p_y = segments.y1[k] - @as(f32, @floatFromInt(m_y));
                     const dir_x = p_x - map.getPillar(m_y, m_x).center_x;
                     const dir_y = p_y - map.getPillar(m_y, m_x).center_y;
                     var angle = std.math.atan2(f32, dir_y, dir_x);
@@ -214,16 +218,19 @@ pub fn createScene() void {
                 var y1 = win_h * 0.5 + h_half_bottom + shift_and_tilt;
                 var y1_cvs = win_h * 0.5 + h_half + shift_and_tilt;
 
+                // Handle special cases of subsampling
                 var is_new = true;
-                const abs_x = std.math.absCast(@intCast(i16, m_x) - @intCast(i16, prev.m_x));
-                const abs_y = std.math.absCast(@intCast(i16, m_y) - @intCast(i16, prev.m_y));
+                const abs_x = std.math.absCast(@as(i16, @intCast(m_x)) - @as(i16, @intCast(prev.m_x)));
+                const abs_y = std.math.absCast(@as(i16, @intCast(m_y)) - @as(i16, @intCast(prev.m_y)));
                 const axis = segments.contact_axis[k];
                 if (axis == .x and abs_x < 2 and m_y == prev.m_y) is_new = false;
                 if (axis == .y and abs_y < 2 and m_x == prev.m_x) is_new = false;
+                if ((m_x != prev.m_x or m_y != prev.m_y) and
+                    (cell_type == .wall_thin and prev.cell_type == .wall_thin)) is_new = true;
                 if (prev.cell_type != cell_type) is_new = true;
                 if (prev.tex_id != tex_id) is_new = true;
 
-                if (is_new) prev.x = x - @intToFloat(f32, sub_sampling * cfg.sub_sampling_base);
+                if (is_new) prev.x = x - @as(f32, @floatFromInt(sub_sampling)) * cfg.sub_sampling_base;
                 if (cfg.sub_sampling_blocky or is_new) {
                     prev.u_of_uv = u_of_uv;
                     prev.y0_cvs = y0_cvs;
@@ -290,7 +297,7 @@ pub fn processRays(comptime multithreading: bool) !void {
     try reallocRaysOnChange();
 
     var angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
-    const inc_angle: f32 = plr.getFOV() / @intToFloat(f32, rays.seg_i0.len);
+    const inc_angle: f32 = plr.getFOV() / @as(f32, @floatFromInt(rays.seg_i0.len));
 
     const split = rays.seg_i0.len / cpus;
 
@@ -299,7 +306,7 @@ pub fn processRays(comptime multithreading: bool) !void {
         while (cpu < cpus) : (cpu += 1) {
             var last = (cpu + 1) * split;
             if (cpu == cpus - 1) last = rays.seg_i0.len;
-            threads[cpu] = try std.Thread.spawn(.{}, traceMultipleRays, .{ cpu * split, last, @mulAdd(f32, inc_angle, @intToFloat(f32, cpu * split), angle), inc_angle });
+            threads[cpu] = try std.Thread.spawn(.{}, traceMultipleRays, .{ cpu * split, last, @mulAdd(f32, inc_angle, @floatFromInt(cpu * split), angle), inc_angle });
         }
         cpu = 0;
         while (cpu < cpus) : (cpu += 1) {
@@ -524,8 +531,8 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
 
         advanceToNextCell(&d_x, &d_y, &s_x, &s_y, &o_x, &o_y, &sign_x, &sign_y, &a, &contact_axis, g_x, g_y);
 
-        var m_y = @floatToInt(usize, s_y + o_y);
-        var m_x = @floatToInt(usize, s_x + o_x);
+        var m_y: usize = @intFromFloat(s_y + o_y);
+        var m_x: usize = @intFromFloat(s_x + o_x);
         if (m_y > map.get().len - 1) m_y = map.get().len - 1;
         if (m_x > map.get()[0].len - 1) m_x = map.get()[0].len - 1;
         const m_v = map.get()[m_y][m_x];
@@ -533,7 +540,13 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
         // React to cell type
         switch (m_v) {
             .floor => {
-                contact_status = resolveContactFloor(&d_x, &d_y, &material_index_prev, contact_status.cell_type_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
+                if (map.get()[@intFromFloat(plr.getPosX())][@intFromFloat(plr.getPosY())] == .wall_thin) {
+                // if (contact_status.cell_type_prev == .wall_thin) {
+                    contact_status = resolveContactWallThin(&d_x, &d_y, &s_x, &s_y, m_x, m_y,
+                                                            r_i, &contact_axis, refl_lim, d_x0, d_y0);
+                } else {
+                    contact_status = resolveContactFloor(&d_x, &d_y, &material_index_prev, contact_status.cell_type_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
+                }
             },
             .wall => {
                 contact_status = resolveContactWall(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
@@ -659,7 +672,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev
 
 inline fn resolveContactWall(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
     const hsh = std.hash.Murmur3_32;
-    var scatter = 1.0 - 2.0 * @intToFloat(f32, hsh.hashUint32(@intCast(u32, r_i))) / std.math.maxInt(u32);
+    var scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
     const scatter_f = map.getReflection(m_y, m_x).diffusion;
     if (contact_axis == .x) {
         d_y.* = -d_y0;
@@ -675,7 +688,7 @@ inline fn resolveContactWall(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: 
 
 inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: *Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
     const hsh = std.hash.Murmur3_32;
-    var scatter = 1.0 - 2.0 * @intToFloat(f32, hsh.hashUint32(@intCast(u32, r_i))) / std.math.maxInt(u32);
+    var scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
     const scatter_f = map.getReflection(m_y, m_x).diffusion;
     const axis = map.getWallThin(m_y, m_x).axis;
     const from = map.getWallThin(m_y, m_x).from;
@@ -800,7 +813,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
 
 inline fn resolveContactMirror(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
     const hsh = std.hash.Murmur3_32;
-    var scatter = 1.0 - 2.0 * @intToFloat(f32, hsh.hashUint32(@intCast(u32, r_i))) / std.math.maxInt(u32);
+    var scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
     const scatter_f = map.getReflection(m_y, m_x).diffusion;
     if (contact_axis == .x) {
         d_y.* = -d_y0;
@@ -858,8 +871,8 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_
 inline fn resolveContactPillar(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, m_y: usize, m_v: map.CellType, refl_lim: i8, d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) ContactStatus {
     const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
     const pillar = map.getPillar(m_y, m_x);
-    const e_x = @intToFloat(f32, m_x) + pillar.center_x - s_x.*;
-    const e_y = @intToFloat(f32, m_y) + pillar.center_y - s_y.*;
+    const e_x = @as(f32, @floatFromInt(m_x)) + pillar.center_x - s_x.*;
+    const e_y = @as(f32, @floatFromInt(m_y)) + pillar.center_y - s_y.*;
     const e_norm_sqr = e_x * e_x + e_y * e_y;
     const c_a = e_x * d_x0 + d_y0 * e_y;
     const r = pillar.radius;
@@ -907,8 +920,8 @@ inline fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
     const n = map.getGlass(m_y, m_x).n;
     const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
     const pillar = map.getPillar(m_y, m_x);
-    const e_x = @intToFloat(f32, m_x) + pillar.center_x - s_x.*;
-    const e_y = @intToFloat(f32, m_y) + pillar.center_y - s_y.*;
+    const e_x = @as(f32, @floatFromInt(m_x)) + pillar.center_x - s_x.*;
+    const e_y = @as(f32, @floatFromInt(m_y)) + pillar.center_y - s_y.*;
     const e_norm_sqr = e_x * e_x + e_y * e_y;
     const c_a = e_x * d_x0 + d_y0 * e_y;
     const r = pillar.radius;

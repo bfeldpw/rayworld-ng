@@ -65,7 +65,7 @@ pub fn deinit() void {
     font_timer_by_id.deinit();
 
     const leaked = gpa.deinit();
-    if (leaked) fm_log.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) fm_log.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -157,7 +157,7 @@ pub fn getTextSizeLineMono(text: []const u8) FontError!TextSize {
     var height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     b = current.char_info[text[0] - ascii_first];
-    length = b.xadvance * @intToFloat(f32, text.len);
+    length = b.xadvance * @as(f32, text.len);
 
     return .{.w=length, .h=height};
 }
@@ -167,13 +167,13 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
 
         // Get font information to use correct baseline
         var font_info: c.stbtt_fontinfo = undefined;
-        _ = c.stbtt_InitFont(@ptrCast([*c] c.stbtt_fontinfo, &font_info),
-                             @ptrCast([*c]const u8, fonts_map.get(font_name).?), 0);
+        _ = c.stbtt_InitFont(@ptrCast(&font_info),
+                             @ptrCast(fonts_map.get(font_name).?), 0);
         const font_scale = c.stbtt_ScaleForPixelHeight(&font_info, font_size);
 
         var font_ascent: i32 = 0;
         c.stbtt_GetFontVMetrics(&font_info, &font_ascent, 0, 0);
-        const baseline = @intToFloat(f32, font_ascent) * font_scale;
+        const baseline = @as(f32, @floatFromInt(font_ascent)) * font_scale;
 
         // Setup parameters for current font
         const font_designator = std.fmt.allocPrint(allocator, "{s}_{d:.0}",
@@ -263,7 +263,7 @@ pub fn printIdleTimes() void {
         const tex_id = v.value_ptr.*;
         const name = v.key_ptr.*;
         var timer = font_timer_by_id.get(tex_id).?;
-        const t = 1.0e-9 * @intToFloat(f64, timer.read());
+        const t = 1.0e-9 * @as(f64, timer.read());
         fm_log.debug("Font <{s}>, ID={}, t_idle = {d:.3}s", .{name, tex_id, t});
     }
 }
@@ -293,7 +293,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                 const tex_id_removal = findCandidateForAutoRemoval();
 
                 var t = font_timer_by_id.get(tex_id_removal).?;
-                const idle_time = 1.0e-9 * @intToFloat(f64, t.read());
+                const idle_time = 1.0e-9 * @as(f64, @floatFromInt(t.read()));
                 if (idle_time > auto_remove_idle_time) {
                     fm_log.debug("Auto removing font to be replaced by <{s}>", .{font_designator});
                     try removeFontById(tex_id_removal);
@@ -308,7 +308,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
             }
         }
 
-        font_id_by_name.put(font_designator, @intCast(u32, tex_id)) catch |e| {
+        font_id_by_name.put(font_designator, @intCast(tex_id)) catch |e| {
             fm_log.err("{}", .{e});
             return error.FontRasterisingFailed;
         };
@@ -348,7 +348,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                 fm_log.err("{}", .{e});
                 return error.FontRasterisingFailed;
             };
-            const atlas_size = @intCast(i32, font_atlas_size_default * atlas_scale);
+            const atlas_size: i32 = @intCast(font_atlas_size_default * atlas_scale);
             font_atlas_size_by_id.put(tex_id, atlas_size) catch |e| {
                 fm_log.err("{}", .{e});
                 return error.FontRasterisingFailed;
@@ -357,18 +357,18 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
             // Try to pack atlas
             atlas_done = true;
             var pack_context: c.stbtt_pack_context = undefined;
-            const r0 = c.stbtt_PackBegin(&pack_context, @ptrCast([*c]u8, atlas),
-                                         @intCast(i32, font_atlas_size_default * atlas_scale),
-                                         @intCast(i32, font_atlas_size_default * atlas_scale), 0, 1, null);
+            const r0 = c.stbtt_PackBegin(&pack_context, @ptrCast(atlas),
+                                         @intCast(font_atlas_size_default * atlas_scale),
+                                         @intCast(font_atlas_size_default * atlas_scale), 0, 1, null);
             if (r0 == 0) {
                 fm_log.debug("Could not pack font with texture size {}, trying larger texture size.",
                              .{font_atlas_size_default * atlas_scale});
                 atlas_done = false;
             } else {
                 c.stbtt_PackSetOversampling(&pack_context, 1, 1);
-                const r1 = c.stbtt_PackFontRange(&pack_context, @ptrCast([*c]u8, fonts_map.get(font_name).?),
+                const r1 = c.stbtt_PackFontRange(&pack_context, @ptrCast(fonts_map.get(font_name).?),
                                                  0, font_size, ascii_first, ascii_nr,
-                                                 @ptrCast([*c]c.stbtt_packedchar, font_char_info_by_id.get(tex_id).?));
+                                                 @ptrCast(font_char_info_by_id.get(tex_id).?));
                 if (r1 == 0) {
                     fm_log.debug("Could not pack font with texture size {}, trying texture size {}.",
                                  .{font_atlas_size_default * atlas_scale,
@@ -389,8 +389,8 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                         .{font_atlas_size_default * atlas_scale});
             return error.FontRasterisingFailed;
         } else {
-            gfx_impl.createTextureAlpha(font_atlas_size_default * @intCast(u32, atlas_scale),
-                                        font_atlas_size_default * @intCast(u32, atlas_scale),
+            gfx_impl.createTextureAlpha(font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
+                                        font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
                                         font_atlas_by_id.get(tex_id).?, tex_id);
 
             const t = std.time.Timer.start() catch |err| {
@@ -496,7 +496,7 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
                 offset_x = 0.0;
                 offset_y += current.font_size;
             }
-            c.stbtt_GetPackedQuad(@ptrCast([*c]c.stbtt_packedchar, current.char_info),
+            c.stbtt_GetPackedQuad(@ptrCast(current.char_info),
                                   current.atlas_size, current.atlas_size,
                                   ch - ascii_first,
                                   &offset_x, &offset_y, &glyph_quad, 0);
@@ -571,7 +571,7 @@ fn findCandidateForAutoRemoval() u32 {
         }
     }
     fm_log.debug("Candidate found with maximum idle time t = {d:.2}s",
-                 .{1.0e-9 * @intToFloat(f64, t_max_idle)});
+                 .{1.0e-9 * @as(f64, @floatFromInt(t_max_idle))});
     return tex_id_max_idle;
 }
 

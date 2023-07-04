@@ -32,7 +32,7 @@ pub fn PerFrameTimerBuffered(comptime buffer_size: usize) type {
                 for (self.buf[0..self.count_buf-1]) |entry| {
                     sum += entry;
                 }
-                return (@intToFloat(f64, sum) / @intToFloat(f64, self.count_buf) * 1.0e-6);
+                return (@as(f64, @floatFromInt(sum)) / @as(f64, @floatFromInt(self.count_buf)) * 1.0e-6);
             } else {
                 return 0.0;
             }
@@ -40,7 +40,7 @@ pub fn PerFrameTimerBuffered(comptime buffer_size: usize) type {
 
         /// Return the average time since initialisation in milliseconds
         pub fn getAvgAllMs(self: Self) f64 {
-            return (@intToFloat(f64, self.sum_all) / @intToFloat(f64, self.count_all) * 1.0e-6);
+            return (@as(f64, @floatFromInt(self.sum_all)) / @as(f64, @floatFromInt(self.count_all)) * 1.0e-6);
         }
 
         /// (Re-)start the timer, typically done in each frame of measurement

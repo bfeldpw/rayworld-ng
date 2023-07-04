@@ -40,7 +40,7 @@ pub fn deinit() void {
     objs.deinit(allocator);
 
     const leaked = gpa.deinit();
-    if (leaked) log_sim.err("Memory leaked in GeneralPurposeAllocator", .{});
+    if (leaked == .leak) log_sim.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -50,8 +50,8 @@ pub fn deinit() void {
 pub fn createScene() !void {
 
     if (is_map_displayed) {
-        const win_w = @intToFloat(f32, gfx.getWindowWidth());
-        const win_h = @intToFloat(f32, gfx.getWindowHeight());
+        const win_w: f32 = @floatFromInt(gfx.getWindowWidth());
+        const win_h: f32 = @floatFromInt(gfx.getWindowHeight());
 
         var hook: vec_2d = .{0.0, 0.0};
         var zoom_x2: vec_2d = @splat(2, cam.zoom);
@@ -72,10 +72,10 @@ pub fn createScene() !void {
                                          .col = .{1.0, 0.5, 0.0, 0.3}};
         try gui.drawOverlay(&map_overlay);
 
-        gfx.setViewport(@floatToInt(u64, map_overlay.ll_x + map_overlay.frame[0]),
-                        @floatToInt(u64, map_overlay.ll_y + map_overlay.frame[3]),
-                        @floatToInt(u64, map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
-                        @floatToInt(u64, map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
+        gfx.setViewport(@intFromFloat(map_overlay.ll_x + map_overlay.frame[0]),
+                        @intFromFloat(map_overlay.ll_y + map_overlay.frame[3]),
+                        @intFromFloat(map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
+                        @intFromFloat(map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
 
         gfx.startBatchQuads();
 
@@ -83,30 +83,30 @@ pub fn createScene() !void {
 
             var i: usize = 2;
             while (i < objs.len) : (i += 1) {
-                const o = @max(@floatCast(f32, objs.items(.radius)[i]) * cam.zoom, 1.5);
+                const o = @max(@as(f32, @floatCast(objs.items(.radius)[i])) * cam.zoom, 1.5);
                 const p = (objs.items(.pos)[i] + cam.p - hook) * zoom_x2 + win_center;
 
-                gfx.addQuad(@floatCast(f32, p[0])-o, @floatCast(f32, p[1])-o,
-                            @floatCast(f32, p[0])+o, @floatCast(f32, p[1])+o);
+                gfx.addQuad(@floatCast(p[0]-o), @floatCast(p[1]-o),
+                            @floatCast(p[0]+o), @floatCast(p[1]+o));
             }
 
             gfx.setColor4(1.0, 0.1, 0.0, 0.8);
 
             // The station
-            const s_o = @max(@floatCast(f32, objs.items(.radius)[1]) * cam.zoom, 2.0);
+            const s_o = @max(@as(f32, @floatCast(objs.items(.radius)[1])) * cam.zoom, 2.0);
             const s_p = (objs.items(.pos)[1] + cam.p - hook) * zoom_x2 + win_center;
 
-            gfx.addQuad(@floatCast(f32, s_p[0])-s_o, @floatCast(f32, s_p[1])-s_o,
-                        @floatCast(f32, s_p[0])+s_o, @floatCast(f32, s_p[1])+s_o);
+            gfx.addQuad(@floatCast(s_p[0]-s_o), @floatCast(s_p[1]-s_o),
+                        @floatCast(s_p[0]+s_o), @floatCast(s_p[1]+s_o));
 
         gfx.endBatch();
 
         // The planet
         const c_p = (objs.items(.pos)[0] + cam.p - hook) * zoom_x2 + win_center;
-        const c_r = cam.zoom * @floatCast(f32, objs.items(.radius)[0]);
+        const c_r = cam.zoom * @as(f32, @floatCast(objs.items(.radius)[0]));
         gfx.setColor4(1.0, 0.6, 0.0, 0.8);
         gfx.setLineWidth(4.0);
-        gfx.drawCircle(@floatCast(f32, c_p[0]), @floatCast(f32, c_p[1]), c_r);
+        gfx.drawCircle(@floatCast(c_p[0]), @floatCast(c_p[1]), c_r);
         gfx.setLineWidth(1.0);
 
         gfx.setViewportFull();
@@ -237,14 +237,14 @@ pub const timing = struct {
     pub fn decreaseFpsTarget() void {
         if (fps_target > 100.0) {
             fps_target -= 100.0;
-            frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
+            frame_time = @intFromFloat(1.0/fps_target*1.0e9);
             log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
         }
     }
 
     pub fn increaseFpsTarget() void {
         fps_target += 100.0;
-        frame_time = @floatToInt(u64, 1.0/fps_target*1.0e9);
+        frame_time = @intFromFloat(1.0/fps_target*1.0e9);
         log_sim.info("Simulation rate at {d:.2}x @{d:.0}Hz", .{acceleration, fps_target});
     }
 
@@ -261,7 +261,7 @@ pub const timing = struct {
     var acceleration: f32 = 1.0;
     var fps_base: f32 = 100.0;
     var fps_target: f32 = 100.0;
-    var frame_time = @floatToInt(u64, 1.0/cfg.sim.fps_target*1.0e9);
+    var frame_time: u64 = @intFromFloat(1.0/cfg.sim.fps_target*1.0e9);
     var is_paused = false;
 };
 

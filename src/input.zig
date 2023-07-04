@@ -53,7 +53,7 @@ pub fn processInputs(frequency: f32) void {
 //-----------------------------------------------------------------------------//
 
 pub inline fn getCursorPos(x: *f64, y: *f64) void {
-    c.glfwGetCursorPos(window, @ptrCast([*c]f64, x), @ptrCast([*c]f64, y));
+    c.glfwGetCursorPos(window, @ptrCast(x), @ptrCast(y));
 }
 
 pub inline fn isMouseButtonLeftPressed() bool {
@@ -120,8 +120,8 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
         rw_gui.toggleEditMode();
         is_edit_mode_enabled = is_edit_mode_enabled != true;
         if (is_edit_mode_enabled) {
-            _ = c.glfwSetCursorPos(window, @intToFloat(f64, gfx.getWindowWidth()/2),
-                                           @intToFloat(f64, gfx.getWindowHeight()/2));
+            _ = c.glfwSetCursorPos(window, @floatFromInt(gfx.getWindowWidth()/2),
+                                           @floatFromInt(gfx.getWindowHeight()/2));
         } else {
             _ = c.glfwSetCursorPos(window, 0.0, 0.0);
         }
@@ -139,16 +139,18 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
         var cur_y: f64 = 0.0;
         const c_x: [*c]f64 = &cur_x;
         const c_y: [*c]f64 = &cur_y;
+        const w: f64 = @floatFromInt(gfx.getWindowWidth());
+        const h: f64 = @floatFromInt(gfx.getWindowHeight());
         c.glfwGetCursorPos(window, c_x, c_y);
         if (c_x.* < 0.0) c_x.* = 0.0;
         if (c_y.* < 0.0) c_y.* = 0.0;
-        if (c_x.* > @intToFloat(f64, gfx.getWindowWidth())) c_x.* = @intToFloat(f64, gfx.getWindowWidth());
-        if (c_y.* > @intToFloat(f64, gfx.getWindowHeight())) c_y.* = @intToFloat(f64, gfx.getWindowHeight());
+        if (c_x.* > w) c_x.* = w;
+        if (c_y.* > h) c_y.* = h;
         c.glfwSetCursorPos(window, cur_x, cur_y);
     } else {
         log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
-        plr.turn(-@floatCast(f32, x)*0.001);
-        plr.lookUpDown(@floatCast(f32, y)*0.001);
+        plr.turn(@floatCast(x * -0.001));
+        plr.lookUpDown(@floatCast(y * 0.001));
 
         _ = c.glfwSetCursorPos(window, 0.0, 0.0);
     }
@@ -157,6 +159,6 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
 fn processScrollEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     _ = win;
     // _ = x;
-    mouse_state.wheel = @floatCast(f32, y);
+    mouse_state.wheel = @floatCast(y);
     log_input.debug("Mouse scroll event, offset: {d:.0}, {d:.0}", .{x, y});
 }
