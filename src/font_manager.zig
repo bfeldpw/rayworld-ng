@@ -157,7 +157,7 @@ pub fn getTextSizeLineMono(text: []const u8) FontError!TextSize {
     var height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     b = current.char_info[text[0] - ascii_first];
-    length = b.xadvance * @as(f32, text.len);
+    length = b.xadvance * @as(f32, @floatFromInt(text.len));
 
     return .{.w=length, .h=height};
 }
