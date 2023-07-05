@@ -173,6 +173,7 @@ pub fn createScene() void {
 
                 var prev = &previous[depth_layer];
 
+                // Flat shading component on a per-ray basis
                 const col_amb: f32 = cfg.gfx.ambient_normal_shading;
                 var col_norm: f32 = col_amb;
                 var u_of_uv: f32 = 0;
@@ -191,16 +192,25 @@ pub fn createScene() void {
                         }
                     }
                 } else {
+                    // Flat shading for pillars
                     const p_x = segments.x1[k] - @as(f32, @floatFromInt(m_x));
                     const p_y = segments.y1[k] - @as(f32, @floatFromInt(m_y));
-                    const dir_x = p_x - map.getPillar(m_y, m_x).center_x;
-                    const dir_y = p_y - map.getPillar(m_y, m_x).center_y;
-                    var angle = std.math.atan2(f32, dir_y, dir_x);
-                    if (angle < 0) angle += 2.0 * std.math.pi;
-                    if (angle > 2.0 * std.math.pi) angle -= 2.0 * std.math.pi;
+                    // Norm vector:
+                    const n_x = p_x - map.getPillar(m_y, m_x).center_x;
+                    const n_y = p_y - map.getPillar(m_y, m_x).center_y;
+                    // Colliding ray vector:
+                    const r_x= segments.x1[k] - segments.x0[k];
+                    const r_y= segments.y1[k] - segments.y0[k];
+
+                    var ang_n = std.math.atan2(f32, n_y, n_x);
+                    if (ang_n < 0) ang_n += 2.0 * std.math.pi;
+                    if (ang_n > 2.0 * std.math.pi) ang_n -= 2.0 * std.math.pi;
+                    var ang_r = std.math.atan2(f32, r_y, r_x);
+                    if (ang_r < 0) ang_r += 2.0 * std.math.pi;
+                    if (ang_r > 2.0 * std.math.pi) ang_r -= 2.0 * std.math.pi;
                     const circ = 2.0 * std.math.pi;
-                    u_of_uv = 1.0 - angle / circ;
-                    col_norm += (1.0 - col_amb) * std.math.fabs(@cos(angle - ang_0 - plr.getDir()));
+                    u_of_uv = 1.0 - ang_n / circ;
+                    col_norm += (1.0 - col_amb) * std.math.fabs(@cos(ang_n - ang_r));
                 }
 
                 const col = map.getColor(m_y, m_x);
