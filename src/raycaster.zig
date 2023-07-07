@@ -550,7 +550,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
         // React to cell type
         switch (m_v) {
             .floor => {
-                if (map.get()[@intFromFloat(plr.getPosX())][@intFromFloat(plr.getPosY())] == .wall_thin) {
+                if (map.get()[@intFromFloat(plr.getPosY())][@intFromFloat(plr.getPosX())] == .wall_thin) {
                 // if (contact_status.cell_type_prev == .wall_thin) {
                     contact_status = resolveContactWallThin(&d_x, &d_y, &s_x, &s_y, m_x, m_y,
                                                             r_i, &contact_axis, refl_lim, d_x0, d_y0);
