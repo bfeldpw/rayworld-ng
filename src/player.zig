@@ -8,9 +8,13 @@ const map = @import("map.zig");
 pub fn move(m: f32) void {
     const p_x = pos_x + m * @cos(dir);
     const p_y = pos_y + m * @sin(dir);
-    if (!isColliding(p_x, p_y)) {
+    if (!isColliding(p_x, p_y, pos_x, pos_y)) {
         pos_x = p_x;
         pos_y = p_y;
+    } else if (@fabs(m) > 0.05)
+    {
+        log_plr.info("Sub stepping", .{});
+        move(m * 0.9);
     }
 }
 
@@ -21,7 +25,7 @@ pub fn moveUpDown(m: f32) void {
 pub fn strafe(m: f32) void {
     const p_x = pos_x + m * @sin(dir);
     const p_y = pos_y - m * @cos(dir);
-    if (!isColliding(p_x, p_y)) {
+    if (!isColliding(p_x, p_y, pos_x, pos_y)) {
         pos_x = p_x;
         pos_y = p_y;
     }
@@ -104,7 +108,8 @@ var pos_y: f32 = 2.5;
 var pos_z: f32 = 0.3;
 var tilt: f32 = 0.0;
 
-fn isColliding(x: f32, y: f32) bool {
+fn isColliding(x: f32, y: f32, x0: f32, y0: f32) bool {
+
     const map_x: u32 = @intFromFloat(x / map.getResolution());
     const map_y: u32 = @intFromFloat(y / map.getResolution());
 
@@ -115,11 +120,27 @@ fn isColliding(x: f32, y: f32) bool {
     if (map_v == .wall_thin) {
         const wt = map.getWallThin(map_y, map_x);
         if (wt.axis == .x) {
+            const y_c0 = y0 - @trunc(y0) + (@trunc(y0) - @trunc(y));
+            // const y_c0 = y0 - @trunc(y0);
             const y_c = y - @trunc(y);
-            if (y_c < wt.from or y_c > wt.to) return false;
+            if ((y_c < wt.from and y_c0 < wt.from) or
+                (y_c > wt.to and y_c0 > wt.to)) return false;
+            if ((y_c < wt.from and y_c0 > wt.to) or
+                (y_c > wt.to and y_c0 < wt.from)) {
+                log_plr.info("in between", .{});
+                return true;
+            }
         } else { // if (wt.axis == .y)
+            const x_c0 = x0 - @trunc(x0) + (@trunc(x0) - @trunc(x));
+            // const x_c0 = x0 - @trunc(x0);
             const x_c = x - @trunc(x);
-            if (x_c < wt.from or x_c > wt.to) return false;
+            if ((x_c < wt.from and x_c0 < wt.from) or
+                (x_c > wt.to and  x_c0 > wt.to)) return false;
+            if ((x_c < wt.from and x_c0 > wt.to) or
+                (x_c > wt.to and x_c0 < wt.from)) {
+                log_plr.info("in between", .{});
+                return true;
+            }
         }
     }
     if (map_v != .floor) {
