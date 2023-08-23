@@ -11,9 +11,7 @@ pub fn move(m: f32) void {
     if (!isColliding(p_x, p_y, pos_x, pos_y)) {
         pos_x = p_x;
         pos_y = p_y;
-    } else if (@fabs(m) > 0.05)
-    {
-        log_plr.info("Sub stepping", .{});
+    } else if (@fabs(m) > 0.05) {
         move(m * 0.9);
     }
 }
@@ -103,6 +101,7 @@ const log_plr = std.log.scoped(.plr);
 
 var fov = std.math.degreesToRadians(f32, 90.0);
 var dir: f32 = 0.0;
+var radius: f32 = 0.25;
 var pos_x: f32 = 2.5;
 var pos_y: f32 = 2.5;
 var pos_z: f32 = 0.3;
@@ -123,22 +122,20 @@ fn isColliding(x: f32, y: f32, x0: f32, y0: f32) bool {
             const y_c0 = y0 - @trunc(y0) + (@trunc(y0) - @trunc(y));
             // const y_c0 = y0 - @trunc(y0);
             const y_c = y - @trunc(y);
-            if ((y_c < wt.from and y_c0 < wt.from) or
-                (y_c > wt.to and y_c0 > wt.to)) return false;
+            if ((y_c + radius < wt.from and y_c0 + radius < wt.from) or
+                (y_c > wt.to + radius and y_c0 > wt.to + radius)) return false;
             if ((y_c < wt.from and y_c0 > wt.to) or
                 (y_c > wt.to and y_c0 < wt.from)) {
-                log_plr.info("in between", .{});
                 return true;
             }
         } else { // if (wt.axis == .y)
             const x_c0 = x0 - @trunc(x0) + (@trunc(x0) - @trunc(x));
             // const x_c0 = x0 - @trunc(x0);
             const x_c = x - @trunc(x);
-            if ((x_c < wt.from and x_c0 < wt.from) or
-                (x_c > wt.to and  x_c0 > wt.to)) return false;
+            if ((x_c + radius < wt.from and x_c0 + radius < wt.from) or
+                (x_c > wt.to + radius and  x_c0 > wt.to + radius)) return false;
             if ((x_c < wt.from and x_c0 > wt.to) or
                 (x_c > wt.to and x_c0 < wt.from)) {
-                log_plr.info("in between", .{});
                 return true;
             }
         }
