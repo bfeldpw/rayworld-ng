@@ -14,16 +14,25 @@ pub fn build(b: *std.Build) void {
     const zstbi_pkg = zstbi.package(b, target, optimize, .{});
     zstbi_pkg.link(exe);
 
-    exe.addIncludePath("src");
-    exe.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
+    exe.addIncludePath(.{.path = "src"});
+    exe.addCSourceFile(.{
+        .file = .{ .path = "src/stb_implementation.c" },
+        .flags = &.{
+            "-std=c99",
+            "-fno-sanitize=undefined",
+            "-g",
+            "-O0",
+        },
+    });
     exe.linkLibC();
     exe.linkSystemLibrary("gl");
+    exe.linkSystemLibrary("glew");
     exe.linkSystemLibrary("glfw");
     if (optimize == std.builtin.Mode.ReleaseSafe) {
         exe.strip = true;
     }
     b.installArtifact(exe);
-    exe.emit_docs = .emit;
+    // exe.emit_docs = .emit;
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -41,12 +50,21 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    unit_tests.addIncludePath("src");
-    unit_tests.addCSourceFile("src/stb_implementation.c", &[_][]u8{""});
+    unit_tests.addIncludePath(.{.path = "src"});
+    unit_tests.addCSourceFile(.{
+        .file = .{ .path = "src/stb_implementation.c" },
+        .flags = &.{
+            "-std=c99",
+            "-fno-sanitize=undefined",
+            "-g",
+            "-O0",
+        },
+    });
     unit_tests.linkLibC();
     unit_tests.linkSystemLibrary("gl");
+    unit_tests.linkSystemLibrary("glew");
     unit_tests.linkSystemLibrary("glfw");
-    unit_tests.addModule("zstbi", zstbi_pkg.zstbi);
+    // unit_tests.addModule("zstbi", zstbi_pkg.zstbi);
     zstbi_pkg.link(unit_tests);
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
