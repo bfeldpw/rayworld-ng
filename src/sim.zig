@@ -54,7 +54,7 @@ pub fn createScene() !void {
         const win_h: f32 = @floatFromInt(gfx.getWindowHeight());
 
         var hook: vec_2d = .{0.0, 0.0};
-        var zoom_x2: vec_2d = @splat(2, cam.zoom);
+        var zoom_x2: vec_2d = @splat(cam.zoom);
         var win_center: vec_2d = .{win_w * 0.5, win_h * 0.5};
 
         if (cam.station_hook) {
@@ -139,23 +139,23 @@ pub fn run() !void {
 }
 
 pub fn step() void {
-    const dt = @splat(2, @as(f64, timing.acceleration/timing.fps_base));
+    const dt: vec_2d = @splat(@as(f64, timing.acceleration/timing.fps_base));
 
     var i: usize = 1;
     while (i < objs.len) : (i += 1) {
         const d = objs.items(.pos)[0]-objs.items(.pos)[i];
         const r_sqr = @reduce(.Add, d*d); // = d[0]*d[0] + d[1]*d[1]
         const r = @sqrt(r_sqr);
-        const r_x2 = @splat(2, r);
+        const r_x2: vec_2d = @splat(r);
         const m = objs.items(.mass)[0];
         const a = gravitational_constant * m / r_sqr;
-        const a_x2 = @splat(2, a);
+        const a_x2: vec_2d = @splat(a);
         const e_0 = d / r_x2;
         objs.items(.acc)[i] = e_0 * a_x2;
     }
     // if (cfg.sim.scenario == .falling_station) {
         var drag: f64 = -1.0e-5;
-        objs.items(.acc)[1] += @splat(2, drag) * objs.items(.vel)[1];
+    objs.items(.acc)[1] += @as(vec_2d, @splat(drag)) * objs.items(.vel)[1];
     // }
 
     i = 0;
