@@ -11,7 +11,7 @@ pub fn move(m: f32) void {
     if (!isColliding(p_x, p_y, pos_x, pos_y)) {
         pos_x = p_x;
         pos_y = p_y;
-    } else if (@fabs(m) > 0.05) {
+    } else if (@abs(m) > 0.05) {
         move(m * 0.9);
     }
 }

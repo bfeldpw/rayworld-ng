@@ -180,13 +180,13 @@ pub fn createScene() void {
                 if (cell_type != .pillar and cell_type != .pillar_glass) {
                     if (segments.contact_axis[k] == .x) {
                         u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
-                        col_norm += (1.0 - col_amb) * std.math.fabs(@sin(ang_0 + plr.getDir()));
+                        col_norm += (1.0 - col_amb) * @abs(@sin(ang_0 + plr.getDir()));
                         if (segments.y0[k] < segments.y1[k]) {
                             u_of_uv = 1 - u_of_uv;
                         }
                     } else {
                         u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
-                        col_norm += (1.0 - col_amb) * std.math.fabs(@cos(ang_0 + plr.getDir()));
+                        col_norm += (1.0 - col_amb) * @abs(@cos(ang_0 + plr.getDir()));
                         if (segments.x0[k] > segments.x1[k]) {
                             u_of_uv = 1 - u_of_uv;
                         }
@@ -210,7 +210,7 @@ pub fn createScene() void {
                     if (ang_r > 2.0 * std.math.pi) ang_r -= 2.0 * std.math.pi;
                     const circ = 2.0 * std.math.pi;
                     u_of_uv = 1.0 - ang_n / circ;
-                    col_norm += (1.0 - col_amb) * std.math.fabs(@cos(ang_n - ang_r));
+                    col_norm += (1.0 - col_amb) * @abs(@cos(ang_n - ang_r));
                 }
 
                 const col = map.getColor(m_y, m_x);
@@ -230,8 +230,8 @@ pub fn createScene() void {
 
                 // Handle special cases of subsampling
                 var is_new = true;
-                const abs_x = std.math.absCast(@as(i16, @intCast(m_x)) - @as(i16, @intCast(prev.m_x)));
-                const abs_y = std.math.absCast(@as(i16, @intCast(m_y)) - @as(i16, @intCast(prev.m_y)));
+                const abs_x = @abs(@as(i16, @intCast(m_x)) - @as(i16, @intCast(prev.m_x)));
+                const abs_y = @abs(@as(i16, @intCast(m_y)) - @as(i16, @intCast(prev.m_y)));
                 const axis = segments.contact_axis[k];
                 if (axis == .x and abs_x < 2 and m_y == prev.m_y) is_new = false;
                 if (axis == .y and abs_y < 2 and m_x == prev.m_x) is_new = false;
@@ -526,7 +526,7 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
     var sign_y: f32 = 1;
 
     var a: Axis = .y; // primary axis for stepping
-    if (@fabs(d_x) > @fabs(d_y)) a = .x;
+    if (@abs(d_x) > @abs(d_y)) a = .x;
     if (d_x < 0) sign_x = -1;
     if (d_y < 0) sign_y = -1;
 
@@ -596,26 +596,26 @@ inline fn advanceToNextCell(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, o_x: *f3
     }
 
     if (axis.* == .x) {
-        if (@fabs(d_x.* * g_x) < @fabs(d_y.*)) {
+        if (@abs(d_x.* * g_x) < @abs(d_y.*)) {
             s_x.* += d_x.*;
-            s_y.* += @fabs(d_x.* * g_x) * sign_y.*;
+            s_y.* += @abs(d_x.* * g_x) * sign_y.*;
             if (sign_x.* == -1) o_x.* = -0.5;
             contact_axis.* = .y;
         } else {
-            s_x.* += @fabs(d_y.* * g_y) * sign_x.*;
+            s_x.* += @abs(d_y.* * g_y) * sign_x.*;
             s_y.* += d_y.*;
             if (sign_y.* == -1) o_y.* = -0.5;
             contact_axis.* = .x;
         }
     } else { // (axis.* == .y)
-        if (@fabs(d_y.* * g_y) < @fabs(d_x.*)) {
-            s_x.* += @fabs(d_y.* * g_y) * sign_x.*;
+        if (@abs(d_y.* * g_y) < @abs(d_x.*)) {
+            s_x.* += @abs(d_y.* * g_y) * sign_x.*;
             s_y.* += d_y.*;
             if (sign_y.* == -1) o_y.* = -0.5;
             contact_axis.* = .x;
         } else {
             s_x.* += d_x.*;
-            s_y.* += @fabs(d_x.* * g_x) * sign_y.*;
+            s_y.* += @abs(d_x.* * g_x) * sign_y.*;
             if (sign_x.* == -1) o_x.* = -0.5;
             contact_axis.* = .y;
         }
@@ -632,7 +632,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev
         const n = 1.0 / n_prev.*;
         const refl = std.math.asin(@as(f32, n));
         if (contact_axis == .x) {
-            const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+            const alpha = std.math.atan2(f32, @abs(d_x0), @abs(d_y0));
             // total inner reflection?
             if (alpha > refl) {
                 d_y.* = -d_y0;
@@ -652,7 +652,7 @@ inline fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev
                 ctp = .floor;
             }
         } else { // contact_axis == .y
-            const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+            const alpha = std.math.atan2(f32, @abs(d_y0), @abs(d_x0));
             // total inner reflection?
             if (alpha > refl) {
                 d_y.* = d_y0;
@@ -716,7 +716,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
             } else if (c_y < from and d_y0 > 0.0) {
                 // c_yw: contact y on wall within cell
                 const c_yw = (from - c_y) * d_x0 / d_y0;
-                if (@fabs(c_yw) >= 0.0 and @fabs(c_yw) <= 1.0) {
+                if (@abs(c_yw) >= 0.0 and @abs(c_yw) <= 1.0) {
                     s_x.* += c_yw;
                     s_y.* += from - c_y;
                     d_x.* = d_x0 + scatter * scatter_f;
@@ -727,7 +727,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
             } else if (c_y > to and d_y0 < 0.0) {
                 // c_yw: contact y on wall within cell
                 const c_yw = (c_y - to) * d_x0 / d_y0;
-                if (@fabs(c_yw) >= 0.0 and @fabs(c_yw) <= 1.0) {
+                if (@abs(c_yw) >= 0.0 and @abs(c_yw) <= 1.0) {
                     s_x.* -= c_yw;
                     s_y.* -= c_y - to;
                     d_x.* = d_x0 + scatter * scatter_f;
@@ -772,7 +772,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
             } else if (c_x < from and d_x0 > 0.0) {
                 // c_xw: contact x on wall within cell
                 const c_xw = (from - c_x) * d_y0 / d_x0;
-                if (@fabs(c_xw) >= 0.0 and @fabs(c_xw) <= 1.0) {
+                if (@abs(c_xw) >= 0.0 and @abs(c_xw) <= 1.0) {
                     s_x.* += from - c_x;
                     s_y.* += c_xw;
                     d_x.* = -d_x0;
@@ -783,7 +783,7 @@ inline fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x
             } else if (c_x > to and d_x0 < 0.0) {
                 // c_xw: contact x on wall within cell
                 const c_xw = (c_x - to) * d_y0 / d_x0;
-                if (@fabs(c_xw) >= 0.0 and @fabs(c_xw) <= 1.0) {
+                if (@abs(c_xw) >= 0.0 and @abs(c_xw) <= 1.0) {
                     s_x.* -= c_x - to;
                     s_y.* -= c_xw;
                     d_x.* = -d_x0;
@@ -846,7 +846,7 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_
 
     if (n != 1.0) {
         if (contact_axis == .x) {
-            const alpha = std.math.atan2(f32, @fabs(d_x0), @fabs(d_y0));
+            const alpha = std.math.atan2(f32, @abs(d_x0), @abs(d_y0));
             const r = @sin(alpha) / n;
             if (r > 1.0) {
                 d_x.* =  d_x0;
@@ -859,7 +859,7 @@ inline fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_
                 if (d_y0 < 0) d_y.* = -d_y.*;
             }
         } else { // contact_axis == .y
-            const alpha = std.math.atan2(f32, @fabs(d_y0), @fabs(d_x0));
+            const alpha = std.math.atan2(f32, @abs(d_y0), @abs(d_x0));
             const r = @sin(alpha) / n;
             if (r > 1.0) {
                 d_x.* = -d_x0;
