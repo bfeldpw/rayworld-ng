@@ -1,16 +1,12 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
+const gfx_core = @import("gfx_core.zig");
 const stats = @import("stats.zig");
 
 //-----------------------------------------------------------------------------//
 //   Error Sets
 //-----------------------------------------------------------------------------//
-
-const GraphicsError = error{
-    GLFWFailed,
-    OpenGLFailed,
-};
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
@@ -18,22 +14,25 @@ const GraphicsError = error{
 
 /// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
-    try initGLFW();
-    try initOpenGL();
+
+
+    vbo = try gfx_core.createVBO();
+    vao = try gfx_core.createVAO();
+    try initShaders();
     try allocMemory();
 
-    var value_quads = quads.getPtr(1);
-    if (value_quads) |val| {
-        for (&val.i_verts) |*v| {
-            v.* = 0;
-        }
-        for (&val.i_cols) |*v| {
-            v.* = 0;
-        }
-        for (&val.n) |*v| {
-            v.* = 0;
-        }
-    }
+    // var value_quads = quads.getPtr(1);
+    // if (value_quads) |val| {
+    //     for (&val.i_verts) |*v| {
+    //         v.* = 0;
+    //     }
+    //     for (&val.i_cols) |*v| {
+    //         v.* = 0;
+    //     }
+    //     for (&val.n) |*v| {
+    //         v.* = 0;
+    //     }
+    // }
 }
 
 pub fn deinit() void {
@@ -41,10 +40,6 @@ pub fn deinit() void {
     quad_statistics.printStats();
     quad_tex_statistics.printStats();
 
-    c.glfwDestroyWindow(window);
-    log_gfx.info("Destroying window", .{});
-    c.glfwTerminate();
-    log_gfx.info("Terminating glfw", .{});
 
     freeMemory();
 
@@ -52,239 +47,153 @@ pub fn deinit() void {
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
 
+pub fn initShaders() !void {
+    log_gfx.info("Preparing shaders", .{});
+
+    shader_program = try gfx_core.createShaderProgramFromFiles(
+        "/home/bfeld/projects/rayworld-ng/resource/shader/base.vert",
+        "/home/bfeld/projects/rayworld-ng/resource/shader/base.frag");
+}
+
 //-----------------------------------------------------------------------------//
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
-
-pub inline fn getAspect() f32 {
-    return aspect;
-}
-
-pub inline fn getFPS() f32 {
-    return fps;
-}
-
-pub fn getTextureId() u32 {
-    var tex_id: c.GLuint = 0;
-    c.glGenTextures(1, &tex_id);
-
-    return @intCast(tex_id);
-}
-
-/// Get the active glfw window
-pub inline fn getWindow() ?*c.GLFWwindow {
-    return window;
-}
-
-pub inline fn getWindowHeight() u64 {
-    return window_h;
-}
-
-pub inline fn getWindowWidth() u64 {
-    return window_w;
-}
-
-pub fn enableTexturing() void {
-    if (!state.is_texturing_enabled) {
-        c.glEnable(c.GL_TEXTURE_2D);
-        state.is_texturing_enabled = true;
-    }
-}
-
-pub fn disableTexturing() void {
-    if (state.is_texturing_enabled) {
-        c.glDisable(c.GL_TEXTURE_2D);
-        state.is_texturing_enabled = false;
-    }
-}
-
-pub fn bindTexture(tex_id: u32) void {
-    if (state.bound_texture != tex_id) {
-        c.glActiveTexture(c.GL_TEXTURE0);
-        c.glBindTexture(c.GL_TEXTURE_2D, @intCast(tex_id));
-        state.bound_texture = tex_id;
-    }
-}
-
-pub fn setColor4(r: f32, g: f32, b: f32, a: f32) void {
-    c.glColor4f(r, g, b, a);
-}
-
-/// Set the frequency of the main loop
-pub fn setFpsTarget(f: f32) void {
-    if (f > 0.0) {
-        frame_time = @intFromFloat(1.0 / f * 1.0e9);
-        log_gfx.info("Setting graphics frequency target to {d:.1} Hz", .{f});
-    } else {
-        log_gfx.warn("Invalid frequency, defaulting to 60Hz", .{});
-        frame_time = 16_666_667;
-    }
-}
-
-pub inline fn setLineWidth(w: f32) void {
-    if (w != state.line_width) {
-        c.glLineWidth(w);
-        state.line_width = w;
-    }
-}
-
-pub inline fn setViewport(x: u64, y: u64, w: u64, h: u64) void {
-    c.glViewport(@intCast(x), @intCast(y),
-                 @intCast(w), @intCast(h));
-}
-
-pub inline fn setViewportFull() void {
-    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
-}
 
 //-----------------------------------------------------------------------------//
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn createTexture1C(w: u32, h: u32, data: []u8, tex_id: u32) void {
-    c.glBindTexture(c.GL_TEXTURE_2D, @intCast(tex_id));
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_ALPHA8,
-                   @intCast(w), @intCast(h), 0,
-                   c.GL_ALPHA, c.GL_UNSIGNED_BYTE, @ptrCast(data));
-    c.glBindTexture(c.GL_TEXTURE_2D, tex_id);
-
-    log_gfx.debug("Texture generated with ID={}", .{tex_id});
-}
-
-pub fn releaseTexture(tex_id: u32) void {
-    log_gfx.debug("Releasing texture with ID={}", .{tex_id});
-    c.glDeleteTextures(1, &tex_id);
-}
-
-pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
-    var tex: c.GLuint = 0;
-    c.glGenTextures(1, &tex);
-    c.glBindTexture(c.GL_TEXTURE_2D, tex);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @intCast(w), @intCast(h), 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(data));
-    c.glBindTexture(c.GL_TEXTURE_2D, tex);
-
-    log_gfx.debug("Texture generated with ID={}", .{tex});
-
-    const t = @as(u32, tex);
-    quads_textured.put(t, .{ .verts = undefined, .cols = undefined, .texcs = undefined, .i_verts = undefined, .i_cols = undefined, .i_texcs = undefined, .n = undefined }) catch |e| {
-        log_gfx.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer quads_textured.deinit();
-
-    var value_quads_textured = quads_textured.getPtr(t);
-    if (value_quads_textured) |val| {
-        for (&val.i_verts) |*v| {
-            v.* = 0;
-        }
-        for (&val.i_cols) |*v| {
-            v.* = 0;
-        }
-        for (&val.i_texcs) |*v| {
-            v.* = 0;
-        }
-        for (&val.n) |*v| {
-            v.* = 0;
-        }
-    }
-    return t;
-}
 
 pub fn startBatchLine() void {
-    disableTexturing();
-    c.glBegin(c.GL_LINES);
+    gfx_core.disableTexturing()();
+    // c.glBegin(c.GL_LINES);
 }
 
 pub fn startBatchLineTextured() void {
-    enableTexturing();
-    c.glBegin(c.GL_LINES);
+    gfx_core.enableTexturing();
+    // c.glBegin(c.GL_LINES);
 }
 
 pub fn startBatchQuads() void {
-    disableTexturing();
-    c.glBegin(c.GL_QUADS);
+    gfx_core.disableTexturing();
+    // c.glBegin(c.GL_QUADS);
 }
 
 pub fn startBatchQuadsTextured() void {
-    enableTexturing();
-    c.glBegin(c.GL_QUADS);
+    gfx_core.disableTexturing()();
+    // c.glBegin(c.GL_QUADS);
 }
 
 pub fn drawCircle(x: f32, y: f32, r: f32) void {
+    _ = r;
+    _ = y;
+    _ = x;
     const nr_of_segments = 100.0;
 
-    disableTexturing();
-    c.glBegin(c.GL_LINE_LOOP);
+    gfx_core.disableTexturing();
+    // c.glBegin(c.GL_LINE_LOOP);
     var angle: f32 = 0.0;
     const inc = 2.0 * std.math.pi / nr_of_segments;
     while (angle < 2.0 * std.math.pi) : (angle += inc) {
-        c.glVertex2f(r * @cos(angle) + x, r * @sin(angle) + y);
+        // c.glVertex2f(r * @cos(angle) + x, r * @sin(angle) + y);
     }
-    c.glEnd();
+    // c.glEnd();
 }
 
 pub fn drawLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
-    disableTexturing();
-    c.glBegin(c.GL_LINES);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y1);
-    c.glEnd();
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    gfx_core.disableTexturing();
+    // c.glBegin(c.GL_LINES);
+    // c.glVertex2f(x0, y0);
+    // c.glVertex2f(x1, y1);
+    // c.glEnd();
 }
 
 pub fn drawQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
-    disableTexturing();
-    c.glBegin(c.GL_QUADS);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x0, y1);
-    c.glEnd();
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    // disableTexturing();
+    // c.glBegin(c.GL_QUADS);
+    // c.glVertex2f(x0, y0);
+    // c.glVertex2f(x1, y0);
+    // c.glVertex2f(x1, y1);
+    // c.glVertex2f(x0, y1);
+    // c.glEnd();
 }
 
 pub fn drawQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
                         u_0: f32, v0: f32, u_1: f32, v1: f32) void {
-    enableTexturing();
-    c.glBegin(c.GL_QUADS);
-    c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
-    c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
-    c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
-    c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
-    c.glEnd();
+    _ = v1;
+    _ = u_1;
+    _ = v0;
+    _ = u_0;
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    gfx_core.enableTexturing();
+    // c.glBegin(c.GL_QUADS);
+    // c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
+    // c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
+    // c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
+    // c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
+    // c.glEnd();
 }
 
 pub fn drawTriangle(x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
-    disableTexturing();
-    c.glBegin(c.GL_TRIANGLES);
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x2, y2);
-    c.glEnd();
+    _ = y2;
+    _ = x2;
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    gfx_core.disableTexturing();
+    // c.glBegin(c.GL_TRIANGLES);
+    // c.glVertex2f(x0, y0);
+    // c.glVertex2f(x1, y1);
+    // c.glVertex2f(x2, y2);
+    // c.glEnd();
 }
 
 pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32) void {
-    c.glVertex3f(x0, y0, 1);
-    c.glVertex3f(x1, y1, 1);
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    // c.glVertex3f(x0, y0, 1);
+    // c.glVertex3f(x1, y1, 1);
 }
 
 pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32) void {
-    c.glVertex2f(x0, y0);
-    c.glVertex2f(x1, y0);
-    c.glVertex2f(x1, y1);
-    c.glVertex2f(x0, y1);
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    // c.glVertex2f(x0, y0);
+    // c.glVertex2f(x1, y0);
+    // c.glVertex2f(x1, y1);
+    // c.glVertex2f(x0, y1);
 }
 
 pub fn addQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
                        u_0: f32, v0: f32, u_1: f32, v1: f32) void {
-    c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
-    c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
-    c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
-    c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
+    _ = v1;
+    _ = u_1;
+    _ = v0;
+    _ = u_0;
+    _ = y1;
+    _ = x1;
+    _ = y0;
+    _ = x0;
+    // c.glTexCoord2f(u_0, v0); c.glVertex2f(x0, y0);
+    // c.glTexCoord2f(u_1, v0); c.glVertex2f(x1, y0);
+    // c.glTexCoord2f(u_1, v1); c.glVertex2f(x1, y1);
+    // c.glTexCoord2f(u_0, v1); c.glVertex2f(x0, y1);
 }
 
 pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
@@ -498,69 +407,29 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
 }
 
 pub fn endBatch() void {
-    c.glEnd();
+    // c.glEnd();
 }
 
 pub fn endBatchTextured() void {
-    c.glEnd();
-}
-
-pub fn finishFrame() !void {
-    c.glfwSwapBuffers(window);
-    c.glClear(c.GL_COLOR_BUFFER_BIT);
-
-    // Sleep if time step (frame_time) is lower than that of the targeted
-    // frequency. Make sure not to have a negative sleep for high frame
-    // times.
-    const t = timer_main.read();
-
-    fps_stable_count += 1;
-    var t_s = frame_time - @as(i64, @intCast(t));
-    if (t_s < 0) {
-        t_s = 0;
-        // log_gfx.debug("Frequency target could not be reached", .{});
-        fps_drop_count += 1;
-        fps_stable_count = 0;
-        if (fps_drop_count > 10) {
-            fps_drop_count = 0;
-            is_sleep_enabled = false;
-            log_gfx.info("Too many fps drops, disabling sleep, frequency target no longer valid", .{});
-        }
-    }
-    if (fps_stable_count > 100) {
-        fps_drop_count = 0;
-        fps_stable_count = 0;
-        if (!is_sleep_enabled) {
-            is_sleep_enabled = true;
-            log_gfx.info("Fps stable, enabling sleep, frequency target is valid", .{});
-        }
-    }
-
-    if (is_sleep_enabled) {
-        std.time.sleep(@intCast(t_s));
-        fps = 1e6 / @as(f32, @floatFromInt(@divTrunc(frame_time, 1_000)));
-    } else {
-        fps = 1e6 / @as(f32, @floatFromInt(t / 1000));
-    }
-    timer_main.reset();
+    // c.glEnd();
 }
 
 pub fn renderFrame() !void {
     var iter = depth_levels_active.iterator(.{});
     while (iter.next()) |d| {
-        c.glEnableClientState(c.GL_VERTEX_ARRAY);
-        c.glEnableClientState(c.GL_COLOR_ARRAY);
-        c.glEnableClientState(c.GL_TEXTURE_COORD_ARRAY);
-        c.glEnable(c.GL_TEXTURE_2D);
+    //     c.glEnableClientState(c.GL_VERTEX_ARRAY);
+    //     c.glEnableClientState(c.GL_COLOR_ARRAY);
+    //     c.glEnableClientState(c.GL_TEXTURE_COORD_ARRAY);
+    //     c.glEnable(c.GL_TEXTURE_2D);
         var iter_quad_tex = quads_textured.iterator();
         while (iter_quad_tex.next()) |v| {
             if (v.value_ptr.n[d] > 0) {
-                bindTexture(v.key_ptr.*);
-                c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.verts[d]));
-                c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.cols[d]));
-                c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.texcs[d]));
-                c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.value_ptr.n[d]));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    //             bindTexture(v.key_ptr.*);
+    //             c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.verts[d]));
+    //             c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.cols[d]));
+    //             c.glTexCoordPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.value_ptr.texcs[d]));
+    //             c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.value_ptr.n[d]));
+    //             if (!glCheckError()) return GraphicsError.OpenGLFailed;
                 v.value_ptr.i_verts[d] = 0;
                 v.value_ptr.i_cols[d] = 0;
                 v.value_ptr.i_texcs[d] = 0;
@@ -568,22 +437,22 @@ pub fn renderFrame() !void {
                 draw_call_statistics.inc();
             }
         }
-        c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
-        c.glDisable(c.GL_TEXTURE_2D);
+    //     c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
+    //     c.glDisable(c.GL_TEXTURE_2D);
         var value_quads = quads.getPtr(1);
         if (value_quads) |v| {
-            c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.verts[d]));
-            c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.cols[d]));
-            c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.n[d]));
-            if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    //         c.glVertexPointer(2, c.GL_FLOAT, 0, @ptrCast(&v.verts[d]));
+    //         c.glColorPointer(4, c.GL_FLOAT, 0, @ptrCast(&v.cols[d]));
+    //         c.glDrawArrays(c.GL_QUADS, 0, @intCast(v.n[d]));
+    //         if (!glCheckError()) return GraphicsError.OpenGLFailed;
             v.i_verts[d] = 0;
             v.i_cols[d] = 0;
             v.n[d] = 0;
             draw_call_statistics.inc();
         }
-        c.glDisableClientState(c.GL_VERTEX_ARRAY);
-        c.glDisableClientState(c.GL_COLOR_ARRAY);
-        c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
+    //     c.glDisableClientState(c.GL_VERTEX_ARRAY);
+    //     c.glDisableClientState(c.GL_COLOR_ARRAY);
+    //     c.glDisableClientState(c.GL_TEXTURE_COORD_ARRAY);
     }
     const r = std.bit_set.Range{ .start = 0, .end = depth_levels - 1 };
     depth_levels_active.setRangeValue(r, false);
@@ -591,14 +460,22 @@ pub fn renderFrame() !void {
     draw_call_statistics.finishFrame();
     quad_statistics.finishFrame();
     quad_tex_statistics.finishFrame();
-}
 
-pub fn isWindowOpen() bool {
-    if (c.glfwWindowShouldClose(window) == c.GLFW_TRUE) {
-        return false;
-    } else {
-        return true;
-    }
+    try gfx_core.useShaderProgram(shader_program);
+    try gfx_core.bindVAO(vao);
+
+    const verts = [9]f32 {
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.0,  0.5, 0.0,
+    };
+    try gfx_core.bindVBO(vbo);
+    c.__glewBufferData.?(c.GL_ARRAY_BUFFER, 9*@sizeOf(f32), &verts, c.GL_STATIC_DRAW);
+    c.__glewVertexAttribPointer.?(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), null);
+    c.__glewEnableVertexAttribArray.?(0);
+
+    c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
+
 }
 
 //-----------------------------------------------------------------------------//
@@ -610,16 +487,7 @@ const log_gfx = std.log.scoped(.gfx);
 var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
-var window: ?*c.GLFWwindow = null;
-var window_w: u64 = 640; // Window width
-var window_h: u64 = 480; // Window height
-var aspect: f32 = 640 / 480;
 var frame_time: i64 = @intFromFloat(1.0 / 5.0 * 1.0e9);
-var timer_main: std.time.Timer = undefined;
-var is_sleep_enabled: bool = true;
-var fps_drop_count: u16 = 0;
-var fps_stable_count: u64 = 0;
-var fps: f32 = 60;
 
 var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
 var quad_statistics = stats.PerFrameCounter.init("Quads");
@@ -653,12 +521,6 @@ const TexturedQuads = struct {
 var quads = std.AutoHashMap(u8, Quads).init(allocator);
 var quads_textured = std.AutoHashMap(u32, TexturedQuads).init(allocator);
 
-const state = struct {
-    var bound_texture: u32 = 0;
-    var is_texturing_enabled: bool = false;
-    var line_width: f32 = 1.0;
-};
-
 fn allocMemory() !void {
     quads.put(1, .{ .verts = undefined, .cols = undefined, .i_verts = undefined, .i_cols = undefined, .n = undefined }) catch |e| {
         log_gfx.err("Allocation error ", .{});
@@ -671,98 +533,11 @@ fn freeMemory() void {
     quads_textured.deinit();
 }
 
-fn glCheckError() bool {
-    const code = c.glGetError();
-    if (code != c.GL_NO_ERROR) {
-        log_gfx.err("GL error code {}", .{code});
-        return false;
-    }
-    return true;
-}
-
-fn glfwCheckError() bool {
-    const code = c.glfwGetError(null);
-    if (code != c.GLFW_NO_ERROR) {
-        log_gfx.err("GLFW error code {}", .{code});
-        return false;
-    }
-    return true;
-}
-
-fn initGLFW() !void {
-    log_gfx.info("Initialising GLFW", .{});
-    var glfw_error: bool = false;
-
-    const r = c.glfwInit();
-
-    if (r == c.GLFW_FALSE) {
-        glfw_error = glfwCheckError();
-        return GraphicsError.GLFWFailed;
-    }
-    errdefer c.glfwTerminate();
-
-    window = c.glfwCreateWindow(@intCast(window_w), @intCast(window_h), "rayworld-ng", null, null);
-    if (!glfwCheckError()) return GraphicsError.GLFWFailed;
-    errdefer c.glfwDestroyWindow(window);
-
-    aspect = @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(window_h));
-
-    c.glfwMakeContextCurrent(window);
-    if (!glfwCheckError()) return GraphicsError.GLFWFailed;
-
-    c.glfwSwapInterval(0);
-    if (!glfwCheckError()) return GraphicsError.GLFWFailed;
-
-    _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
-    if (!glfwCheckError()) return GraphicsError.GLFWFailed;
-}
-
-fn initOpenGL() !void {
-    log_gfx.info("Initialising OpenGL ", .{});
-    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-
-    c.glMatrixMode(c.GL_PROJECTION);
-    c.glLoadIdentity();
-    c.glOrtho(0, @floatFromInt(window_w), @floatFromInt(window_h), 0, -1, 20);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-
-    c.glEnable(c.GL_BLEND);
-    c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
-
-    // c.glTexEnvf(c.GL_TEXTURE_ENV, c.GL_TEXTURE_ENV_MODE, c.GL_ADD);
-}
-
-fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C) void {
-    log_gfx.debug("Resize triggered by callback", .{});
-    log_gfx.info("Setting window size to {}x{}.", .{ w, h });
-    _ = win;
-    window_w = @intCast(w);
-    window_h = @intCast(h);
-    aspect = @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(window_h));
-    c.glViewport(0, 0, w, h);
-    c.glMatrixMode(c.GL_PROJECTION);
-    c.glLoadIdentity();
-    c.glOrtho(0, @floatFromInt(w), @floatFromInt(h), 0, -1, 20);
-
-    // Callback can't return Zig-Error
-    if (!glCheckError()) {
-        log_gfx.err("Error resizing window ({}x{})", .{ w, h });
-    }
-}
+var shader_program: u32 = 0;
+var vao: u32 = 0;
+var vbo: u32 = 0;
 
 //-----------------------------------------------------------------------------//
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "set_frequency_invalid_expected" {
-    setFpsTarget(0);
-    try std.testing.expectEqual(frame_time, @as(i64, 16_666_667));
-}
-
-test "set_frequency" {
-    setFpsTarget(40);
-    try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
-    setFpsTarget(100);
-    try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
-}

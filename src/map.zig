@@ -1,6 +1,6 @@
 const std = @import("std");
 const cfg = @import("config.zig");
-const gfx = @import("graphics.zig");
+const gfx_core = @import("gfx_core.zig");
 const img = @import("image_loader.zig");
 
 pub const CellType = enum {
@@ -317,7 +317,7 @@ fn fillMap() !void {
                     map_current.i_glass[j][i] = 0;
                     map_current.i_pillar[j][i] = 2; // only relevant for glass_pillar
                     map_current.i_reflection[j][i] = 1;
-                    map_current.i_texture[j][i] = 1;
+                    map_current.i_texture[j][i] = 0;
                     map_current.i_wall[j][i] = 0;
                 },
                 .pillar => {
@@ -358,7 +358,10 @@ fn loadResources() !void {
 
     {
         const image = try img.loadImage("resource/metal_01_1024x2048_bfeld.jpg");
-        const tex = try gfx.createTexture(image.width, image.height, image.data);
+        // const image = try img.loadImage("resource/finnish-grey-brick-13-stretcher-900-mm-architextures.jpg");
+        // const image = try img.loadImage("resource/wildtextures_medival-metal-doors.jpg");
+        // const image = try img.loadImage("resource/wildtextures-brushed-metal-shets.jpg");
+        const tex = try gfx_core.createTexture(image.width, image.height, image.data);
         attribute_components.texture.items[1].id = tex;
         attribute_components.canvas.items[0].tex_id = tex;
         attribute_components.canvas.items[1].tex_id = tex;
@@ -368,14 +371,14 @@ fn loadResources() !void {
     }
     {
         const image = try img.loadImage("resource/metal_01-1_1024x2048_bfeld.jpg");
-        const tex = try gfx.createTexture(image.width, image.height, image.data);
+        const tex = try gfx_core.createTexture(image.width, image.height, image.data);
         attribute_components.texture.items[2].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
     }
     {
         const image = try img.loadImage("resource/metal_01-2_1024x2048_bfeld.jpg");
-        const tex = try gfx.createTexture(image.width, image.height, image.data);
+        const tex = try gfx_core.createTexture(image.width, image.height, image.data);
         attribute_components.texture.items[3].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();

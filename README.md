@@ -82,7 +82,7 @@ Figure 2 shows an enlarged version of a similar scene as seen in Figure 1 to dem
 
 ## Installation and dependencies
 
-Zig seems to be very handy when it comes to cross compiling. I only tried within Linux, GLFW3 and thus, OpenGL have to be installed.
+Zig seems to be very handy when it comes to cross compiling. I only tried within Linux, GLFW3, GLEW and thus, OpenGL have to be installed.
 
 <!-- ## Performance measurements -->
 

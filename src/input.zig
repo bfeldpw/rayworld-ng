@@ -1,6 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
-const gfx = @import("graphics.zig");
+const gfx_core = @import("gfx_core.zig");
 const plr = @import("player.zig");
 const rw_gui = @import("rw_gui.zig");
 const sim = @import("sim.zig");
@@ -120,8 +120,8 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
         rw_gui.toggleEditMode();
         is_edit_mode_enabled = is_edit_mode_enabled != true;
         if (is_edit_mode_enabled) {
-            _ = c.glfwSetCursorPos(window, @floatFromInt(gfx.getWindowWidth()/2),
-                                           @floatFromInt(gfx.getWindowHeight()/2));
+            _ = c.glfwSetCursorPos(window, @floatFromInt(gfx_core.getWindowWidth()/2),
+                                           @floatFromInt(gfx_core.getWindowHeight()/2));
         } else {
             _ = c.glfwSetCursorPos(window, 0.0, 0.0);
         }
@@ -139,8 +139,8 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
         var cur_y: f64 = 0.0;
         const c_x: [*c]f64 = &cur_x;
         const c_y: [*c]f64 = &cur_y;
-        const w: f64 = @floatFromInt(gfx.getWindowWidth());
-        const h: f64 = @floatFromInt(gfx.getWindowHeight());
+        const w: f64 = @floatFromInt(gfx_core.getWindowWidth());
+        const h: f64 = @floatFromInt(gfx_core.getWindowHeight());
         c.glfwGetCursorPos(window, c_x, c_y);
         if (c_x.* < 0.0) c_x.* = 0.0;
         if (c_y.* < 0.0) c_y.* = 0.0;

@@ -1,5 +1,6 @@
 const std = @import("std");
 const cfg = @import("config.zig");
+const gfx_core = @import("gfx_core.zig");
 const gfx = @import("graphics.zig");
 const gui = @import("gui.zig");
 const stats = @import("stats.zig");
@@ -50,8 +51,8 @@ pub fn deinit() void {
 pub fn createScene() !void {
 
     if (is_map_displayed) {
-        const win_w: f32 = @floatFromInt(gfx.getWindowWidth());
-        const win_h: f32 = @floatFromInt(gfx.getWindowHeight());
+        const win_w: f32 = @floatFromInt(gfx_core.getWindowWidth());
+        const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
 
         var hook: vec_2d = .{0.0, 0.0};
         var zoom_x2: vec_2d = @splat(cam.zoom);
@@ -72,10 +73,10 @@ pub fn createScene() !void {
                                          .col = .{1.0, 0.5, 0.0, 0.3}};
         try gui.drawOverlay(&map_overlay);
 
-        gfx.setViewport(@intFromFloat(map_overlay.ll_x + map_overlay.frame[0]),
-                        @intFromFloat(map_overlay.ll_y + map_overlay.frame[3]),
-                        @intFromFloat(map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
-                        @intFromFloat(map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
+        gfx_core.setViewport(@intFromFloat(map_overlay.ll_x + map_overlay.frame[0]),
+                             @intFromFloat(map_overlay.ll_y + map_overlay.frame[3]),
+                             @intFromFloat(map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
+                             @intFromFloat(map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
 
         gfx.startBatchQuads();
 
@@ -179,19 +180,19 @@ pub fn stop() void {
 }
 
 pub inline fn moveMapLeft() void {
-    cam.p[0] += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[0] += 10.0 / cam.zoom * 60.0 / gfx_core.getFPS();
 }
 
 pub inline fn moveMapRight() void {
-    cam.p[0] -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[0] -= 10.0 / cam.zoom * 60.0 / gfx_core.getFPS();
 }
 
 pub inline fn moveMapUp() void {
-    cam.p[1] += 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[1] += 10.0 / cam.zoom * 60.0 / gfx_core.getFPS();
 }
 
 pub inline fn moveMapDown() void {
-    cam.p[1] -= 10.0 / cam.zoom * 60.0 / gfx.getFPS();
+    cam.p[1] -= 10.0 / cam.zoom * 60.0 / gfx_core.getFPS();
 }
 
 pub inline fn toggleMap() void {
@@ -207,11 +208,11 @@ pub inline fn toggleStationHook() void {
 }
 
 pub inline fn zoomInMap() void {
-    cam.zoom *= 1.0 + 0.1 * 60.0 / gfx.getFPS();
+    cam.zoom *= 1.0 + 0.1 * 60.0 / gfx_core.getFPS();
 }
 
 pub inline fn zoomOutMap() void {
-    cam.zoom *= 1.0 - 0.1 * 60.0 / gfx.getFPS();
+    cam.zoom *= 1.0 - 0.1 * 60.0 / gfx_core.getFPS();
 }
 
 pub const timing = struct {
