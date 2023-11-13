@@ -32,7 +32,12 @@ pub fn build(b: *std.Build) void {
         exe.strip = true;
     }
     b.installArtifact(exe);
-    // exe.emit_docs = .emit;
+
+    // b.installDirectory(.{
+    //     .source_dir = exe.getEmittedDocs(),
+    //     .install_dir = .prefix,
+    //     .install_subdir = "doc",
+    // });
 
     const exe_gl_test = b.addExecutable(.{
         .name = "gl_test",

@@ -9,7 +9,7 @@ const sim = @import("sim.zig");
 //   Init / DeInit
 //-----------------------------------------------------------------------------//
 
-pub fn init() void {
+pub fn init() !void {
     // ToDo: errors need to be handled
     _ = c.glfwSetCursorPosCallback(window, processMouseMoveEvent);
     _ = glfwCheckError();
@@ -20,6 +20,8 @@ pub fn init() void {
     _ = c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
     _ = glfwCheckError();
     _ = c.glfwSetCursorPos(window, 0.0, 0.0);
+
+    try gfx_core.addWindowResizeCallback(&handleWindowResize);
 }
 
 //-----------------------------------------------------------------------------//
@@ -149,16 +151,28 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
         c.glfwSetCursorPos(window, cur_x, cur_y);
     } else {
         log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
-        plr.turn(@floatCast(x * -0.001));
-        plr.lookUpDown(@floatCast(y * 0.001));
 
+        // prevent jumping player orientation on window resize
+        if (!is_resized) {
+            plr.turn(@floatCast(x * -0.001));
+            plr.lookUpDown(@floatCast(y * 0.001));
+        }
+        is_resized = false;
         _ = c.glfwSetCursorPos(window, 0.0, 0.0);
     }
 }
+
+var is_resized = false;
 
 fn processScrollEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     _ = win;
     // _ = x;
     mouse_state.wheel = @floatCast(y);
     log_input.debug("Mouse scroll event, offset: {d:.0}, {d:.0}", .{x, y});
+}
+
+fn  handleWindowResize(w: u64, h: u64) void {
+    // prevent jumping player orientation on window resize
+    is_resized = true;
+    log_input.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
 }

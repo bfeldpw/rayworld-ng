@@ -14,10 +14,10 @@ const stats = @import("stats.zig");
 
 /// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
+    vao_0 = try gfx_core.createVAO();
     ebo = try gfx_core.createBuffer();
     vbo_0 = try gfx_core.createBuffer();
     // vbo_1 = try gfx_core.createVBO();
-    vao_0 = try gfx_core.createVAO();
     // vao_1 = try gfx_core.createVAO();
     try initShaders();
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
@@ -34,8 +34,8 @@ pub fn init() !void {
         ebo_buf.appendAssumeCapacity(1 + 4 * i);
         ebo_buf.appendAssumeCapacity(2 + 4 * i);
         ebo_buf.appendAssumeCapacity(2 + 4 * i);
-        ebo_buf.appendAssumeCapacity(1 + 4 * i);
         ebo_buf.appendAssumeCapacity(3 + 4 * i);
+        ebo_buf.appendAssumeCapacity(0 + 4 * i);
     }
     try gfx_core.bindEBOAndBufferData(ebo, buffer_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
@@ -74,6 +74,7 @@ pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f3
     _ = b;
     _ = g;
     _ = r;
+    log_gfx.debug("Test", .{});
     // buffer.appendAssumeCapacity(x0);
     // buffer.appendAssumeCapacity(y0);
     // buffer.appendAssumeCapacity(x1);
@@ -97,14 +98,10 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
     buffer.appendAssumeCapacity(y0);
     buffer.appendAssumeCapacity(x1);
     buffer.appendAssumeCapacity(y1);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y1);
     buffer.appendAssumeCapacity(x1);
     buffer.appendAssumeCapacity(y2);
+    buffer.appendAssumeCapacity(x0);
+    buffer.appendAssumeCapacity(y3);
 }
 
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
@@ -117,14 +114,10 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32, r:
     buffer.appendAssumeCapacity(y0);
     buffer.appendAssumeCapacity(x1);
     buffer.appendAssumeCapacity(y1);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y1);
     buffer.appendAssumeCapacity(x1);
     buffer.appendAssumeCapacity(y2);
+    buffer.appendAssumeCapacity(x0);
+    buffer.appendAssumeCapacity(y3);
 }
 
 //-----------------------------------------------------------------------------//
@@ -136,19 +129,24 @@ pub fn renderFrame() !void {
     try gfx_core.useShaderProgram(shader_program);
 
     try gfx_core.bindVAO(vao_0);
-    try gfx_core.bindVBOAndBufferSubData(.Array, 0, vbo_0, @intCast(buffer.items.len), buffer.items);
-    // log_gfx.debug("buffer {} on {}", .{buffer.items.len, vbo_0});
+    try gfx_core.bindBuffer(.Element, ebo);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buffer.items.len), buffer.items);
     try gfx_core.setVertexAttributeMode(.Pxy);
 
     // try gfx_core.bindVAO(vao_1);
     // try gfx_core.bindVBO(.Array, vbo_1);
-    try gfx_core.drawArrays(.Triangles, 0, @as(i32, @intCast(buffer.items.len)));
+    // try gfx_core.drawArrays(.Triangles, 0, @as(i32, @intCast(buffer.items.len)));
+
+    // Draw based on indices. Buffers accumulate 2d vertices, which is 8 values per
+    // vertical polygon (4 vertices x,y). Drawing triangles, this is 6 indices
     // log_gfx.debug("draw {} on {}", .{buffer_len_prev, vbo_1});
+    try gfx_core.drawElements(.Triangles, @intCast(buffer.items.len*6/8));
     // try gfx_core.drawArrays(.Triangles, 0, buffer_len_prev);
     // std.mem.swap(u32, &vbo_0, &vbo_1);
     // std.mem.swap(u32, &vao_0, &vao_1);
+    // try gfx_core.bindVAO(0);
 
-    buffer_len_prev = @intCast(buffer.items.len);
+    // buffer_len_prev = @intCast(buffer.items.len);
     // log_gfx.debug("store {}", .{buffer_len_prev});
     buffer.clearRetainingCapacity();
     // log_gfx.debug("-------- reset -------", .{});
@@ -181,8 +179,8 @@ fn  handleWindowResize(w: u64, h: u64) void {
     // (simple ortho projection, therefore, no explicit matrix)
     const w_r = 2.0/@as(f32, @floatFromInt(w));
     const h_r = 2.0/@as(f32, @floatFromInt(h));
-    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
-    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
+    const o_w = @as(f32, @floatFromInt(w/2));
+    const o_h = @as(f32, @floatFromInt(h/2));
     gfx_core.setUniform4f(shader_program, "t", w_r, h_r, o_w, o_h) catch |e| {
         log_gfx.err("{}", .{e});
     };

@@ -154,34 +154,48 @@ pub fn bindVAO(vao: u32) !void {
     }
 }
 
-pub fn bindVBO(target: BufferTarget, vbo: u32) !void {
+pub fn bindBuffer(target: BufferTarget, vbo: u32) !void {
+    c.__glewBindBuffer.?(@intFromEnum(target), vbo);
+    state.bound_vbo = vbo;
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
+pub fn bindEBO(ebo: u32) !void {
+    if (ebo != state.bound_ebo) {
+        c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, ebo);
+        state.bound_ebo = ebo;
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    }
+}
+
+pub fn bindVBO(vbo: u32) !void {
     if (vbo != state.bound_vbo) {
-        c.__glewBindBuffer.?(@intFromEnum(target), vbo);
+        c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, vbo);
         state.bound_vbo = vbo;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
     }
 }
 
 pub fn bindEBOAndBufferData(ebo: u32, n: u32, data: []u32, mode: DrawMode) !void {
-    try bindVBO(.Element, ebo);
+    try bindEBO(ebo);
     c.__glewBufferData.?(c.GL_ELEMENT_ARRAY_BUFFER, n*@sizeOf(u32), @ptrCast(data), @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn bindVBOAndBufferData(target: BufferTarget, vbo: u32, n: u32, data: []f32, mode: DrawMode) !void {
-    try bindVBO(target, vbo);
-    c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(f32), @ptrCast(data), @intFromEnum(mode));
+pub fn bindVBOAndBufferData(vbo: u32, n: u32, data: []f32, mode: DrawMode) !void {
+    try bindVBO(vbo);
+    c.__glewBufferData.?(c.GL_ARRAY_BUFFER, n*@sizeOf(f32), @ptrCast(data), @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn bindVBOAndBufferSubData(target: BufferTarget, offset: u32, vbo: u32, n: u32, data: []f32) !void {
-    try bindVBO(target, vbo);
-    c.__glewBufferSubData.?(@intFromEnum(target), offset, n*@sizeOf(f32), @ptrCast(data));
+pub fn bindVBOAndBufferSubData(offset: u32, vbo: u32, n: u32, data: []f32) !void {
+    try bindVBO(vbo);
+    c.__glewBufferSubData.?(c.GL_ARRAY_BUFFER, offset, n*@sizeOf(f32), @ptrCast(data));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
 pub fn bindVBOAndReserveBuffer(target: BufferTarget, vbo: u32, n: u32, mode: DrawMode) !void {
-    try bindVBO(target, vbo);
+    try bindBuffer(target, vbo);
     c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(f32), null, @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
@@ -222,6 +236,11 @@ pub fn createVAO() !u32 {
 
 pub fn drawArrays(mode: PrimitiveMode, offset: i32, elements: i32) !void {
     c.glDrawArrays(@intFromEnum(mode), offset, elements);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
+pub fn drawElements(mode: PrimitiveMode, n: i32) !void {
+    c.glDrawElements(@intFromEnum(mode), n, c.GL_UNSIGNED_INT, null);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
@@ -435,6 +454,7 @@ const shader_ids = std.ArrayList(u8).init(allocator);
 
 const state = struct {
     var active_shader_program: u32 = 0;
+    var bound_ebo: u32 = 0;
     var bound_vao: u32 = 0;
     var bound_vbo: u32 = 0;
     var bound_texture: u32 = 0;
@@ -522,7 +542,10 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     window_h = @intCast(h);
     aspect = @as(f32, @floatFromInt(window_w)) / @as(f32, @floatFromInt(window_h));
 
-    window_resize_callbacks.items[0](window_w, window_h);
+    var i: u32 = 0;
+    while (i < window_resize_callbacks.items.len) : (i += 1) {
+        window_resize_callbacks.items[i](window_w, window_h);
+    }
 
     // Callback can't return Zig-Error
     setViewport(0, 0, window_w, window_h) catch |e| {

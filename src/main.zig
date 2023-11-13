@@ -38,7 +38,7 @@ pub fn main() !void {
 
     gfx_core.setFpsTarget(cfg.gfx.fps_target);
     input.setWindow(gfx_core.getWindow());
-    input.init();
+    try input.init();
 
     //--------------
     //   Load map
