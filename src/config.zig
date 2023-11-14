@@ -5,7 +5,7 @@ pub const multithreading = true;
 /// Globally turn on the General Purpose Allocators (GPAs)
 /// verbose output
 pub const debug_allocator = false;
-pub const sub_sampling_base = 2;
+pub const sub_sampling_base = 4;
 pub const sub_sampling_blocky = false;
 
 pub const fnt = struct {

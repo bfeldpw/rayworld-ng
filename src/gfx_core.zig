@@ -17,7 +17,8 @@ const GraphicsError = error{
 
 const AttributeMode = enum {
     None,
-    Pxy
+    Pxy,
+    PxyCrgba
 };
 
 const BufferTarget = enum(c_uint) {
@@ -134,10 +135,25 @@ pub fn setViewportFull() void {
 
 pub fn setVertexAttributeMode(m: AttributeMode) !void {
     if (m != state.vertex_attribute_mode) {
-        c.__glewEnableVertexAttribArray.?(0);
-        if (!glCheckError()) return GraphicsError.OpenGLFailed;
-        c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), null);
-        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        switch (m) {
+            .Pxy => {
+                c.__glewEnableVertexAttribArray.?(0);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), null);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            },
+            .PxyCrgba => {
+                c.__glewEnableVertexAttribArray.?(0);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), null);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewEnableVertexAttribArray.?(1);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            },
+            else => {}
+        }
         state.vertex_attribute_mode = m;
     }
 }
@@ -210,14 +226,21 @@ pub fn createBuffer() !u32 {
 }
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
     _ = data;
-    _ = h;
-    _ = w;
+
     var tex: u32 = 0;
     c.glGenTextures(1, &tex);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
-    log_gfx.debug("Vertex array object (VAO) generated, id={}", .{tex});
+    log_gfx.debug("Texture generated, id={}, size={}x{}", .{tex, w, h});
     return tex;
 }
 
@@ -303,6 +326,14 @@ pub fn deleteShaderObject(id: u32) !void {
     c.__glewDeleteShader.?(id);
     if (!glCheckError()) {
         log_gfx.err("Unabale to delete shader object, id={d}", .{id});
+        return GraphicsError.OpenGLFailed;
+    }
+}
+
+pub fn deleteShaderProgram(id: u32) !void {
+    c.__glewDeleteProgram.?(id);
+    if (!glCheckError()) {
+        log_gfx.err("Unabale to delete shader program, id={d}", .{id});
         return GraphicsError.OpenGLFailed;
     }
 }

@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("c.zig").c;
 const gfx_core = @import("gfx_core.zig");
+const gfx_rw = @import("gfx_rw.zig");
 const plr = @import("player.zig");
 const rw_gui = @import("rw_gui.zig");
 const sim = @import("sim.zig");
@@ -127,6 +128,11 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
         } else {
             _ = c.glfwSetCursorPos(window, 0.0, 0.0);
         }
+    }
+    if (key == c.GLFW_KEY_R and action == c.GLFW_PRESS) {
+        gfx_rw.reloadShaders() catch |e| {
+            log_input.err("Unable to reload shaders: {}", .{e});
+        };
     }
     if (key == c.GLFW_KEY_H and action == c.GLFW_PRESS) sim.toggleStationHook();
     if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
