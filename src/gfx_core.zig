@@ -340,6 +340,8 @@ pub fn deleteShaderProgram(id: u32) !void {
 
 pub fn loadAndCompileShader(file_name: []const u8, t: ShaderType) !u32 {
     var shader_src: []u8 = undefined;
+    errdefer allocator.free(shader_src);
+
     try loadShader(file_name, &shader_src);
 
     const id = try compileShader(shader_src, @intFromEnum(t));

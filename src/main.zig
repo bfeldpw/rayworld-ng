@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
@@ -81,6 +82,13 @@ pub fn main() !void {
 
     // if (cfg.multithreading) sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
 
+
+    if (builtin.os.tag == .linux) {
+        const gfx_hsr= @import("gfx_hsr.zig");
+        var hsr_thread: std.Thread = undefined;
+        if (cfg.multithreading) hsr_thread = try std.Thread.spawn(.{}, gfx_hsr.readEvent, .{});
+    }
+
     while (gfx_core.isWindowOpen()) {
 
         prf_in.start();
@@ -138,6 +146,13 @@ pub fn main() !void {
         prf_fps.stop();
         prf_fps.start();
 
+        if (builtin.os.tag == .linux) {
+            const gfx_hsr = @import("gfx_hsr.zig");
+            if (gfx_hsr.is_reload_triggered.value) {
+                try gfx.reloadShaders();
+                gfx_hsr.is_reload_triggered.value = false;
+            }
+        }
     }
 
     // sim.stop();

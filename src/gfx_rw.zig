@@ -4,6 +4,8 @@ const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 const stats = @import("stats.zig");
 
+const builtin = @import("builtin");
+
 //-----------------------------------------------------------------------------//
 //   Error Sets
 //-----------------------------------------------------------------------------//
@@ -39,6 +41,11 @@ pub fn init() !void {
     }
     try gfx_core.bindEBOAndBufferData(ebo, buffer_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
+
+    if (builtin.os.tag == .linux) {
+        const gfx_hsr= @import("gfx_hsr.zig");
+        gfx_hsr.init();
+    }
 }
 
 pub fn deinit() void {
@@ -151,9 +158,14 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32, r:
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
-    const sp = try gfx_core.createShaderProgramFromFiles(
+    const sp = gfx_core.createShaderProgramFromFiles(
         "/home/bfeld/projects/rayworld-ng/resource/shader/base.vert",
-        "/home/bfeld/projects/rayworld-ng/resource/shader/base.frag");
+        "/home/bfeld/projects/rayworld-ng/resource/shader/base.frag") catch |e| {
+
+        log_gfx.err("Error reloading shaders: {}", .{e});
+        return;
+    };
+
     try gfx_core.deleteShaderProgram(shader_program);
     shader_program = sp;
 
