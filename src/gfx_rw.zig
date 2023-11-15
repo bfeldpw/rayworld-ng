@@ -41,11 +41,6 @@ pub fn init() !void {
     }
     try gfx_core.bindEBOAndBufferData(ebo, buffer_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
-
-    if (builtin.os.tag == .linux) {
-        const gfx_hsr= @import("gfx_hsr.zig");
-        gfx_hsr.init();
-    }
 }
 
 pub fn deinit() void {

@@ -27,18 +27,24 @@ pub fn init() void {
 
 }
 
+pub fn rmWatch() void {
+    const r = lnx.inotify_rm_watch(fd, wd);
+    _ = r;
+}
+
 pub fn readEvent() void {
     log_gfx_hsr.debug("Watching directory for hot shader reload", .{});
 
     const event_size = (@sizeOf(lnx.inotify_event) + std.os.PATH_MAX) * 10;
     var buf: [event_size]u8 = undefined;
 
-    while (true) {
+    while (is_running) {
         const len = lnx.read(fd, &buf, event_size);
         _ = len;
         log_gfx_hsr.debug("Shader file(s) modified", .{});
         is_reload_triggered.value = true;
     }
+    log_gfx_hsr.debug("Stopping file watch", .{});
 }
 
 //-----------------------------------------------------------------------------//
@@ -48,6 +54,7 @@ pub fn readEvent() void {
 const log_gfx_hsr = std.log.scoped(.gfx_hsr);
 
 pub var is_reload_triggered = std.atomic.Atomic(bool).init(false);
+pub var is_running: bool = true;
 
 var fd: i32 = 0;
 var wd: i32 = 0;
