@@ -33,79 +33,90 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-// pub fn createMap() void {
-//     const m = map.get();
-//     const map_cells_y = @as(f32, map.get().len);
-//     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
-//     const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
-//     const o = win_h - f * map_cells_y; // y-offset for map drawing in px
+pub fn createMap() void {
+    const m = map.get();
+    const map_cells_y = @as(f32, map.get().len);
+    const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
+    const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
+    const o = win_h - f * map_cells_y; // y-offset for map drawing in px
 
-//     gfx_impl.beginBatchQuads();
-//     for (m, 0..) |y, j| {
-//         for (y, 0..) |cell, i| {
-//             const c = map.getColor(j, i);
-//             switch (cell) {
-//                 .floor => {
-//                     gfx_impl.setColor(0.2 + 0.1 * c.r, 0.2 + 0.1 * c.g, 0.2 + 0.1 * c.b, cfg.rc.map_display_opacity);
-//                 },
-//                 .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
-//                     gfx_impl.setColor(0.3 + 0.3 * c.r, 0.3 + 0.3 * c.g, 0.3 + 0.3 * c.b, cfg.rc.map_display_opacity);
-//                 },
-//             }
+    for (m, 0..) |y, j| {
+        for (y, 0..) |cell, i| {
+            const c = map.getColor(j, i);
+            switch (cell) {
+                .floor => {
+                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
+                             o + @as(f32, @floatFromInt(j)) * f,
+                             @as(f32, @floatFromInt(i + 1)) * f,
+                             o + @as(f32, @floatFromInt(j + 1)) * f,
+                             0.2 + 0.1 * c.r,
+                             0.2 + 0.1 * c.g,
+                             0.2 + 0.1 * c.b,
+                             cfg.rc.map_display_opacity, 0);
+                },
+                .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
+                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
+                             o + @as(f32, @floatFromInt(j)) * f,
+                             @as(f32, @floatFromInt(i + 1)) * f,
+                             o + @as(f32, @floatFromInt(j + 1)) * f,
+                             0.3 + 0.3 * c.r,
+                             0.3 + 0.3 * c.g,
+                             0.3 + 0.3 * c.b,
+                             cfg.rc.map_display_opacity, 0);
+                },
+            }
+        }
+    }
 
-//             gfx_impl.addBatchQuad(@as(f32, @floatFromInt(i)) * f,
-//                                   o + @as(f32, @floatFromInt(j)) * f,
-//                                   @as(f32, @floatFromInt(i + 1)) * f,
-//                                   o + @as(f32, @floatFromInt(j + 1)) * f);
-//         }
-//     }
-//     gfx_impl.endBatch();
+    var i: usize = 0;
 
-//     var i: usize = 0;
+    // gfx_impl.setColor(0.0, 0.0, 1.0, 0.1);
+    // gfx.startBatchLine();
+    while (i < rays.seg_i0.len) : (i += 1) {
+        if (i % cfg.rc.map_display_every_nth_line == 0) {
+            var j: i32 = @intCast(rays.seg_i1[i]);
+            const j0: i32 = @intCast(rays.seg_i0[i]);
 
-//     gfx_impl.setColor(0.0, 0.0, 1.0, 0.1);
-//     gfx.startBatchLine();
-//     while (i < rays.seg_i0.len) : (i += 1) {
-//         if (i % cfg.rc.map_display_every_nth_line == 0) {
-//             var j: i32 = @intCast(rays.seg_i1[i]);
-//             const j0: i32 = @intCast(rays.seg_i0[i]);
+            if (j - j0 > cfg.rc.map_display_reflections_max) {
+                j = j0 + cfg.rc.map_display_reflections_max;
+            }
+            // const color_step = 1.0 / @as(f32, cfg.rc.map_display_reflections_max + 1);
 
-//             if (j - j0 > cfg.rc.map_display_reflections_max) {
-//                 j = j0 + cfg.rc.map_display_reflections_max;
-//             }
-//             const color_step = 1.0 / @as(f32, cfg.rc.map_display_reflections_max + 1);
+            while (j >= j0) : (j -= 1) {
+                // const color_grade = color_step * @as(f32, @floatFromInt(j-j0));
+                // if (j == j0) {
+                //     gfx_impl.setColor(0.0, 0.0, 1.0, 0.5);
+                // } else {
+                //     gfx_impl.setColor(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
+                // }
+                const k: usize = @intCast(j);
+                gfx_rw.addLine(segments.x0[k] * f,
+                               o + segments.y0[k] * f,
+                               segments.x1[k] * f,
+                               o + segments.y1[k] * f,
+                               0.0, 0.0, 1.0, 0.1);
+            }
+        }
+    }
+    // gfx.endBatch();
 
-//             while (j >= j0) : (j -= 1) {
-//                 const color_grade = color_step * @as(f32, @floatFromInt(j-j0));
-//                 if (j == j0) {
-//                     gfx_impl.setColor(0.0, 0.0, 1.0, 0.5);
-//                 } else {
-//                     gfx_impl.setColor(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
-//                 }
-//                 const k: usize = @intCast(j);
-//                 gfx.addLine(segments.x0[k] * f, o + segments.y0[k] * f, segments.x1[k] * f, o + segments.y1[k] * f);
-//             }
-//         }
-//     }
-//     gfx.endBatch();
-
-//     const x = plr.getPosX();
-//     const y = plr.getPosY();
-//     const w = 0.1;
-//     const h = 0.5;
-//     const d = plr.getDir();
-//     gfx_impl.setColor(0.0, 0.7, 0.0, 1.0);
-//     gfx.drawTriangle((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f, (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f, (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f);
-// }
+    // const x = plr.getPosX();
+    // const y = plr.getPosY();
+    // const w = 0.1;
+    // const h = 0.5;
+    // const d = plr.getDir();
+    // gfx_impl.setColor(0.0, 0.7, 0.0, 1.0);
+    // gfx.drawTriangle((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f, (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f, (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f);
+}
 
 pub fn createScene() void {
     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
     const tilt = -win_h * plr.getTilt();
 
-    // gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
-    // gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.0, 1.0, cfg.gfx.depth_levels_max - 1);
-    // gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.0, 0.2, 1.0, cfg.gfx.depth_levels_max - 1);
-    // gfx.addVerticalQuadG2G(0, @floatFromInt(gfx.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.6, 1.0, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.0, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.0, 0.2, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.6, cfg.gfx.depth_levels_max - 1);
 
     var i: usize = 0;
 
@@ -271,14 +282,14 @@ pub fn createScene() void {
                                                      col_shading * canvas_col.g,
                                                      col_shading * canvas_col.b, canvas_col.a, depth_layer, canvas.tex_id);
                     } else {
-                        gfx_rw.addVerticalQuad(prev.x, x, y0_cvs, y0,
-                                            col_shading * canvas_col.r,
-                                            col_shading * canvas_col.g,
-                                            col_shading * canvas_col.b, canvas_col.a, depth_layer);
-                        gfx_rw.addVerticalQuad(prev.x, x, y1_cvs, y1,
-                                            col_shading * canvas_col.r,
-                                            col_shading * canvas_col.g,
-                                            col_shading * canvas_col.b, canvas_col.a, depth_layer);
+                        // gfx_rw.addVerticalQuad(prev.x, x, y0_cvs, y0,
+                        //                     col_shading * canvas_col.r,
+                        //                     col_shading * canvas_col.g,
+                        //                     col_shading * canvas_col.b, canvas_col.a, depth_layer);
+                        // gfx_rw.addVerticalQuad(prev.x, x, y1_cvs, y1,
+                        //                     col_shading * canvas_col.r,
+                        //                     col_shading * canvas_col.g,
+                        //                     col_shading * canvas_col.b, canvas_col.a, depth_layer);
                     }
                 }
                 prev.cell_type = cell_type;

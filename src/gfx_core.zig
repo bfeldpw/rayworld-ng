@@ -394,7 +394,7 @@ pub fn useShaderProgram(id: u32) !void {
 
 pub fn finishFrame() !void {
     c.glfwSwapBuffers(window);
-    c.glClearColor(0, 0, 0.1, 1);
+    c.glClearColor(0, 0, 0.0, 1);
     c.glClear(c.GL_COLOR_BUFFER_BIT);
 
     // Sleep if time step (frame_time) is lower than that of the targeted

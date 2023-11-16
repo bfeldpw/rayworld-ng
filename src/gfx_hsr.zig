@@ -3,6 +3,7 @@
 
 const std = @import("std");
 const atm = @import("atomic");
+const cfg = @import("config.zig");
 const lnx = std.os.linux;
 
 comptime {
@@ -18,7 +19,7 @@ pub fn init() void {
         log_gfx_hsr.err("Couldn't initialise inotify mechanism.", .{});
     }
     log_gfx_hsr.debug("File descriptor: {}", .{fd});
-    const file = "/home/bfeld/projects/rayworld-ng/resource/shader";
+    const file = cfg.gfx.shader_dir;
     wd = @intCast(lnx.inotify_add_watch(fd, file, lnx.IN.MODIFY));
     if (wd < 0) {
         log_gfx_hsr.err("Couldn't add watch on file {s}.", .{file});

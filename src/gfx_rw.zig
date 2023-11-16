@@ -17,21 +17,19 @@ const builtin = @import("builtin");
 /// Initialise glfw, create a window and setup opengl
 pub fn init() !void {
     vao_0 = try gfx_core.createVAO();
-    // vao_1 = try gfx_core.createVAO();
     ebo = try gfx_core.createBuffer();
     vbo_0 = try gfx_core.createBuffer();
-    // vbo_1 = try gfx_core.createBuffer();
     try initShaders();
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
-    try buffer.ensureTotalCapacity(buffer_size);
-    try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_0, buffer_size, .Dynamic);
-    // try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_1, buffer_size, .Dynamic);
+    var s: u32 = buf_size;
+    if (buf_size_lines > s) s = buf_size_lines;
+    try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_0, s, .Dynamic);
 
     var ebo_buf = std.ArrayList(u32).init(allocator);
-    try ebo_buf.ensureTotalCapacity(buffer_size*6);
+    try ebo_buf.ensureTotalCapacity(buf_size*6);
     var i: u32 = 0;
-    while (i < buffer_size) : (i += 1) {
+    while (i < buf_size) : (i += 1) {
         ebo_buf.appendAssumeCapacity(0 + 4 * i);
         ebo_buf.appendAssumeCapacity(1 + 4 * i);
         ebo_buf.appendAssumeCapacity(2 + 4 * i);
@@ -39,12 +37,20 @@ pub fn init() !void {
         ebo_buf.appendAssumeCapacity(3 + 4 * i);
         ebo_buf.appendAssumeCapacity(0 + 4 * i);
     }
-    try gfx_core.bindEBOAndBufferData(ebo, buffer_size*6, ebo_buf.items, .Static);
+    try gfx_core.bindEBOAndBufferData(ebo, buf_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
+
+    buf = try allocator.create(buf_type);
+    i = 0;
+    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+        buf_n[i] = 0;
+    }
+    buf_lines = try allocator.create(buf_type_lines);
 }
 
 pub fn deinit() void {
-    buffer.deinit();
+    allocator.destroy(buf);
+    allocator.destroy(buf_lines);
 
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -54,8 +60,8 @@ pub fn initShaders() !void {
     log_gfx.info("Processing shaders", .{});
 
     shader_program = try gfx_core.createShaderProgramFromFiles(
-        "/home/bfeld/projects/rayworld-ng/resource/shader/base.vert",
-        "/home/bfeld/projects/rayworld-ng/resource/shader/base.frag");
+        cfg.gfx.shader_dir ++ "base.vert",
+        cfg.gfx.shader_dir ++ "base.frag");
 }
 
 //-----------------------------------------------------------------------------//
@@ -66,84 +72,161 @@ pub fn initShaders() !void {
 //   Fill render pipeline
 //-----------------------------------------------------------------------------//
 
-pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
-    _ = y1;
-    _ = y0;
-    _ = x1;
-    _ = x0;
-    _ = d0;
-    _ = a;
-    _ = b;
-    _ = g;
-    _ = r;
-    log_gfx.debug("Test", .{});
-    // buffer.appendAssumeCapacity(x0);
-    // buffer.appendAssumeCapacity(y0);
-    // buffer.appendAssumeCapacity(x1);
-    // buffer.appendAssumeCapacity(y0);
-    // buffer.appendAssumeCapacity(x0);
-    // buffer.appendAssumeCapacity(y1);
+pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32) void {
+    const i = buf_n_lines;
+    buf_lines[i   ] = x0;
+    buf_lines[i+1 ] = y0;
+    buf_lines[i+2 ] = r;
+    buf_lines[i+3 ] = g;
+    buf_lines[i+4 ] = b;
+    buf_lines[i+5 ] = a;
+    buf_lines[i+6 ] = x1;
+    buf_lines[i+7 ] = y1;
+    buf_lines[i+8 ] = r;
+    buf_lines[i+9 ] = g;
+    buf_lines[i+10] = b;
+    buf_lines[i+11] = a;
+    buf_n_lines += 12;
+}
+
+pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
+    const i = buf_n[d0];
+    buf[d0][i   ] = x0;
+    buf[d0][i+1 ] = y0;
+    buf[d0][i+2 ] = r;
+    buf[d0][i+3 ] = g;
+    buf[d0][i+4 ] = b;
+    buf[d0][i+5 ] = a;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y0;
+    buf[d0][i+8 ] = r;
+    buf[d0][i+9 ] = g;
+    buf[d0][i+10] = b;
+    buf[d0][i+11] = a;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y1;
+    buf[d0][i+14] = r;
+    buf[d0][i+15] = g;
+    buf[d0][i+16] = b;
+    buf[d0][i+17] = a;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y1;
+    buf[d0][i+20] = r;
+    buf[d0][i+21] = g;
+    buf[d0][i+22] = b;
+    buf[d0][i+23] = a;
+    buf_n[d0] += 24;
+}
+
+// pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
+//     _ = y1;
+//     _ = y0;
+//     _ = x1;
+//     _ = x0;
+//     _ = d0;
+//     _ = a;
+//     _ = b;
+//     _ = g;
+//     _ = r;
+//     log_gfx.debug("Test", .{});
+//     // buffer.appendAssumeCapacity(x0);
+//     // buffer.appendAssumeCapacity(y0);
+//     // buffer.appendAssumeCapacity(x1);
+//     // buffer.appendAssumeCapacity(y0);
+//     // buffer.appendAssumeCapacity(x0);
+//     // buffer.appendAssumeCapacity(y1);
+// }
+
+pub fn addVerticalQuadG2G(x0: f32, x1: f32, y0: f32, y1: f32, g0: f32, g1: f32, d0: u8) void {
+    const i = buf_n[d0];
+    buf[d0][i   ] = x0;
+    buf[d0][i+1 ] = y0;
+    buf[d0][i+2 ] = g0;
+    buf[d0][i+3 ] = g0;
+    buf[d0][i+4 ] = g0;
+    buf[d0][i+5 ] = g0;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y0;
+    buf[d0][i+8 ] = g0;
+    buf[d0][i+9 ] = g0;
+    buf[d0][i+10] = g0;
+    buf[d0][i+11] = g0;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y1;
+    buf[d0][i+14] = g1;
+    buf[d0][i+15] = g1;
+    buf[d0][i+16] = g1;
+    buf[d0][i+17] = g1;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y1;
+    buf[d0][i+20] = g1;
+    buf[d0][i+21] = g1;
+    buf[d0][i+22] = g1;
+    buf[d0][i+23] = g1;
+    buf_n[d0] += 24;
 }
 
 pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32, u_0: f32, u_1: f32, v0: f32, v1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8, t: u32) void {
     _ = t;
-    _ = d0;
     _ = v1;
     _ = v0;
     _ = u_1;
     _ = u_0;
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y0);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y1);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y2);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
+    const i = buf_n[d0];
+    buf[d0][i   ] = x0;
+    buf[d0][i+1 ] = y0;
+    buf[d0][i+2 ] = r;
+    buf[d0][i+3 ] = g;
+    buf[d0][i+4 ] = b;
+    buf[d0][i+5 ] = a;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y1;
+    buf[d0][i+8 ] = r;
+    buf[d0][i+9 ] = g;
+    buf[d0][i+10] = b;
+    buf[d0][i+11] = a;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y2;
+    buf[d0][i+14] = r;
+    buf[d0][i+15] = g;
+    buf[d0][i+16] = b;
+    buf[d0][i+17] = a;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y3;
+    buf[d0][i+20] = r;
+    buf[d0][i+21] = g;
+    buf[d0][i+22] = b;
+    buf[d0][i+23] = a;
+    buf_n[d0] += 24;
 }
 
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
-    _ = d0;
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y0);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y1);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x1);
-    buffer.appendAssumeCapacity(y2);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
-    buffer.appendAssumeCapacity(x0);
-    buffer.appendAssumeCapacity(y3);
-    buffer.appendAssumeCapacity(r);
-    buffer.appendAssumeCapacity(g);
-    buffer.appendAssumeCapacity(b);
-    buffer.appendAssumeCapacity(a);
+    const i = buf_n[d0];
+    buf[d0][i   ] = x0;
+    buf[d0][i+1 ] = y0;
+    buf[d0][i+2 ] = r;
+    buf[d0][i+3 ] = g;
+    buf[d0][i+4 ] = b;
+    buf[d0][i+5 ] = a;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y1;
+    buf[d0][i+8 ] = r;
+    buf[d0][i+9 ] = g;
+    buf[d0][i+10] = b;
+    buf[d0][i+11] = a;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y2;
+    buf[d0][i+14] = r;
+    buf[d0][i+15] = g;
+    buf[d0][i+16] = b;
+    buf[d0][i+17] = a;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y3;
+    buf[d0][i+20] = r;
+    buf[d0][i+21] = g;
+    buf[d0][i+22] = b;
+    buf[d0][i+23] = a;
+    buf_n[d0] += 24;
 }
 
 //-----------------------------------------------------------------------------//
@@ -154,8 +237,8 @@ pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
     const sp = gfx_core.createShaderProgramFromFiles(
-        "/home/bfeld/projects/rayworld-ng/resource/shader/base.vert",
-        "/home/bfeld/projects/rayworld-ng/resource/shader/base.frag") catch |e| {
+        cfg.gfx.shader_dir ++ "base.vert",
+        cfg.gfx.shader_dir ++ "base.frag") catch |e| {
 
         log_gfx.err("Error reloading shaders: {}", .{e});
         return;
@@ -174,28 +257,21 @@ pub fn renderFrame() !void {
 
     try gfx_core.bindVAO(vao_0);
     try gfx_core.bindBuffer(.Element, ebo);
-    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buffer.items.len), buffer.items);
     try gfx_core.setVertexAttributeMode(.PxyCrgba);
 
-    // try gfx_core.bindVAO(vao_1);
-    // try gfx_core.bindBuffer(.Element, ebo);
-    // try gfx_core.bindVBO(.Array, vbo_1);
-    // try gfx_core.drawAreays(.Triangles, 0, @as(i32, @intCast(buffer.items.len)));
+    var i: u32 = cfg.gfx.depth_levels_max;
+    while (i > 0) : (i -= 1) {
+        try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[i-1]), &buf[i-1]);
 
-    // Draw based on indices. Buffers accumulate 2d vertices, which is 8 values per
-    // vertical polygon (4 vertices x,y). Drawing triangles, this is 6 indices
-    // log_gfx.debug("draw {} on {}", .{buffer_len_prev, vbo_1});
-    // try gfx_core.bindVBO(vbo_1);
-    try gfx_core.drawElements(.Triangles, @intCast(buffer.items.len*6/24));
-    // try gfx_core.drawElements(.Triangles, @intCast(buffer_len_prev*(6/24)));
-    // std.mem.swap(u32, &vbo_0, &vbo_1);
-    // std.mem.swap(u32, &vao_0, &vao_1);
-    // try gfx_core.bindVAO(0);
+        // Draw based on indices. Buffers accumulate 2d vertices, which is 24 values per
+        // vertical polygon (4 vertices x,y, rgba). Drawing triangles, this is 6 indices
+        try gfx_core.drawElements(.Triangles, @intCast(buf_n[i-1]*6/24));
 
-    // buffer_len_prev = @intCast(buffer.items.len);
-    // log_gfx.debug("store {}", .{buffer_len_prev});
-    buffer.clearRetainingCapacity();
-    // log_gfx.debug("-------- reset -------", .{});
+        buf_n[i-1] = 0;
+    }
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, buf_n_lines, buf_lines);
+    try gfx_core.drawArrays(.Lines, 0, @intCast(buf_n_lines / 6));
+    buf_n_lines = 0;
 }
 
 //-----------------------------------------------------------------------------//
@@ -214,10 +290,15 @@ var vao_1: u32 = 0;
 var vbo_0: u32 = 0;
 var vbo_1: u32 = 0;
 
-const buffer_size = 4096*2*24*cfg.gfx.depth_levels_max;
-// const buffer_size = 10;
-var buffer = std.ArrayList(f32).init(allocator);
-// var buffer_len_prev: i32 = buffer_size;
+const buf_size = 4096*2*24;
+const buf_type = [cfg.gfx.depth_levels_max][buf_size]f32;
+const buf_size_lines = 4096*2*6*cfg.rc.segments_max;
+const buf_type_lines = [buf_size_lines]f32;
+
+var buf: *buf_type = undefined;
+var buf_n: [cfg.gfx.depth_levels_max]usize = undefined;
+var buf_lines: *buf_type_lines = undefined;
+var buf_n_lines: u32 = 0;
 
 fn  handleWindowResize(w: u64, h: u64) void {
     setProjection(w, h);
