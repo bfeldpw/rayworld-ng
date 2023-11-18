@@ -7,8 +7,15 @@ const stats = @import("stats.zig");
 const builtin = @import("builtin");
 
 //-----------------------------------------------------------------------------//
-//   Error Sets
+//   Error Sets / Enums
 //-----------------------------------------------------------------------------//
+
+const AttributeMode = enum {
+    None,
+    Pxy,
+    PxyCrgba,
+    PxyCrgbaH
+};
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
@@ -403,7 +410,7 @@ pub fn renderFrame() !void {
 
     try gfx_core.bindVAO(vao_0);
     try gfx_core.bindBuffer(.Element, ebo);
-    try gfx_core.setVertexAttributeMode(.PxyCrgbaH);
+    try setVertexAttributeMode(.PxyCrgbaH);
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 0) : (i -= 1) {
@@ -461,6 +468,40 @@ fn setProjection(w: u64, h: u64) void {
     gfx_core.setUniform4f(shader_program, "t", w_r, h_r, o_w, o_h) catch |e| {
         log_gfx.err("{}", .{e});
     };
+}
+
+//-----------------------------------------------------------------------------//
+//   Predefined vertex attribute modes
+//-----------------------------------------------------------------------------//
+
+fn setVertexAttributeMode(m: AttributeMode) !void {
+    switch (m) {
+        .Pxy => {
+            try gfx_core.enableVertexAttributes(0);
+            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), null);
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        },
+        .PxyCrgba => {
+            try gfx_core.enableVertexAttributes(0);
+            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), null);
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.enableVertexAttributes(1);
+            c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        },
+        .PxyCrgbaH => {
+            try gfx_core.enableVertexAttributes(0);
+            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), null);
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.enableVertexAttributes(1);
+            c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.enableVertexAttributes(2);
+            c.__glewVertexAttribPointer.?(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
+            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        },
+        else => {}
+    }
 }
 
 //-----------------------------------------------------------------------------//

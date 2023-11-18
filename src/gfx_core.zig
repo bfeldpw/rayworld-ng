@@ -15,13 +15,6 @@ const GraphicsError = error{
     ShaderLinkingFailed,
 };
 
-const AttributeMode = enum {
-    None,
-    Pxy,
-    PxyCrgba,
-    PxyCrgbaH
-};
-
 const BufferTarget = enum(c_uint) {
     Array = c.GL_ARRAY_BUFFER,
     Element = c.GL_ELEMENT_ARRAY_BUFFER
@@ -131,45 +124,15 @@ pub fn setViewportFull() void {
 }
 
 //-----------------------------------------------------------------------------//
-//   Predefined vertex attribute modes
+//   OpenGL Vertex Attribute handling
 //-----------------------------------------------------------------------------//
 
-pub fn setVertexAttributeMode(m: AttributeMode) !void {
-    if (m != state.vertex_attribute_mode) {
-        switch (m) {
-            .Pxy => {
-                c.__glewEnableVertexAttribArray.?(0);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), null);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-            },
-            .PxyCrgba => {
-                c.__glewEnableVertexAttribArray.?(0);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), null);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewEnableVertexAttribArray.?(1);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-            },
-            .PxyCrgbaH => {
-                c.__glewEnableVertexAttribArray.?(0);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), null);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewEnableVertexAttribArray.?(1);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewEnableVertexAttribArray.?(2);
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-                c.__glewVertexAttribPointer.?(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
-                if (!glCheckError()) return GraphicsError.OpenGLFailed;
-            },
-            else => {}
-        }
-        state.vertex_attribute_mode = m;
+pub fn enableVertexAttributes(a: u32) !void {
+    std.debug.assert(a < 16);
+    if (!state.is_enabled_vertex_attrib.isSet(a)) {
+        c.__glewEnableVertexAttribArray.?(a);
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.is_enabled_vertex_attrib.set(a);
     }
 }
 
@@ -515,7 +478,7 @@ const state = struct {
     var is_texturing_enabled: bool = false;
     var line_width: f32 = 1.0;
     var point_size: f32 = 1.0;
-    var vertex_attribute_mode: AttributeMode = .None;
+    var is_enabled_vertex_attrib = std.bit_set.IntegerBitSet(16).initEmpty();
 };
 
 fn glCheckError() bool {
@@ -582,6 +545,15 @@ fn initOpenGL() !void {
     }
     const ver = c.glGetString(c.GL_VERSION);
     log_gfx.info("-- version {s}", .{ver});
+
+    var m: i32 = 0;
+    c.glGetIntegerv(c.GL_MAX_VERTEX_ATTRIBS, &m);
+    if (m < 16) {
+        log_gfx.warn("Be aware that the mandatory number of " ++
+                     "vertex attribute arrays is not supported on " ++
+                     "your system: {}/16. This might cause problems " ++
+                     "depending on the programs specific graphics engine.", .{m});
+    }
 
     try setViewport(0, 0,@intCast(window_w), @intCast(window_h));
     c.glEnable(c.GL_BLEND);
