@@ -478,27 +478,21 @@ fn setVertexAttributeMode(m: AttributeMode) !void {
     switch (m) {
         .Pxy => {
             try gfx_core.enableVertexAttributes(0);
-            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), null);
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.setupVertexAttributesFloat(0, 2, 2, 0);
         },
         .PxyCrgba => {
             try gfx_core.enableVertexAttributes(0);
-            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), null);
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
             try gfx_core.enableVertexAttributes(1);
-            c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.setupVertexAttributesFloat(0, 2, 6, 0);
+            try gfx_core.setupVertexAttributesFloat(1, 4, 6, 2);
         },
         .PxyCrgbaH => {
             try gfx_core.enableVertexAttributes(0);
-            c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), null);
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
             try gfx_core.enableVertexAttributes(1);
-            c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
             try gfx_core.enableVertexAttributes(2);
-            c.__glewVertexAttribPointer.?(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
-            // if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            try gfx_core.setupVertexAttributesFloat(0, 2, 8, 0);
+            try gfx_core.setupVertexAttributesFloat(1, 4, 8, 2);
+            try gfx_core.setupVertexAttributesFloat(2, 2, 8, 6);
         },
         else => {}
     }

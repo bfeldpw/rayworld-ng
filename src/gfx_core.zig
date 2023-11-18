@@ -136,6 +136,12 @@ pub fn enableVertexAttributes(a: u32) !void {
     }
 }
 
+pub fn setupVertexAttributesFloat(id: u32, size: i32, nr: i32, offset: u32) !void {
+    c.__glewVertexAttribPointer.?(id, size, c.GL_FLOAT, c.GL_FALSE, nr * @sizeOf(f32),
+                                  @ptrFromInt(offset * @sizeOf(f32)));
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
 //-----------------------------------------------------------------------------//
 //   OpenGL Buffer Object Processing
 //-----------------------------------------------------------------------------//
