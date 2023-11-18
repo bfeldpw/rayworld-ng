@@ -18,7 +18,8 @@ const GraphicsError = error{
 const AttributeMode = enum {
     None,
     Pxy,
-    PxyCrgba
+    PxyCrgba,
+    PxyCrgbaH
 };
 
 const BufferTarget = enum(c_uint) {
@@ -150,6 +151,20 @@ pub fn setVertexAttributeMode(m: AttributeMode) !void {
                 c.__glewEnableVertexAttribArray.?(1);
                 if (!glCheckError()) return GraphicsError.OpenGLFailed;
                 c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+            },
+            .PxyCrgbaH => {
+                c.__glewEnableVertexAttribArray.?(0);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(0, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), null);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewEnableVertexAttribArray.?(1);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(1, 4, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewEnableVertexAttribArray.?(2);
+                if (!glCheckError()) return GraphicsError.OpenGLFailed;
+                c.__glewVertexAttribPointer.?(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
                 if (!glCheckError()) return GraphicsError.OpenGLFailed;
             },
             else => {}
@@ -376,6 +391,12 @@ pub fn loadShader(file_name: []const u8, src: *[]u8) !void {
             src.*[stat.size-1] = 0;
         }
     }
+}
+
+pub fn setUniform1f(sp: u32, u: [*c]const u8, a: f32) !void {
+    const l: i32 = c.__glewGetUniformLocation.?(sp, u);
+    c.__glewUniform1f.?(l, a);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
 pub fn setUniform4f(sp: u32, u: [*c]const u8, a: f32, b: f32, d: f32, e: f32) !void {

@@ -45,7 +45,7 @@ pub const gfx = struct {
 };
 
 pub const rc = struct {
-    pub const map_display_every_nth_line = 4;
+    pub const map_display_every_nth_line = 1;
     pub const map_display_height = 0.3;
     pub const map_display_opacity = 0.5;
     pub const map_display_reflections_max = 32;

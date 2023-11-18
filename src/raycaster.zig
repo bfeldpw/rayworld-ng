@@ -84,21 +84,23 @@ pub fn createMap() void {
 
             while (j >= j0) : (j -= 1) {
                 // const color_grade = color_step * @as(f32, @floatFromInt(j-j0));
-                // if (j == j0) {
-                //     gfx_impl.setColor(0.0, 0.0, 1.0, 0.5);
-                // } else {
-                //     gfx_impl.setColor(0.0, 1 - color_grade, 1.0, 0.2 * (1 - color_grade));
-                // }
                 const k: usize = @intCast(j);
-                gfx_rw.addLine(segments.x0[k] * f,
-                               o + segments.y0[k] * f,
-                               segments.x1[k] * f,
-                               o + segments.y1[k] * f,
-                               0.0, 0.0, 1.0, 0.1);
+                if (j == j0) {
+                    gfx_rw.addLine(segments.x0[k] * f,
+                                o + segments.y0[k] * f,
+                                segments.x1[k] * f,
+                                o + segments.y1[k] * f,
+                                0.0, 0.0, 1.0, 0.1);
+                } else {
+                    gfx_rw.addLine(segments.x0[k] * f,
+                                o + segments.y0[k] * f,
+                                segments.x1[k] * f,
+                                o + segments.y1[k] * f,
+                                0.0, 0.75, 1.0, 0.04);
+                }
             }
         }
     }
-    // gfx.endBatch();
 
     // const x = plr.getPosX();
     // const y = plr.getPosY();
@@ -114,9 +116,9 @@ pub fn createScene() void {
     const tilt = -win_h * plr.getTilt();
 
     gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.0, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.0, 0.2, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.6, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.2, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.2, 0.4, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.4, 0.8, cfg.gfx.depth_levels_max - 1);
 
     var i: usize = 0;
 
@@ -177,7 +179,7 @@ pub fn createScene() void {
                 // since colors become white, otherwise
                 if (d_norm > 1) d_norm = 1;
 
-                const shift_and_tilt = win_h * plr.getPosZ() / (d + 1e-3) + tilt;
+                shift_and_tilt = win_h * plr.getPosZ() / (d + 1e-3) + tilt;
                 const m_x = segments.cell_x[k];
                 const m_y = segments.cell_y[k];
                 const cell_type = segments.cell_type[k];
@@ -239,6 +241,9 @@ pub fn createScene() void {
                 var y1 = win_h * 0.5 + h_half_bottom + shift_and_tilt;
                 var y1_cvs = win_h * 0.5 + h_half + shift_and_tilt;
 
+                // Height for SSAO calculation in shaders
+                var h_ssao = y1_cvs - y0_cvs;
+
                 // Handle special cases of subsampling
                 var is_new = true;
                 const abs_x = @abs(@as(i16, @intCast(m_x)) - @as(i16, @intCast(prev.m_x)));
@@ -264,32 +269,38 @@ pub fn createScene() void {
                     gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, prev.u_of_uv, u_of_uv, 0, 1,
                                                  col_shading * col.r,
                                                  col_shading * col.g,
-                                                 col_shading * col.b, col.a, depth_layer, tex_id);
+                                                 col_shading * col.b, col.a,
+                                                 h_ssao, shift_and_tilt, depth_layer, tex_id);
                 } else {
                     gfx_rw.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
                                          col_shading * col.r,
                                          col_shading * col.g,
-                                         col_shading * col.b, col.a, depth_layer);
+                                         col_shading * col.b, col.a,
+                                         h_ssao, shift_and_tilt, depth_layer);
                 }
                 if (canvas.bottom + canvas.top > 0.0) {
                     if (canvas.tex_id != 0) {
                         gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0, prev.u_of_uv, u_of_uv, 0, canvas.top,
                                                      col_shading * canvas_col.r,
                                                      col_shading * canvas_col.g,
-                                                     col_shading * canvas_col.b, canvas_col.a, depth_layer, canvas.tex_id);
+                                                     col_shading * canvas_col.b, canvas_col.a,
+                                                     h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
                         gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1, prev.u_of_uv, u_of_uv, 1, 1 - canvas.bottom,
                                                      col_shading * canvas_col.r,
                                                      col_shading * canvas_col.g,
-                                                     col_shading * canvas_col.b, canvas_col.a, depth_layer, canvas.tex_id);
+                                                     col_shading * canvas_col.b, canvas_col.a,
+                                                     h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
                     } else {
-                        // gfx_rw.addVerticalQuad(prev.x, x, y0_cvs, y0,
-                        //                     col_shading * canvas_col.r,
-                        //                     col_shading * canvas_col.g,
-                        //                     col_shading * canvas_col.b, canvas_col.a, depth_layer);
-                        // gfx_rw.addVerticalQuad(prev.x, x, y1_cvs, y1,
-                        //                     col_shading * canvas_col.r,
-                        //                     col_shading * canvas_col.g,
-                        //                     col_shading * canvas_col.b, canvas_col.a, depth_layer);
+                        gfx_rw.addVerticalQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
+                                            col_shading * canvas_col.r,
+                                            col_shading * canvas_col.g,
+                                            col_shading * canvas_col.b, canvas_col.a,
+                                            h_ssao, shift_and_tilt, depth_layer);
+                        gfx_rw.addVerticalQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1,
+                                            col_shading * canvas_col.r,
+                                            col_shading * canvas_col.g,
+                                            col_shading * canvas_col.b, canvas_col.a,
+                                            h_ssao, shift_and_tilt, depth_layer);
                     }
                 }
                 prev.cell_type = cell_type;
@@ -305,8 +316,6 @@ pub fn createScene() void {
                     prev.y1_cvs = y1_cvs;
                 }
                 if (j == j0) {
-                    //     gfx.addVerticalLineAO(x, win_h*0.5-h_half+shift_and_tilt, win_h*0.5+h_half+shift_and_tilt,
-                    //                           0, 0.5*d_norm, 0.4, depth_layer);
                     break;
                 }
             }
@@ -351,6 +360,8 @@ var threads: [cfg.rc.threads_max]std.Thread = undefined;
 
 var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
+
+var shift_and_tilt: f32 = 0;
 
 /// Struct of arrays (SOA) to store ray data
 const RayData = struct {
