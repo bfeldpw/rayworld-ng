@@ -26,12 +26,14 @@ pub fn init() !void {
     vao_0 = try gfx_core.createVAO();
     ebo = try gfx_core.createBuffer();
     vbo_0 = try gfx_core.createBuffer();
+    vbo_1 = try gfx_core.createBuffer();
     try initShaders();
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
     var s: u32 = buf_size;
     if (buf_size_lines > s) s = buf_size_lines;
     try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_0, s, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_1, buf_size_lines, .Dynamic);
 
     var ebo_buf = std.ArrayList(u32).init(allocator);
     try ebo_buf.ensureTotalCapacity(buf_size*6);
@@ -53,6 +55,8 @@ pub fn init() !void {
         buf_n[i] = 0;
     }
     buf_lines = try allocator.create(buf_type_lines);
+
+    c.glEnable(c.GL_FRAMEBUFFER_SRGB);
 }
 
 pub fn deinit() void {
@@ -66,9 +70,12 @@ pub fn deinit() void {
 pub fn initShaders() !void {
     log_gfx.info("Processing shaders", .{});
 
-    shader_program = try gfx_core.createShaderProgramFromFiles(
+    shader_program_base = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag");
+    shader_program_scene = try gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "scene.vert",
+        cfg.gfx.shader_dir ++ "scene.frag");
 }
 
 //-----------------------------------------------------------------------------//
@@ -98,36 +105,31 @@ pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f3
 
 pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
     const i = buf_n[d0];
-    const h = y1 - y0;
     buf[d0][i   ] = x0;
     buf[d0][i+1 ] = y0;
     buf[d0][i+2 ] = r;
     buf[d0][i+3 ] = g;
     buf[d0][i+4 ] = b;
     buf[d0][i+5 ] = a;
-    buf[d0][i+6 ] = h;
-    buf[d0][i+7 ] = x1;
-    buf[d0][i+8 ] = y0;
-    buf[d0][i+9 ] = r;
-    buf[d0][i+10] = g;
-    buf[d0][i+11] = b;
-    buf[d0][i+12] = a;
-    buf[d0][i+13] = h;
-    buf[d0][i+14] = x1;
-    buf[d0][i+15] = y1;
-    buf[d0][i+16] = r;
-    buf[d0][i+17] = g;
-    buf[d0][i+18] = b;
-    buf[d0][i+19] = a;
-    buf[d0][i+20] = h;
-    buf[d0][i+21] = x0;
-    buf[d0][i+22] = y1;
-    buf[d0][i+23] = r;
-    buf[d0][i+24] = g;
-    buf[d0][i+25] = b;
-    buf[d0][i+26] = a;
-    buf[d0][i+27] = h;
-    buf_n[d0] += 28;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y0;
+    buf[d0][i+8 ] = r;
+    buf[d0][i+9 ] = g;
+    buf[d0][i+10] = b;
+    buf[d0][i+11] = a;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y1;
+    buf[d0][i+14] = r;
+    buf[d0][i+15] = g;
+    buf[d0][i+16] = b;
+    buf[d0][i+17] = a;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y1;
+    buf[d0][i+20] = r;
+    buf[d0][i+21] = g;
+    buf[d0][i+22] = b;
+    buf[d0][i+23] = a;
+    buf_n[d0] += 24;
 }
 
 // pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
@@ -387,7 +389,7 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
-    const sp = gfx_core.createShaderProgramFromFiles(
+    const sp_base = gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag") catch |e| {
 
@@ -395,8 +397,18 @@ pub fn reloadShaders() !void {
         return;
     };
 
-    try gfx_core.deleteShaderProgram(shader_program);
-    shader_program = sp;
+    const sp_scene = gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "scene.vert",
+        cfg.gfx.shader_dir ++ "scene.frag") catch |e| {
+
+        log_gfx.err("Error reloading shaders: {}", .{e});
+        return;
+    };
+
+    try gfx_core.deleteShaderProgram(shader_program_base);
+    shader_program_base = sp_base;
+    try gfx_core.deleteShaderProgram(shader_program_scene);
+    shader_program_scene = sp_scene;
 
     // Reset all uniforms
     setProjection(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
@@ -404,16 +416,17 @@ pub fn reloadShaders() !void {
 
 pub fn renderFrame() !void {
 
-    try gfx_core.useShaderProgram(shader_program);
-    try gfx_core.setUniform1f(shader_program, "u_center",
+    try gfx_core.useShaderProgram(shader_program_scene);
+    try gfx_core.setUniform1f(shader_program_scene, "u_center",
                               @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2)));
 
     try gfx_core.bindVAO(vao_0);
-    try gfx_core.bindBuffer(.Element, ebo);
+    try gfx_core.bindVBO(vbo_0);
+    try gfx_core.bindEBO(ebo);
     try setVertexAttributeMode(.PxyCrgbaH);
 
     var i: u32 = cfg.gfx.depth_levels_max;
-    while (i > 0) : (i -= 1) {
+    while (i > 1) : (i -= 1) {
         try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[i-1]), &buf[i-1]);
 
         // Draw based on indices. Buffers accumulate 2d vertices, which is 24 values per
@@ -422,8 +435,18 @@ pub fn renderFrame() !void {
 
         buf_n[i-1] = 0;
     }
-    // try gfx_core.bindVBOAndBufferSubData(0, vbo_0, buf_n_lines, buf_lines);
-    // try gfx_core.drawArrays(.Lines, 0, @intCast(buf_n_lines / 6));
+    try gfx_core.useShaderProgram(shader_program_base);
+    try setVertexAttributeMode(.PxyCrgba);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[0]), &buf[0]);
+    // try gfx_core.bindEBO(ebo);
+    try gfx_core.drawElements(.Triangles, @intCast(buf_n[0]*6/24));
+    buf_n[0] = 0;
+
+    // try gfx_core.bindEBO(0);
+    try gfx_core.bindVBO(vbo_1);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_1, buf_n_lines, buf_lines);
+    try setVertexAttributeMode(.PxyCrgba);
+    try gfx_core.drawArrays(.Lines, 0, @intCast(buf_n_lines / 6));
     buf_n_lines = 0;
 }
 
@@ -436,7 +459,8 @@ const log_gfx = std.log.scoped(.gfx_rw);
 var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){} else std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
-var shader_program: u32 = 0;
+var shader_program_base: u32 = 0;
+var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
 var vao_1: u32 = 0;
@@ -453,7 +477,7 @@ var buf_n: [cfg.gfx.depth_levels_max]usize = undefined;
 var buf_lines: *buf_type_lines = undefined;
 var buf_n_lines: u32 = 0;
 
-fn  handleWindowResize(w: u64, h: u64) void {
+fn handleWindowResize(w: u64, h: u64) void {
     setProjection(w, h);
     log_gfx.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
 }
@@ -465,9 +489,22 @@ fn setProjection(w: u64, h: u64) void {
     const h_r = 2.0/@as(f32, @floatFromInt(h));
     const o_w = @as(f32, @floatFromInt(w/2));
     const o_h = @as(f32, @floatFromInt(h/2));
-    gfx_core.setUniform4f(shader_program, "t", w_r, h_r, o_w, o_h) catch |e| {
+    gfx_core.useShaderProgram(shader_program_base) catch |e| {
         log_gfx.err("{}", .{e});
     };
+    gfx_core.setUniform4f(shader_program_base, "t", w_r, h_r, o_w, o_h) catch |e| {
+        log_gfx.err("{}", .{e});
+    };
+    gfx_core.useShaderProgram(shader_program_scene) catch |e| {
+        log_gfx.err("{}", .{e});
+    };
+    gfx_core.setUniform4f(shader_program_scene, "t", w_r, h_r, o_w, o_h) catch |e| {
+        log_gfx.err("{}", .{e});
+    };
+    // gfx_core.setUniform1f(shader_program_scene, "u_center",
+    //                           @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2))) catch |e| {
+    //     log_gfx.err("{}", .{e});
+    // };
 }
 
 //-----------------------------------------------------------------------------//
@@ -478,11 +515,14 @@ fn setVertexAttributeMode(m: AttributeMode) !void {
     switch (m) {
         .Pxy => {
             try gfx_core.enableVertexAttributes(0);
+            try gfx_core.disableVertexAttributes(1);
+            try gfx_core.disableVertexAttributes(2);
             try gfx_core.setupVertexAttributesFloat(0, 2, 2, 0);
         },
         .PxyCrgba => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.enableVertexAttributes(1);
+            try gfx_core.disableVertexAttributes(2);
             try gfx_core.setupVertexAttributesFloat(0, 2, 6, 0);
             try gfx_core.setupVertexAttributesFloat(1, 4, 6, 2);
         },

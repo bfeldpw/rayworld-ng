@@ -49,6 +49,20 @@ pub fn processInputs(frequency: f32) void {
         // if (c.glfwGetKey(window, c.GLFW_KEY_F3) == c.GLFW_PRESS) sim.zoomOutMap();
         // if (c.glfwGetKey(window, c.GLFW_KEY_F4) == c.GLFW_PRESS) sim.zoomInMap();
     }
+
+    var cur_x: f64 = 0.0;
+    var cur_y: f64 = 0.0;
+    const c_x: [*c]f64 = &cur_x;
+    const c_y: [*c]f64 = &cur_y;
+    c.glfwGetCursorPos(window, c_x, c_y);
+
+    if (!is_resized) {
+        plr.turn(@as(f32, @floatCast(cur_x)) * -0.001);
+        plr.lookUpDown(@as(f32, @floatCast(cur_y)) * 0.001);
+    }
+
+    c.glfwSetCursorPos(window, 0, 0);
+    is_resized = false;
 }
 
 //-----------------------------------------------------------------------------//
@@ -159,12 +173,12 @@ fn processMouseMoveEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void 
         log_input.debug("Mouse move event, position: {d:.0}, {d:.0}", .{x, y});
 
         // prevent jumping player orientation on window resize
-        if (!is_resized) {
-            plr.turn(@floatCast(x * -0.001));
-            plr.lookUpDown(@floatCast(y * 0.001));
-        }
-        is_resized = false;
-        _ = c.glfwSetCursorPos(window, 0.0, 0.0);
+        // if (!is_resized) {
+        //     plr.turn(@floatCast(x * -0.001));
+        //     plr.lookUpDown(@floatCast(y * 0.001));
+        // }
+        // is_resized = false;
+        // _ = c.glfwSetCursorPos(window, 0.0, 0.0);
     }
 }
 

@@ -49,9 +49,7 @@ pub fn createMap() void {
                              o + @as(f32, @floatFromInt(j)) * f,
                              @as(f32, @floatFromInt(i + 1)) * f,
                              o + @as(f32, @floatFromInt(j + 1)) * f,
-                             0.2 + 0.1 * c.r,
-                             0.2 + 0.1 * c.g,
-                             0.2 + 0.1 * c.b,
+                             c.r, c.g, c.b,
                              cfg.rc.map_display_opacity, 0);
                 },
                 .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
@@ -59,9 +57,9 @@ pub fn createMap() void {
                              o + @as(f32, @floatFromInt(j)) * f,
                              @as(f32, @floatFromInt(i + 1)) * f,
                              o + @as(f32, @floatFromInt(j + 1)) * f,
-                             0.3 + 0.3 * c.r,
-                             0.3 + 0.3 * c.g,
-                             0.3 + 0.3 * c.b,
+                             0 + 0.1 * c.r,
+                             0 + 0.1 * c.g,
+                             0 + 0.1 * c.b,
                              cfg.rc.map_display_opacity, 0);
                 },
             }
@@ -96,7 +94,7 @@ pub fn createMap() void {
                                 o + segments.y0[k] * f,
                                 segments.x1[k] * f,
                                 o + segments.y1[k] * f,
-                                0.0, 0.75, 1.0, 0.04);
+                                0.0, 0.75, 1.0, 0.05/@as(f32, @floatFromInt(j-j0)));
                 }
             }
         }
@@ -115,10 +113,10 @@ pub fn createScene() void {
     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
     const tilt = -win_h * plr.getTilt();
 
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 1.0, 0.6, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.6, 0.2, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.2, 0.4, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.4, 0.8, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 0.8, 0.5, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.5, 0.05, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.05, 0.2, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.4, cfg.gfx.depth_levels_max - 1);
 
     var i: usize = 0;
 
@@ -154,6 +152,7 @@ pub fn createScene() void {
                        @as(f32, @floatFromInt(rays.seg_i0.len)) - 0.5) * plr.getFOV();
 
         while (j >= j0) : (j -= 1) {
+
             const k = @as(usize, j);
             const sub_sampling = segments.sub_sample_level[k];
             const depth_layer: u8 = @intCast(j - j0 + 1);
@@ -227,7 +226,8 @@ pub fn createScene() void {
                 }
 
                 const col = map.getColor(m_y, m_x);
-                const col_shading = d_norm * col_norm;
+
+                const col_shading = std.math.pow(f32, std.math.clamp(d_norm, 0.0, 1.0), 1.7) * col_norm;
                 const canvas = map.getCanvas(m_y, m_x);
                 const canvas_col = map.getCanvasColor(m_y, m_x);
                 const tex_id = map.getTextureID(m_y, m_x).id;

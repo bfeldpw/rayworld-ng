@@ -234,13 +234,13 @@ fn fillMap() !void {
     // Attributes
     // Default attributes color
     // -- floor
-    try attribute_components.color.append(.{ .r = 0.2, .g = 0.2, .b = 0.2, .a = 1.0 });
+    try attribute_components.color.append(.{ .r = 0.01, .g = 0.01, .b = 0.01, .a = 1.0 });
     // -- wall, pillar
-    try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 1.0, .a = 0.9 });
+    try attribute_components.color.append(.{ .r = 0.7, .g = 0.7, .b = 0.7, .a = 0.7 });
     // -- mirror
-    try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.5, .a = 0.2 });
+    try attribute_components.color.append(.{ .r = 0.01, .g = 0.01, .b = 0.5, .a = 0.05 });
     // -- glass
-    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.05 });
+    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.02 });
     // -- pillar_glass
     try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 0.0, .a = 0.2 });
     // -- glass canvas

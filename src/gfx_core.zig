@@ -127,6 +127,15 @@ pub fn setViewportFull() void {
 //   OpenGL Vertex Attribute handling
 //-----------------------------------------------------------------------------//
 
+pub fn disableVertexAttributes(a: u32) !void {
+    std.debug.assert(a < 16);
+    if (state.is_enabled_vertex_attrib.isSet(a)) {
+        c.__glewDisableVertexAttribArray.?(a);
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.is_enabled_vertex_attrib.unset(a);
+    }
+}
+
 pub fn enableVertexAttributes(a: u32) !void {
     std.debug.assert(a < 16);
     if (!state.is_enabled_vertex_attrib.isSet(a)) {
@@ -154,18 +163,12 @@ pub fn bindVAO(vao: u32) !void {
     }
 }
 
-pub fn bindBuffer(target: BufferTarget, vbo: u32) !void {
-    c.__glewBindBuffer.?(@intFromEnum(target), vbo);
-    state.bound_vbo = vbo;
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-}
-
 pub fn bindEBO(ebo: u32) !void {
-    if (ebo != state.bound_ebo) {
+    // if (ebo != state.bound_ebo) {
         c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, ebo);
         state.bound_ebo = ebo;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    }
+    // }
 }
 
 pub fn bindVBO(vbo: u32) !void {
@@ -195,7 +198,7 @@ pub fn bindVBOAndBufferSubData(offset: u32, vbo: u32, n: u32, data: []f32) !void
 }
 
 pub fn bindVBOAndReserveBuffer(target: BufferTarget, vbo: u32, n: u32, mode: DrawMode) !void {
-    try bindBuffer(target, vbo);
+    try bindVBO(vbo);
     c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(f32), null, @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
@@ -490,7 +493,16 @@ const state = struct {
 fn glCheckError() bool {
     const code = c.glGetError();
     if (code != c.GL_NO_ERROR) {
-        log_gfx.err("GL error code {}", .{code});
+        switch (code) {
+            c.GL_INVALID_ENUM => log_gfx.err("GL error, code {}, INVALID_ENUM", .{code}),
+            c.GL_INVALID_VALUE => log_gfx.err("GL error, code {}, INVALID_VALUE", .{code}),
+            c.GL_INVALID_OPERATION => log_gfx.err("GL error, code {}, INVALID_OPERATION", .{code}),
+            c.GL_STACK_OVERFLOW => log_gfx.err("GL error, code {}, STACK_OVERFLOW", .{code}),
+            c.GL_STACK_UNDERFLOW => log_gfx.err("GL error, code {}, STACK_UNDERFLOW", .{code}),
+            c.GL_OUT_OF_MEMORY => log_gfx.err("GL error, code {}, OUT_OF_MEMORY", .{code}),
+            c.GL_INVALID_FRAMEBUFFER_OPERATION => log_gfx.err("GL error, code {}, INVALID_FRAMEBUFFER_OPERATION", .{code}),
+            else => log_gfx.err("GL error, code {}", .{code})
+        }
         return false;
     }
     return true;
@@ -533,7 +545,7 @@ fn initGLFW() !void {
     c.glfwMakeContextCurrent(window);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
 
-    c.glfwSwapInterval(0);
+    c.glfwSwapInterval(1);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
 
     _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);

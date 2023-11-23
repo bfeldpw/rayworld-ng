@@ -109,7 +109,7 @@ pub fn main() !void {
         rc.createScene();
         prf_ren_scene.stop();
         prf_ren_map.start();
-        // rc.createMap();
+        rc.createMap();
         prf_ren_map.stop();
         prf_ren_frame.start();
         try gfx.renderFrame();
