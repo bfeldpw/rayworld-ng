@@ -14,7 +14,8 @@ const AttributeMode = enum {
     None,
     Pxy,
     PxyCrgba,
-    PxyCrgbaH
+    PxyCrgbaH,
+    PxyCrgbaTuvH
 };
 
 //-----------------------------------------------------------------------------//
@@ -132,53 +133,7 @@ pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f3
     buf_n[d0] += 24;
 }
 
-// pub fn addVerticalQuad(x0: f32, x1: f32, y0: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
-//     _ = y1;
-//     _ = y0;
-//     _ = x1;
-//     _ = x0;
-//     _ = d0;
-//     _ = a;
-//     _ = b;
-//     _ = g;
-//     _ = r;
-//     log_gfx.debug("Test", .{});
-//     // buffer.appendAssumeCapacity(x0);
-//     // buffer.appendAssumeCapacity(y0);
-//     // buffer.appendAssumeCapacity(x1);
-//     // buffer.appendAssumeCapacity(y0);
-//     // buffer.appendAssumeCapacity(x0);
-//     // buffer.appendAssumeCapacity(y1);
-// }
-
 pub fn addVerticalQuadG2G(x0: f32, x1: f32, y0: f32, y1: f32, g0: f32, g1: f32, d0: u8) void {
-    // const i = buf_n[d0];
-    // buf[d0][i   ] = x0;
-    // buf[d0][i+1 ] = y0;
-    // buf[d0][i+2 ] = g0;
-    // buf[d0][i+3 ] = g0;
-    // buf[d0][i+4 ] = g0;
-    // buf[d0][i+5 ] = g0;
-    // buf[d0][i+6 ] = x1;
-    // buf[d0][i+7 ] = y0;
-    // buf[d0][i+8 ] = g0;
-    // buf[d0][i+9 ] = g0;
-    // buf[d0][i+10] = g0;
-    // buf[d0][i+11] = g0;
-    // buf[d0][i+12] = x1;
-    // buf[d0][i+13] = y1;
-    // buf[d0][i+14] = g1;
-    // buf[d0][i+15] = g1;
-    // buf[d0][i+16] = g1;
-    // buf[d0][i+17] = g1;
-    // buf[d0][i+18] = x0;
-    // buf[d0][i+19] = y1;
-    // buf[d0][i+20] = g1;
-    // buf[d0][i+21] = g1;
-    // buf[d0][i+22] = g1;
-    // buf[d0][i+23] = g1;
-    // buf_n[d0] += 24;
-    const ctr = 0.0;
     const i = buf_n[d0];
     buf[d0][i   ] = x0;
     buf[d0][i+1 ] = y0;
@@ -186,33 +141,25 @@ pub fn addVerticalQuadG2G(x0: f32, x1: f32, y0: f32, y1: f32, g0: f32, g1: f32, 
     buf[d0][i+3 ] = g0;
     buf[d0][i+4 ] = g0;
     buf[d0][i+5 ] = g0;
-    buf[d0][i+6 ] = 1e10;
-    buf[d0][i+7 ] = ctr;
-    buf[d0][i+8 ] = x1;
-    buf[d0][i+9 ] = y0;
+    buf[d0][i+6 ] = x1;
+    buf[d0][i+7 ] = y0;
+    buf[d0][i+8 ] = g0;
+    buf[d0][i+9 ] = g0;
     buf[d0][i+10] = g0;
     buf[d0][i+11] = g0;
-    buf[d0][i+12] = g0;
-    buf[d0][i+13] = g0;
-    buf[d0][i+14] = 1e10;
-    buf[d0][i+15] = ctr;
-    buf[d0][i+16] = x1;
-    buf[d0][i+17] = y1;
-    buf[d0][i+18] = g1;
-    buf[d0][i+19] = g1;
+    buf[d0][i+12] = x1;
+    buf[d0][i+13] = y1;
+    buf[d0][i+14] = g1;
+    buf[d0][i+15] = g1;
+    buf[d0][i+16] = g1;
+    buf[d0][i+17] = g1;
+    buf[d0][i+18] = x0;
+    buf[d0][i+19] = y1;
     buf[d0][i+20] = g1;
     buf[d0][i+21] = g1;
-    buf[d0][i+22] = 1e10;
-    buf[d0][i+23] = ctr;
-    buf[d0][i+24] = x0;
-    buf[d0][i+25] = y1;
-    buf[d0][i+26] = g1;
-    buf[d0][i+27] = g1;
-    buf[d0][i+28] = g1;
-    buf[d0][i+29] = g1;
-    buf[d0][i+30] = 1e10;
-    buf[d0][i+31] = ctr;
-    buf_n[d0] += 32;
+    buf[d0][i+22] = g1;
+    buf[d0][i+23] = g1;
+    buf_n[d0] += 24;
 }
 
 pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
@@ -220,111 +167,67 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
                                 r: f32, g: f32, b: f32, a: f32,
                                 h: f32, ctr: f32, d0: u8, t: u32) void {
     _ = t;
-    _ = v1;
-    _ = v0;
-    _ = u_1;
-    _ = u_0;
     const i = buf_n[d0];
-    // const h = y2 - y0;
     buf[d0][i   ] = x0;
     buf[d0][i+1 ] = y0;
     buf[d0][i+2 ] = r;
     buf[d0][i+3 ] = g;
     buf[d0][i+4 ] = b;
     buf[d0][i+5 ] = a;
-    buf[d0][i+6 ] = h;
-    buf[d0][i+7 ] = ctr;
-    buf[d0][i+8 ] = x1;
-    buf[d0][i+9 ] = y1;
-    buf[d0][i+10] = r;
-    buf[d0][i+11] = g;
-    buf[d0][i+12] = b;
-    buf[d0][i+13] = a;
-    buf[d0][i+14] = h;
-    buf[d0][i+15] = ctr;
-    buf[d0][i+16] = x1;
-    buf[d0][i+17] = y2;
-    buf[d0][i+18] = r;
-    buf[d0][i+19] = g;
-    buf[d0][i+20] = b;
-    buf[d0][i+21] = a;
-    buf[d0][i+22] = h;
-    buf[d0][i+23] = ctr;
-    buf[d0][i+24] = x0;
-    buf[d0][i+25] = y3;
-    buf[d0][i+26] = r;
-    buf[d0][i+27] = g;
-    buf[d0][i+28] = b;
-    buf[d0][i+29] = a;
-    buf[d0][i+30] = h;
-    buf[d0][i+31] = ctr;
-    buf_n[d0] += 32;
-    // buf[d0][i+1 ] = y0;
-    // buf[d0][i+2 ] = r;
-    // buf[d0][i+3 ] = g;
-    // buf[d0][i+4 ] = b;
-    // buf[d0][i+5 ] = a;
-    // buf[d0][i+6 ] = x1;
-    // buf[d0][i+7 ] = y1;
-    // buf[d0][i+8 ] = r;
-    // buf[d0][i+9 ] = g;
-    // buf[d0][i+10] = b;
-    // buf[d0][i+11] = a;
-    // buf[d0][i+12] = x1;
-    // buf[d0][i+13] = y2;
-    // buf[d0][i+14] = r;
-    // buf[d0][i+15] = g;
-    // buf[d0][i+16] = b;
-    // buf[d0][i+17] = a;
-    // buf[d0][i+18] = x0;
-    // buf[d0][i+19] = y3;
-    // buf[d0][i+20] = r;
-    // buf[d0][i+21] = g;
-    // buf[d0][i+22] = b;
-    // buf[d0][i+23] = a;
-    // buf_n[d0] += 24;
+    buf[d0][i+6 ] = u_0;
+    buf[d0][i+7 ] = v0;
+    buf[d0][i+8 ] = h;
+    buf[d0][i+9 ] = ctr;
+    buf[d0][i+10] = x1;
+    buf[d0][i+11] = y1;
+    buf[d0][i+12] = r;
+    buf[d0][i+13] = g;
+    buf[d0][i+14] = b;
+    buf[d0][i+15] = a;
+    buf[d0][i+16] = u_1;
+    buf[d0][i+17] = v0;
+    buf[d0][i+18] = h;
+    buf[d0][i+19] = ctr;
+    buf[d0][i+20] = x1;
+    buf[d0][i+21] = y2;
+    buf[d0][i+22] = r;
+    buf[d0][i+23] = g;
+    buf[d0][i+24] = b;
+    buf[d0][i+25] = a;
+    buf[d0][i+26] = u_1;
+    buf[d0][i+27 ] = v1;
+    buf[d0][i+28] = h;
+    buf[d0][i+29] = ctr;
+    buf[d0][i+30] = x0;
+    buf[d0][i+31] = y3;
+    buf[d0][i+32] = r;
+    buf[d0][i+33] = g;
+    buf[d0][i+34] = b;
+    buf[d0][i+35] = a;
+    buf[d0][i+36] = u_0;
+    buf[d0][i+37] = v1;
+    buf[d0][i+38] = h;
+    buf[d0][i+39] = ctr;
+    buf_n[d0] += 40;
 }
 
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
                         r: f32, g: f32, b: f32, a: f32,
                         h: f32, ctr: f32, d0: u8) void {
-    const i = buf_n[d0];
-    // const h = y2 - y0;
-    buf[d0][i   ] = x0;
-    buf[d0][i+1 ] = y0;
-    buf[d0][i+2 ] = r;
-    buf[d0][i+3 ] = g;
-    buf[d0][i+4 ] = b;
-    buf[d0][i+5 ] = a;
-    buf[d0][i+6 ] = h;
-    buf[d0][i+7 ] = ctr;
-    buf[d0][i+8 ] = x1;
-    buf[d0][i+9 ] = y1;
-    buf[d0][i+10] = r;
-    buf[d0][i+11] = g;
-    buf[d0][i+12] = b;
-    buf[d0][i+13] = a;
-    buf[d0][i+14] = h;
-    buf[d0][i+15] = ctr;
-    buf[d0][i+16] = x1;
-    buf[d0][i+17] = y2;
-    buf[d0][i+18] = r;
-    buf[d0][i+19] = g;
-    buf[d0][i+20] = b;
-    buf[d0][i+21] = a;
-    buf[d0][i+22] = h;
-    buf[d0][i+23] = ctr;
-    buf[d0][i+24] = x0;
-    buf[d0][i+25] = y3;
-    buf[d0][i+26] = r;
-    buf[d0][i+27] = g;
-    buf[d0][i+28] = b;
-    buf[d0][i+29] = a;
-    buf[d0][i+30] = h;
-    buf[d0][i+31] = ctr;
-    buf_n[d0] += 32;
+    _ = d0;
+    _ = ctr;
+    _ = h;
+    _ = a;
+    _ = b;
+    _ = g;
+    _ = r;
+    _ = y3;
+    _ = y2;
+    _ = y1;
+    _ = y0;
+    _ = x1;
+    _ = x0;
     // const i = buf_n[d0];
-    // const h = y2 - y0;
     // buf[d0][i   ] = x0;
     // buf[d0][i+1 ] = y0;
     // buf[d0][i+2 ] = r;
@@ -332,54 +235,32 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
     // buf[d0][i+4 ] = b;
     // buf[d0][i+5 ] = a;
     // buf[d0][i+6 ] = h;
-    // buf[d0][i+7 ] = x1;
-    // buf[d0][i+8 ] = y1;
-    // buf[d0][i+9 ] = r;
-    // buf[d0][i+10] = g;
-    // buf[d0][i+11] = b;
-    // buf[d0][i+12] = a;
-    // buf[d0][i+13] = h;
-    // buf[d0][i+14] = x1;
-    // buf[d0][i+15] = y2;
-    // buf[d0][i+16] = r;
-    // buf[d0][i+17] = g;
-    // buf[d0][i+18] = b;
-    // buf[d0][i+19] = a;
-    // buf[d0][i+20] = h;
-    // buf[d0][i+21] = x0;
-    // buf[d0][i+22] = y3;
-    // buf[d0][i+23] = r;
-    // buf[d0][i+24] = g;
-    // buf[d0][i+25] = b;
-    // buf[d0][i+26] = a;
-    // buf[d0][i+27] = h;
-    // buf_n[d0] += 28;
-    // const i = buf_n[d0];
-    // buf[d0][i   ] = x0;
-    // buf[d0][i+1 ] = y0;
-    // buf[d0][i+2 ] = r;
-    // buf[d0][i+3 ] = g;
-    // buf[d0][i+4 ] = b;
-    // buf[d0][i+5 ] = a;
-    // buf[d0][i+6 ] = x1;
-    // buf[d0][i+7 ] = y1;
-    // buf[d0][i+8 ] = r;
-    // buf[d0][i+9 ] = g;
-    // buf[d0][i+10] = b;
-    // buf[d0][i+11] = a;
-    // buf[d0][i+12] = x1;
-    // buf[d0][i+13] = y2;
-    // buf[d0][i+14] = r;
-    // buf[d0][i+15] = g;
-    // buf[d0][i+16] = b;
-    // buf[d0][i+17] = a;
-    // buf[d0][i+18] = x0;
-    // buf[d0][i+19] = y3;
-    // buf[d0][i+20] = r;
-    // buf[d0][i+21] = g;
-    // buf[d0][i+22] = b;
-    // buf[d0][i+23] = a;
-    // buf_n[d0] += 24;
+    // buf[d0][i+7 ] = ctr;
+    // buf[d0][i+8 ] = x1;
+    // buf[d0][i+9 ] = y1;
+    // buf[d0][i+10] = r;
+    // buf[d0][i+11] = g;
+    // buf[d0][i+12] = b;
+    // buf[d0][i+13] = a;
+    // buf[d0][i+14] = h;
+    // buf[d0][i+15] = ctr;
+    // buf[d0][i+16] = x1;
+    // buf[d0][i+17] = y2;
+    // buf[d0][i+18] = r;
+    // buf[d0][i+19] = g;
+    // buf[d0][i+20] = b;
+    // buf[d0][i+21] = a;
+    // buf[d0][i+22] = h;
+    // buf[d0][i+23] = ctr;
+    // buf[d0][i+24] = x0;
+    // buf[d0][i+25] = y3;
+    // buf[d0][i+26] = r;
+    // buf[d0][i+27] = g;
+    // buf[d0][i+28] = b;
+    // buf[d0][i+29] = a;
+    // buf[d0][i+30] = h;
+    // buf[d0][i+31] = ctr;
+    // buf_n[d0] += 32;
 }
 
 //-----------------------------------------------------------------------------//
@@ -416,14 +297,21 @@ pub fn reloadShaders() !void {
 
 pub fn renderFrame() !void {
 
+    try gfx_core.useShaderProgram(shader_program_base);
+    try gfx_core.bindVAO(vao_0);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[0]), &buf[0]);
+    try gfx_core.bindEBO(ebo);
+    try setVertexAttributeMode(.PxyCrgba);
+    try gfx_core.drawElements(.Triangles, @intCast(buf_n[0]*6/24));
+    buf_n[0] = 0;
+
     try gfx_core.useShaderProgram(shader_program_scene);
     try gfx_core.setUniform1f(shader_program_scene, "u_center",
                               @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2)));
 
-    try gfx_core.bindVAO(vao_0);
     try gfx_core.bindVBO(vbo_0);
     try gfx_core.bindEBO(ebo);
-    try setVertexAttributeMode(.PxyCrgbaH);
+    try setVertexAttributeMode(.PxyCrgbaTuvH);
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
@@ -431,7 +319,7 @@ pub fn renderFrame() !void {
 
         // Draw based on indices. Buffers accumulate 2d vertices, which is 24 values per
         // vertical polygon (4 vertices x,y, rgba). Drawing triangles, this is 6 indices
-        try gfx_core.drawElements(.Triangles, @intCast(buf_n[i-1]*6/32));
+        try gfx_core.drawElements(.Triangles, @intCast(buf_n[i-1]*6/40));
 
         buf_n[i-1] = 0;
     }
@@ -467,7 +355,7 @@ var vao_1: u32 = 0;
 var vbo_0: u32 = 0;
 var vbo_1: u32 = 0;
 
-const buf_size = 4096*2*32;
+const buf_size = 4096*2*40;
 const buf_type = [cfg.gfx.depth_levels_max][buf_size]f32;
 const buf_size_lines = 4096*2*6*cfg.rc.segments_max;
 const buf_type_lines = [buf_size_lines]f32;
@@ -517,12 +405,14 @@ fn setVertexAttributeMode(m: AttributeMode) !void {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.disableVertexAttributes(1);
             try gfx_core.disableVertexAttributes(2);
+            try gfx_core.disableVertexAttributes(3);
             try gfx_core.setupVertexAttributesFloat(0, 2, 2, 0);
         },
         .PxyCrgba => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.enableVertexAttributes(1);
             try gfx_core.disableVertexAttributes(2);
+            try gfx_core.disableVertexAttributes(3);
             try gfx_core.setupVertexAttributesFloat(0, 2, 6, 0);
             try gfx_core.setupVertexAttributesFloat(1, 4, 6, 2);
         },
@@ -530,9 +420,20 @@ fn setVertexAttributeMode(m: AttributeMode) !void {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.enableVertexAttributes(1);
             try gfx_core.enableVertexAttributes(2);
+            try gfx_core.disableVertexAttributes(3);
             try gfx_core.setupVertexAttributesFloat(0, 2, 8, 0);
             try gfx_core.setupVertexAttributesFloat(1, 4, 8, 2);
             try gfx_core.setupVertexAttributesFloat(2, 2, 8, 6);
+        },
+        .PxyCrgbaTuvH => {
+            try gfx_core.enableVertexAttributes(0);
+            try gfx_core.enableVertexAttributes(1);
+            try gfx_core.enableVertexAttributes(2);
+            try gfx_core.enableVertexAttributes(3);
+            try gfx_core.setupVertexAttributesFloat(0, 2, 10, 0);
+            try gfx_core.setupVertexAttributesFloat(1, 4, 10, 2);
+            try gfx_core.setupVertexAttributesFloat(2, 2, 10, 6);
+            try gfx_core.setupVertexAttributesFloat(3, 2, 10, 8);
         },
         else => {}
     }

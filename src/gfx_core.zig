@@ -213,19 +213,26 @@ pub fn createBuffer() !u32 {
 }
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_MIRRORED_REPEAT);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    _ = data;
 
     var tex: u32 = 0;
     c.glGenTextures(1, &tex);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glBindTexture(c.GL_TEXTURE_2D, tex);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_SRGB, @intCast(w), @intCast(h),
+                   0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(data));
+    // c.__glewGenerateMipmap.?(c.GL_TEXTURE_2D);
 
     log_gfx.debug("Texture generated, id={}, size={}x{}", .{tex, w, h});
     return tex;

@@ -113,10 +113,10 @@ pub fn createScene() void {
     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
     const tilt = -win_h * plr.getTilt();
 
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 0.8, 0.5, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.5, 0.05, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.05, 0.2, cfg.gfx.depth_levels_max - 1);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.4, cfg.gfx.depth_levels_max - 1);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 0.8, 0.5, 0);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.5, 0.05, 0);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.05, 0.2, 0);
+    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.4, 0);
 
     var i: usize = 0;
 
@@ -272,11 +272,16 @@ pub fn createScene() void {
                                                  col_shading * col.b, col.a,
                                                  h_ssao, shift_and_tilt, depth_layer, tex_id);
                 } else {
-                    gfx_rw.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
+                    // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
+                    //                      col_shading * col.r,
+                    //                      col_shading * col.g,
+                    //                      col_shading * col.b, col.a,
+                    //                      h_ssao, shift_and_tilt, depth_layer);
+                    gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, 0, 0, 0, 0,
                                          col_shading * col.r,
                                          col_shading * col.g,
                                          col_shading * col.b, col.a,
-                                         h_ssao, shift_and_tilt, depth_layer);
+                                            h_ssao, shift_and_tilt, depth_layer, 0);
                 }
                 if (canvas.bottom + canvas.top > 0.0) {
                     if (canvas.tex_id != 0) {
@@ -291,16 +296,16 @@ pub fn createScene() void {
                                                      col_shading * canvas_col.b, canvas_col.a,
                                                      h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
                     } else {
-                        gfx_rw.addVerticalQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
-                                            col_shading * canvas_col.r,
-                                            col_shading * canvas_col.g,
-                                            col_shading * canvas_col.b, canvas_col.a,
-                                            h_ssao, shift_and_tilt, depth_layer);
-                        gfx_rw.addVerticalQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1,
-                                            col_shading * canvas_col.r,
-                                            col_shading * canvas_col.g,
-                                            col_shading * canvas_col.b, canvas_col.a,
-                                            h_ssao, shift_and_tilt, depth_layer);
+                        // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
+                        //                     col_shading * canvas_col.r,
+                        //                     col_shading * canvas_col.g,
+                        //                     col_shading * canvas_col.b, canvas_col.a,
+                        //                     h_ssao, shift_and_tilt, depth_layer);
+                        // gfx_rw.addVerticalQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1,
+                        //                     col_shading * canvas_col.r,
+                        //                     col_shading * canvas_col.g,
+                        //                     col_shading * canvas_col.b, canvas_col.a,
+                        //                     h_ssao, shift_and_tilt, depth_layer);
                     }
                 }
                 prev.cell_type = cell_type;

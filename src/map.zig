@@ -236,21 +236,23 @@ fn fillMap() !void {
     // -- floor
     try attribute_components.color.append(.{ .r = 0.01, .g = 0.01, .b = 0.01, .a = 1.0 });
     // -- wall, pillar
-    try attribute_components.color.append(.{ .r = 0.7, .g = 0.7, .b = 0.7, .a = 0.7 });
+    try attribute_components.color.append(.{ .r = 0.85, .g = 0.85, .b = 0.9, .a = 0.7 });
     // -- mirror
-    try attribute_components.color.append(.{ .r = 0.01, .g = 0.01, .b = 0.5, .a = 0.05 });
+    try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.2, .a = 0.1 });
     // -- glass
-    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.02 });
+    try attribute_components.color.append(.{ .r = 0.0, .g = 0.2, .b = 0.0, .a = 0.01 });
     // -- pillar_glass
     try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 0.0, .a = 0.2 });
     // -- glass canvas
-    try attribute_components.color.append(.{ .r = 0.2, .g = 0.8, .b = 0.2, .a = 0.2 });
+    try attribute_components.color.append(.{ .r = 0.1, .g = 0.8, .b = 0.1, .a = 0.5 });
+    // -- mirror canvas
+    try attribute_components.color.append(.{ .r = 0.1, .g = 0.1, .b = 0.8, .a = 0.5 });
 
     // Default attributes canvas
     // -- miror
     try attribute_components.canvas.append(.{ .top = 0.075, .bottom = 0.075, .i_col = 1, .tex_id = 1 });
     // -- glass
-    try attribute_components.canvas.append(.{ .top = 0.01, .bottom = 0.01, .i_col = 5, .tex_id = 1 });
+    try attribute_components.canvas.append(.{ .top = 0.01, .bottom = 0.01, .i_col = 5, .tex_id = 0 });
     // -- no canvas
     try attribute_components.canvas.append(.{ .top = 0.0, .bottom = 0.0, .i_col = 0, .tex_id = 1 });
 
@@ -340,6 +342,7 @@ fn fillMap() !void {
             }
         }
     }
+    map_current.i_glass[20][4] = 1;
     map_current.i_glass[22][4] = 1;
     map_current.i_texture[6][10] = 3;
     map_current.i_texture[10][3] = 2;
@@ -370,14 +373,19 @@ fn loadResources() !void {
         img.releaseImage();
     }
     {
-        const image = try img.loadImage("resource/metal_01-1_1024x2048_bfeld.jpg");
+        // const image = try img.loadImage("resource/metal_01-1_1024x2048_bfeld.jpg");
+        const image = try img.loadImage("resource/metal_01_1024x2048_bfeld.jpg");
         const tex = try gfx_core.createTexture(image.width, image.height, image.data);
         attribute_components.texture.items[2].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
     }
     {
-        const image = try img.loadImage("resource/metal_01-2_1024x2048_bfeld.jpg");
+        const image = try img.loadImage("resource/metal_01-3_1024x2048_bfeld.jpg");
+        // const image = try img.loadImage("resource/finnish-grey-brick-13-stretcher-900-mm-architextures.jpg");
+        // const image = try img.loadImage("resource/metal_01_1024x2048_bfeld.jpg");
+        // const image = try img.loadImage("resource/wildtextures-brushed-metal-shets.jpg");
+        // const image = try img.loadImage("resource/wildtextures_medival-metal-doors.jpg");
         const tex = try gfx_core.createTexture(image.width, image.height, image.data);
         attribute_components.texture.items[3].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
