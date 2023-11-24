@@ -49,18 +49,18 @@ pub fn createMap() void {
                              o + @as(f32, @floatFromInt(j)) * f,
                              @as(f32, @floatFromInt(i + 1)) * f,
                              o + @as(f32, @floatFromInt(j + 1)) * f,
-                             c.r, c.g, c.b,
-                             cfg.rc.map_display_opacity, 0);
+                             gfx_core.compressColor(c.r, c.g, c.b, cfg.rc.map_display_opacity), 0);
                 },
                 .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
                     gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
                              o + @as(f32, @floatFromInt(j)) * f,
                              @as(f32, @floatFromInt(i + 1)) * f,
                              o + @as(f32, @floatFromInt(j + 1)) * f,
+                             gfx_core.compressColor(
                              0 + 0.1 * c.r,
                              0 + 0.1 * c.g,
                              0 + 0.1 * c.b,
-                             cfg.rc.map_display_opacity, 0);
+                             cfg.rc.map_display_opacity), 0);
                 },
             }
         }
@@ -113,10 +113,10 @@ pub fn createScene() void {
     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
     const tilt = -win_h * plr.getTilt();
 
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 0.8, 0.5, 0);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.5, 0.05, 0);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.05, 0.2, 0);
-    gfx_rw.addVerticalQuadG2G(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.4, 0);
+    gfx_rw.addQuadBackground(0, @floatFromInt(gfx_core.getWindowWidth()), tilt - win_h, tilt, 0.8, 0.5);
+    gfx_rw.addQuadBackground(0, @floatFromInt(gfx_core.getWindowWidth()), tilt, tilt + win_h * 0.5, 0.5, 0.05);
+    gfx_rw.addQuadBackground(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h * 0.5, tilt + win_h, 0.05, 0.2);
+    gfx_rw.addQuadBackground(0, @floatFromInt(gfx_core.getWindowWidth()), tilt + win_h, tilt + 2 * win_h, 0.2, 0.4);
 
     var i: usize = 0;
 

@@ -145,6 +145,12 @@ pub fn enableVertexAttributes(a: u32) !void {
     }
 }
 
+pub fn setupVertexAttributesUInt32(id: u32, size: i32, nr: i32, offset: u32) !void {
+    c.__glewVertexAttribIPointer.?(id, size, c.GL_UNSIGNED_INT, nr * @sizeOf(u32),
+                                   @ptrFromInt(offset * @sizeOf(u32)));
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
 pub fn setupVertexAttributesFloat(id: u32, size: i32, nr: i32, offset: u32) !void {
     c.__glewVertexAttribPointer.?(id, size, c.GL_FLOAT, c.GL_FALSE, nr * @sizeOf(f32),
                                   @ptrFromInt(offset * @sizeOf(f32)));
@@ -191,15 +197,15 @@ pub fn bindVBOAndBufferData(vbo: u32, n: u32, data: []f32, mode: DrawMode) !void
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn bindVBOAndBufferSubData(offset: u32, vbo: u32, n: u32, data: []f32) !void {
+pub fn bindVBOAndBufferSubData(comptime T: type, offset: u32, vbo: u32, n: u32, data: []T) !void {
     try bindVBO(vbo);
-    c.__glewBufferSubData.?(c.GL_ARRAY_BUFFER, offset, n*@sizeOf(f32), @ptrCast(data));
+    c.__glewBufferSubData.?(c.GL_ARRAY_BUFFER, offset, n*@sizeOf(T), @ptrCast(data));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn bindVBOAndReserveBuffer(target: BufferTarget, vbo: u32, n: u32, mode: DrawMode) !void {
+pub fn bindVBOAndReserveBuffer(comptime T: type, target: BufferTarget, vbo: u32, n: u32, mode: DrawMode) !void {
     try bindVBO(vbo);
-    c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(f32), null, @intFromEnum(mode));
+    c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(T), null, @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
@@ -250,6 +256,23 @@ pub fn createVAO() !u32 {
 //-----------------------------------------------------------------------------//
 //   Drawing
 //-----------------------------------------------------------------------------//
+
+pub inline fn compressColor(r: f32, g: f32, b: f32, a: f32) u32 {
+    const a_u: u32 = @as(u32, @intFromFloat(a * 255.0)) << 24;
+    const b_u: u32 = @as(u32, @intFromFloat(b * 255.0)) << 16;
+    const g_u: u32 = @as(u32, @intFromFloat(g * 255.0)) << 8;
+    const r_u: u32 = @as(u32, @intFromFloat(r * 255.0));
+    return r_u + g_u + b_u + a_u;
+}
+
+pub inline fn compressGrey(g: f32, a: f32) u32 {
+    const a_u: u32 = @as(u32, @intFromFloat(a * 255.0)) << 24;
+    const g0: u32 = @as(u32, @intFromFloat(g * 255.0));
+    const g1: u32 = @as(u32, @intFromFloat(g * 255.0)) << 8;
+    const g2: u32 = @as(u32, @intFromFloat(g * 255.0)) << 16;
+
+    return g0 + g1 + g2 + a_u;
+}
 
 pub fn drawArrays(mode: PrimitiveMode, offset: i32, elements: i32) !void {
     c.glDrawArrays(@intFromEnum(mode), offset, elements);
