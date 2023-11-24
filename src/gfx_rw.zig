@@ -31,15 +31,15 @@ pub fn init() !void {
     try initShaders();
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
-    var s: u32 = buf_size;
-    if (buf_size_lines > s) s = buf_size_lines;
+    var s: u32 = scene.buf_size;
+    if (rays.buf_size > s) s = rays.buf_size;
     try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_0, s, .Dynamic);
-    try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_1, buf_size_lines, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(.Array, vbo_1, rays.buf_size, .Dynamic);
 
     var ebo_buf = std.ArrayList(u32).init(allocator);
-    try ebo_buf.ensureTotalCapacity(buf_size*6);
+    try ebo_buf.ensureTotalCapacity(scene.buf_size*6);
     var i: u32 = 0;
-    while (i < buf_size) : (i += 1) {
+    while (i < scene.buf_size) : (i += 1) {
         ebo_buf.appendAssumeCapacity(0 + 4 * i);
         ebo_buf.appendAssumeCapacity(1 + 4 * i);
         ebo_buf.appendAssumeCapacity(2 + 4 * i);
@@ -47,22 +47,22 @@ pub fn init() !void {
         ebo_buf.appendAssumeCapacity(3 + 4 * i);
         ebo_buf.appendAssumeCapacity(0 + 4 * i);
     }
-    try gfx_core.bindEBOAndBufferData(ebo, buf_size*6, ebo_buf.items, .Static);
+    try gfx_core.bindEBOAndBufferData(ebo, scene.buf_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
 
-    buf = try allocator.create(buf_type);
+    scene.buf = try allocator.create(scene.buf_type);
     i = 0;
     while (i < cfg.gfx.depth_levels_max) : (i += 1) {
-        buf_n[i] = 0;
+        scene.buf_n[i] = 0;
     }
-    buf_lines = try allocator.create(buf_type_lines);
+    rays.buf = try allocator.create(rays.buf_type);
 
     c.glEnable(c.GL_FRAMEBUFFER_SRGB);
 }
 
 pub fn deinit() void {
-    allocator.destroy(buf);
-    allocator.destroy(buf_lines);
+    allocator.destroy(scene.buf);
+    allocator.destroy(rays.buf);
 
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -88,78 +88,81 @@ pub fn initShaders() !void {
 //-----------------------------------------------------------------------------//
 
 pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32) void {
-    const i = buf_n_lines;
-    buf_lines[i   ] = x0;
-    buf_lines[i+1 ] = y0;
-    buf_lines[i+2 ] = r;
-    buf_lines[i+3 ] = g;
-    buf_lines[i+4 ] = b;
-    buf_lines[i+5 ] = a;
-    buf_lines[i+6 ] = x1;
-    buf_lines[i+7 ] = y1;
-    buf_lines[i+8 ] = r;
-    buf_lines[i+9 ] = g;
-    buf_lines[i+10] = b;
-    buf_lines[i+11] = a;
-    buf_n_lines += 12;
+    const i = rays.buf_n;
+    const br = rays.buf;
+    br[i   ] = x0;
+    br[i+1 ] = y0;
+    br[i+2 ] = r;
+    br[i+3 ] = g;
+    br[i+4 ] = b;
+    br[i+5 ] = a;
+    br[i+6 ] = x1;
+    br[i+7 ] = y1;
+    br[i+8 ] = r;
+    br[i+9 ] = g;
+    br[i+10] = b;
+    br[i+11] = a;
+    rays.buf_n += 12;
 }
 
 pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32, d0: u8) void {
-    const i = buf_n[d0];
-    buf[d0][i   ] = x0;
-    buf[d0][i+1 ] = y0;
-    buf[d0][i+2 ] = r;
-    buf[d0][i+3 ] = g;
-    buf[d0][i+4 ] = b;
-    buf[d0][i+5 ] = a;
-    buf[d0][i+6 ] = x1;
-    buf[d0][i+7 ] = y0;
-    buf[d0][i+8 ] = r;
-    buf[d0][i+9 ] = g;
-    buf[d0][i+10] = b;
-    buf[d0][i+11] = a;
-    buf[d0][i+12] = x1;
-    buf[d0][i+13] = y1;
-    buf[d0][i+14] = r;
-    buf[d0][i+15] = g;
-    buf[d0][i+16] = b;
-    buf[d0][i+17] = a;
-    buf[d0][i+18] = x0;
-    buf[d0][i+19] = y1;
-    buf[d0][i+20] = r;
-    buf[d0][i+21] = g;
-    buf[d0][i+22] = b;
-    buf[d0][i+23] = a;
-    buf_n[d0] += 24;
+    const i = scene.buf_n[d0];
+    const bd = &scene.buf[d0];
+    bd[i   ] = x0;
+    bd[i+1 ] = y0;
+    bd[i+2 ] = r;
+    bd[i+3 ] = g;
+    bd[i+4 ] = b;
+    bd[i+5 ] = a;
+    bd[i+6 ] = x1;
+    bd[i+7 ] = y0;
+    bd[i+8 ] = r;
+    bd[i+9 ] = g;
+    bd[i+10] = b;
+    bd[i+11] = a;
+    bd[i+12] = x1;
+    bd[i+13] = y1;
+    bd[i+14] = r;
+    bd[i+15] = g;
+    bd[i+16] = b;
+    bd[i+17] = a;
+    bd[i+18] = x0;
+    bd[i+19] = y1;
+    bd[i+20] = r;
+    bd[i+21] = g;
+    bd[i+22] = b;
+    bd[i+23] = a;
+    scene.buf_n[d0] += 24;
 }
 
 pub fn addVerticalQuadG2G(x0: f32, x1: f32, y0: f32, y1: f32, g0: f32, g1: f32, d0: u8) void {
-    const i = buf_n[d0];
-    buf[d0][i   ] = x0;
-    buf[d0][i+1 ] = y0;
-    buf[d0][i+2 ] = g0;
-    buf[d0][i+3 ] = g0;
-    buf[d0][i+4 ] = g0;
-    buf[d0][i+5 ] = g0;
-    buf[d0][i+6 ] = x1;
-    buf[d0][i+7 ] = y0;
-    buf[d0][i+8 ] = g0;
-    buf[d0][i+9 ] = g0;
-    buf[d0][i+10] = g0;
-    buf[d0][i+11] = g0;
-    buf[d0][i+12] = x1;
-    buf[d0][i+13] = y1;
-    buf[d0][i+14] = g1;
-    buf[d0][i+15] = g1;
-    buf[d0][i+16] = g1;
-    buf[d0][i+17] = g1;
-    buf[d0][i+18] = x0;
-    buf[d0][i+19] = y1;
-    buf[d0][i+20] = g1;
-    buf[d0][i+21] = g1;
-    buf[d0][i+22] = g1;
-    buf[d0][i+23] = g1;
-    buf_n[d0] += 24;
+    const i = scene.buf_n[d0];
+    const bd = &scene.buf[d0];
+    bd[i   ] = x0;
+    bd[i+1 ] = y0;
+    bd[i+2 ] = g0;
+    bd[i+3 ] = g0;
+    bd[i+4 ] = g0;
+    bd[i+5 ] = g0;
+    bd[i+6 ] = x1;
+    bd[i+7 ] = y0;
+    bd[i+8 ] = g0;
+    bd[i+9 ] = g0;
+    bd[i+10] = g0;
+    bd[i+11] = g0;
+    bd[i+12] = x1;
+    bd[i+13] = y1;
+    bd[i+14] = g1;
+    bd[i+15] = g1;
+    bd[i+16] = g1;
+    bd[i+17] = g1;
+    bd[i+18] = x0;
+    bd[i+19] = y1;
+    bd[i+20] = g1;
+    bd[i+21] = g1;
+    bd[i+22] = g1;
+    bd[i+23] = g1;
+    scene.buf_n[d0] += 24;
 }
 
 pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
@@ -167,48 +170,49 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
                                 r: f32, g: f32, b: f32, a: f32,
                                 h: f32, ctr: f32, d0: u8, t: u32) void {
     _ = t;
-    const i = buf_n[d0];
-    buf[d0][i   ] = x0;
-    buf[d0][i+1 ] = y0;
-    buf[d0][i+2 ] = r;
-    buf[d0][i+3 ] = g;
-    buf[d0][i+4 ] = b;
-    buf[d0][i+5 ] = a;
-    buf[d0][i+6 ] = u_0;
-    buf[d0][i+7 ] = v0;
-    buf[d0][i+8 ] = h;
-    buf[d0][i+9 ] = ctr;
-    buf[d0][i+10] = x1;
-    buf[d0][i+11] = y1;
-    buf[d0][i+12] = r;
-    buf[d0][i+13] = g;
-    buf[d0][i+14] = b;
-    buf[d0][i+15] = a;
-    buf[d0][i+16] = u_1;
-    buf[d0][i+17] = v0;
-    buf[d0][i+18] = h;
-    buf[d0][i+19] = ctr;
-    buf[d0][i+20] = x1;
-    buf[d0][i+21] = y2;
-    buf[d0][i+22] = r;
-    buf[d0][i+23] = g;
-    buf[d0][i+24] = b;
-    buf[d0][i+25] = a;
-    buf[d0][i+26] = u_1;
-    buf[d0][i+27 ] = v1;
-    buf[d0][i+28] = h;
-    buf[d0][i+29] = ctr;
-    buf[d0][i+30] = x0;
-    buf[d0][i+31] = y3;
-    buf[d0][i+32] = r;
-    buf[d0][i+33] = g;
-    buf[d0][i+34] = b;
-    buf[d0][i+35] = a;
-    buf[d0][i+36] = u_0;
-    buf[d0][i+37] = v1;
-    buf[d0][i+38] = h;
-    buf[d0][i+39] = ctr;
-    buf_n[d0] += 40;
+    const i = scene.buf_n[d0];
+    const bd = &scene.buf[d0];
+    bd[i   ] = x0;
+    bd[i+1 ] = y0;
+    bd[i+2 ] = r;
+    bd[i+3 ] = g;
+    bd[i+4 ] = b;
+    bd[i+5 ] = a;
+    bd[i+6 ] = u_0;
+    bd[i+7 ] = v0;
+    bd[i+8 ] = h;
+    bd[i+9 ] = ctr;
+    bd[i+10] = x1;
+    bd[i+11] = y1;
+    bd[i+12] = r;
+    bd[i+13] = g;
+    bd[i+14] = b;
+    bd[i+15] = a;
+    bd[i+16] = u_1;
+    bd[i+17] = v0;
+    bd[i+18] = h;
+    bd[i+19] = ctr;
+    bd[i+20] = x1;
+    bd[i+21] = y2;
+    bd[i+22] = r;
+    bd[i+23] = g;
+    bd[i+24] = b;
+    bd[i+25] = a;
+    bd[i+26] = u_1;
+    bd[i+27 ] = v1;
+    bd[i+28] = h;
+    bd[i+29] = ctr;
+    bd[i+30] = x0;
+    bd[i+31] = y3;
+    bd[i+32] = r;
+    bd[i+33] = g;
+    bd[i+34] = b;
+    bd[i+35] = a;
+    bd[i+36] = u_0;
+    bd[i+37] = v1;
+    bd[i+38] = h;
+    bd[i+39] = ctr;
+    scene.buf_n[d0] += scene.attrib_size;
 }
 
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
@@ -297,14 +301,16 @@ pub fn reloadShaders() !void {
 
 pub fn renderFrame() !void {
 
+    //--- Floor and Ceiling ---//
     try gfx_core.useShaderProgram(shader_program_base);
     try gfx_core.bindVAO(vao_0);
-    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[0]), &buf[0]);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(scene.buf_n[0]), &scene.buf[0]);
     try gfx_core.bindEBO(ebo);
     try setVertexAttributeMode(.PxyCrgba);
-    try gfx_core.drawElements(.Triangles, @intCast(buf_n[0]*6/24));
-    buf_n[0] = 0;
+    try gfx_core.drawElements(.Triangles, @intCast(scene.buf_n[0]*6/24));
+    scene.buf_n[0] = 0;
 
+    //--- Scene ---//
     try gfx_core.useShaderProgram(shader_program_scene);
     try gfx_core.setUniform1f(shader_program_scene, "u_center",
                               @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2)));
@@ -315,27 +321,27 @@ pub fn renderFrame() !void {
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
-        try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[i-1]), &buf[i-1]);
+        try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(scene.buf_n[i-1]), &scene.buf[i-1]);
 
-        // Draw based on indices. Buffers accumulate 2d vertices, which is 24 values per
-        // vertical polygon (4 vertices x,y, rgba). Drawing triangles, this is 6 indices
-        try gfx_core.drawElements(.Triangles, @intCast(buf_n[i-1]*6/40));
+        // Draw based on indices.
+        try gfx_core.drawElements(.Triangles, @intCast(scene.buf_n[i-1]*6/scene.attrib_size));
 
-        buf_n[i-1] = 0;
+        scene.buf_n[i-1] = 0;
     }
+
+    //--- Map ---//
     try gfx_core.useShaderProgram(shader_program_base);
     try setVertexAttributeMode(.PxyCrgba);
-    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(buf_n[0]), &buf[0]);
-    // try gfx_core.bindEBO(ebo);
-    try gfx_core.drawElements(.Triangles, @intCast(buf_n[0]*6/24));
-    buf_n[0] = 0;
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_0, @intCast(scene.buf_n[0]), &scene.buf[0]);
+    try gfx_core.drawElements(.Triangles, @intCast(scene.buf_n[0]*6/24));
+    scene.buf_n[0] = 0;
 
-    // try gfx_core.bindEBO(0);
+    //--- Rays ---//
     try gfx_core.bindVBO(vbo_1);
-    try gfx_core.bindVBOAndBufferSubData(0, vbo_1, buf_n_lines, buf_lines);
+    try gfx_core.bindVBOAndBufferSubData(0, vbo_1, rays.buf_n, rays.buf);
     try setVertexAttributeMode(.PxyCrgba);
-    try gfx_core.drawArrays(.Lines, 0, @intCast(buf_n_lines / 6));
-    buf_n_lines = 0;
+    try gfx_core.drawArrays(.Lines, 0, @intCast(rays.buf_n / 6));
+    rays.buf_n = 0;
 }
 
 //-----------------------------------------------------------------------------//
@@ -351,19 +357,29 @@ var shader_program_base: u32 = 0;
 var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
-var vao_1: u32 = 0;
 var vbo_0: u32 = 0;
 var vbo_1: u32 = 0;
 
-const buf_size = 4096*2*40;
-const buf_type = [cfg.gfx.depth_levels_max][buf_size]f32;
-const buf_size_lines = 4096*2*6*cfg.rc.segments_max;
-const buf_type_lines = [buf_size_lines]f32;
+const scene = struct {
+    const attrib_size = 40;
+    const buf_size = 4096*2*scene.attrib_size;
+    const buf_type = [cfg.gfx.depth_levels_max][scene.buf_size]f32;
 
-var buf: *buf_type = undefined;
-var buf_n: [cfg.gfx.depth_levels_max]usize = undefined;
-var buf_lines: *buf_type_lines = undefined;
-var buf_n_lines: u32 = 0;
+    var buf: *scene.buf_type = undefined;
+    var buf_n: [cfg.gfx.depth_levels_max]usize = undefined;
+};
+
+const rays = struct {
+    const buf_size = 4096*2*6*cfg.rc.segments_max;
+    const buf_type = [rays.buf_size]f32;
+
+    var buf: *rays.buf_type = undefined;
+    var buf_n: u32 = 0;
+};
+// const buf_size = 4096*2*40;
+// const buf_type = [cfg.gfx.depth_levels_max][buf_size]f32;
+// const buf_size_lines = 4096*2*6*cfg.rc.segments_max;
+
 
 fn handleWindowResize(w: u64, h: u64) void {
     setProjection(w, h);
