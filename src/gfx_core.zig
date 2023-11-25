@@ -56,6 +56,8 @@ pub fn deinit() void {
     c.glfwTerminate();
     log_gfx.info("Terminating glfw", .{});
 
+    draw_call_statistics.printStats();
+
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
 }
@@ -277,11 +279,13 @@ pub inline fn compressGrey(g: f32, a: f32) u32 {
 pub fn drawArrays(mode: PrimitiveMode, offset: i32, elements: i32) !void {
     c.glDrawArrays(@intFromEnum(mode), offset, elements);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    draw_call_statistics.inc();
 }
 
 pub fn drawElements(mode: PrimitiveMode, n: i32) !void {
     c.glDrawElements(@intFromEnum(mode), n, c.GL_UNSIGNED_INT, null);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    draw_call_statistics.inc();
 }
 
 //-----------------------------------------------------------------------------//
@@ -454,6 +458,8 @@ pub fn finishFrame() !void {
         fps = 1e6 / @as(f32, @floatFromInt(t / 1000));
     }
     timer_main.reset();
+
+    draw_call_statistics.finishFrame();
 }
 
 //-----------------------------------------------------------------------------//
@@ -496,8 +502,8 @@ var fps_stable_count: u64 = 0;
 var fps: f32 = 60;
 
 var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
-var quad_statistics = stats.PerFrameCounter.init("Quads");
-var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");
+// var quad_statistics = stats.PerFrameCounter.init("Quads");
+// var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");
 
 /// Maximum quad buffer size for rendering
 const quads_max = 4096 / cfg.sub_sampling_base * 8; // 4K resolution, minimm width 2px, maximum of 8 lines in each column of a depth layer

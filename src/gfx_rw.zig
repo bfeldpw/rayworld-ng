@@ -33,9 +33,9 @@ pub fn init() !void {
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
     var s: u32 = scene.buf_size;
-    if (rays.buf_size > s) s = rays.buf_size;
+    if (verts_rays.buf_size > s) s = verts_rays.buf_size;
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, vbo_0, s, .Dynamic);
-    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, vbo_1, rays.buf_size, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, vbo_1, verts_rays.buf_size, .Dynamic);
     try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors.vbo, colors.buf_size, .Dynamic);
 
     var ebo_buf = std.ArrayList(u32).init(allocator);
@@ -64,7 +64,7 @@ pub fn init() !void {
     while (i < cfg.gfx.depth_levels_max) : (i += 1) {
         scene.buf_n[i] = 0;
     }
-    rays.buf = try allocator.create(rays.buf_type);
+    verts_rays.buf = try allocator.create(verts_rays.buf_type);
 
     colors.buf = try allocator.create(colors.buf_type);
     i = 0;
@@ -77,7 +77,7 @@ pub fn init() !void {
 
 pub fn deinit() void {
     allocator.destroy(scene.buf);
-    allocator.destroy(rays.buf);
+    allocator.destroy(verts_rays.buf);
     allocator.destroy(colors.buf);
 
     const leaked = gpa.deinit();
@@ -104,8 +104,8 @@ pub fn initShaders() !void {
 //-----------------------------------------------------------------------------//
 
 pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f32) void {
-    const i = rays.buf_n;
-    const br = rays.buf;
+    const i = verts_rays.buf_n;
+    const br = verts_rays.buf;
     br[i   ] = x0;
     br[i+1 ] = y0;
     br[i+2 ] = r;
@@ -118,7 +118,7 @@ pub fn addLine(x0: f32, y0: f32, x1: f32, y1: f32, r: f32, g: f32, b: f32, a: f3
     br[i+9 ] = g;
     br[i+10] = b;
     br[i+11] = a;
-    rays.buf_n += 12;
+    verts_rays.buf_n += 12;
 }
 
 pub fn addQuad(x0: f32, y0: f32, x1: f32, y1: f32, col: u32, d0: u8) void {
@@ -358,10 +358,10 @@ pub fn renderFrame() !void {
 
     //--- Rays ---//
     // try gfx_core.bindVBO(vbo_1);
-    // try gfx_core.bindVBOAndBufferSubData(f32, 0, vbo_1, rays.buf_n, rays.buf);
-    // try setVertexAttributeMode(.PxyCrgba);
-    // try gfx_core.drawArrays(.Lines, 0, @intCast(rays.buf_n / 6));
-    rays.buf_n = 0;
+    try gfx_core.bindVBOAndBufferSubData(f32, 0, vbo_1, verts_rays.buf_n, verts_rays.buf);
+    try setVertexAttributeMode(.PxyCrgba);
+    try gfx_core.drawArrays(.Lines, 0, @intCast(verts_rays.buf_n / 6));
+    verts_rays.buf_n = 0;
 }
 
 //-----------------------------------------------------------------------------//
@@ -435,11 +435,11 @@ const scene = struct {
     var buf_n: [cfg.gfx.depth_levels_max]usize = undefined;
 };
 
-const rays = struct {
+const verts_rays = struct {
     const buf_size = 4096*2*6*cfg.rc.segments_max;
-    const buf_type = [rays.buf_size]f32;
+    const buf_type = [verts_rays.buf_size]f32;
 
-    var buf: *rays.buf_type = undefined;
+    var buf: *verts_rays.buf_type = undefined;
     var buf_n: u32 = 0;
 };
 // const buf_size = 4096*2*40;
