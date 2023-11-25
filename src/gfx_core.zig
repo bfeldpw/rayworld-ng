@@ -220,6 +220,11 @@ pub fn createBuffer() !u32 {
     return b;
 }
 
+pub fn deleteBuffer(b: u32) !void {
+    c.__glewDeleteBuffers.?(1, &b);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 
     var tex: u32 = 0;

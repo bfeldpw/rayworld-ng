@@ -51,6 +51,8 @@ pub fn main() !void {
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
+    try gfx.setMapSize(map.getSizeX(), map.getSizeY());
+
     //----------------
     //   Init gui
     //----------------

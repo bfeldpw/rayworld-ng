@@ -49,7 +49,7 @@ pub fn createMap() void {
                              o + @as(f32, @floatFromInt(j)) * f,
                              @as(f32, @floatFromInt(i + 1)) * f,
                              o + @as(f32, @floatFromInt(j + 1)) * f,
-                             gfx_core.compressColor(c.r, c.g, c.b, cfg.rc.map_display_opacity), 0);
+                             gfx_core.compressColor(c.r, c.g, c.b, cfg.rc.map_display_opacity));
                 },
                 .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
                     gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
@@ -60,16 +60,13 @@ pub fn createMap() void {
                              0 + 0.1 * c.r,
                              0 + 0.1 * c.g,
                              0 + 0.1 * c.b,
-                             cfg.rc.map_display_opacity), 0);
+                             cfg.rc.map_display_opacity));
                 },
             }
         }
     }
 
     var i: usize = 0;
-
-    // gfx_impl.setColor(0.0, 0.0, 1.0, 0.1);
-    // gfx.startBatchLine();
     while (i < rays.seg_i0.len) : (i += 1) {
         if (i % cfg.rc.map_display_every_nth_line == 0) {
             var j: i32 = @intCast(rays.seg_i1[i]);
@@ -88,13 +85,13 @@ pub fn createMap() void {
                                 o + segments.y0[k] * f,
                                 segments.x1[k] * f,
                                 o + segments.y1[k] * f,
-                                0.0, 0.0, 1.0, 0.1);
+                                gfx_core.compressColor(0.0, 0.0, 1.0, 0.1));
                 } else {
                     gfx_rw.addLine(segments.x0[k] * f,
                                 o + segments.y0[k] * f,
                                 segments.x1[k] * f,
                                 o + segments.y1[k] * f,
-                                0.0, 0.75, 1.0, 0.05/@as(f32, @floatFromInt(j-j0)));
+                                gfx_core.compressColor(0.0, 0.75, 1.0, 0.05/@as(f32, @floatFromInt(j-j0))));
                 }
             }
         }

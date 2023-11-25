@@ -78,6 +78,9 @@ pub inline fn getReflection(y: usize, x: usize) *AttribReflection {
     return &attribute_components.reflection.items[map_current.i_reflection[y][x]];
 }
 
+pub inline fn getSizeX() u32 {return map_size_x;}
+pub inline fn getSizeY() u32 {return map_size_y;}
+
 pub inline fn getTextureID(y: usize, x: usize) *AttribTexture {
     return &attribute_components.texture.items[map_current.i_texture[y][x]];
 }
