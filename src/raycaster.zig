@@ -2,6 +2,7 @@ const std = @import("std");
 const cfg = @import("config.zig");
 // const gfx = @import("graphics.zig"); const gfx_impl = @import("gfx_impl.zig");
 const gfx_core = @import("gfx_core.zig");
+const gfx_base = @import("gfx_base.zig");
 const gfx_rw = @import("gfx_rw.zig");
 const map = @import("map.zig"); const stats = @import("stats.zig");
 const plr = @import("player.zig");
@@ -33,7 +34,7 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn createMap() void {
+pub fn createMap() !void {
     const m = map.get();
     const map_cells_y = @as(f32, map.get().len);
     const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
@@ -97,13 +98,17 @@ pub fn createMap() void {
         }
     }
 
-    // const x = plr.getPosX();
-    // const y = plr.getPosY();
-    // const w = 0.1;
-    // const h = 0.5;
-    // const d = plr.getDir();
-    // gfx_impl.setColor(0.0, 0.7, 0.0, 1.0);
-    // gfx.drawTriangle((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f, (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f, (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f);
+    const x = plr.getPosX();
+    const y = plr.getPosY();
+    const w = 0.1;
+    const h = 0.5;
+    const d = plr.getDir();
+    try gfx_base.addVertexPxyCrgba((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
+                                    0.0, 0.7, 0.0, 1.0);
+    try gfx_base.addVertexPxyCrgba((x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
+                                    0.0, 0.7, 0.0, 1.0);
+    try gfx_base.addVertexPxyCrgba((x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f,
+                                    0.0, 0.7, 0.0, 1.0);
 }
 
 pub fn createScene() void {

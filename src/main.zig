@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
+const gfx_base = @import("gfx_base.zig");
 const gfx = @import("gfx_rw.zig");
 // const rw_gui = @import("rw_gui.zig");
 const input = @import("input.zig");
@@ -31,6 +32,8 @@ pub fn main() !void {
     //---------------------------------------------
     try gfx_core.init();
     defer gfx_core.deinit();
+    try gfx_base.init();
+    defer gfx_base.deinit();
 
     try gfx.init();
     defer gfx.deinit();
@@ -111,7 +114,7 @@ pub fn main() !void {
         rc.createScene();
         prf_ren_scene.stop();
         prf_ren_map.start();
-        rc.createMap();
+        try rc.createMap();
         prf_ren_map.stop();
         prf_ren_frame.start();
         try gfx.renderFrame();

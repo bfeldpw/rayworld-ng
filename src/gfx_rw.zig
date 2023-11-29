@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
+const gfx_base = @import("gfx_base.zig");
 const stats = @import("stats.zig");
 
 const builtin = @import("builtin");
@@ -9,14 +10,6 @@ const builtin = @import("builtin");
 //-----------------------------------------------------------------------------//
 //   Error Sets / Enums
 //-----------------------------------------------------------------------------//
-
-const AttributeMode = enum {
-    None,
-    Pxy,
-    PxyCrgba,
-    PxyCrgbaH,
-    PxyCrgbaTuvH
-};
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
@@ -27,10 +20,10 @@ pub fn init() !void {
     try initShaders();
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
-    vao_0 = try gfx_core.createVAO();
+    vao_0 = try gfx_core.genVAO();
 
     // -- Setup EBO
-    ebo = try gfx_core.createBuffer();
+    ebo = try gfx_core.genBuffer();
     var ebo_buf = std.ArrayList(u32).init(allocator);
     try ebo_buf.ensureTotalCapacity(verts_scene.buf_size*6);
     var i: u32 = 0;
@@ -46,30 +39,30 @@ pub fn init() !void {
     ebo_buf.deinit();
 
     //--- Setup background ---//
-    verts_bg.vbo = try gfx_core.createBuffer();
-    colors_bg.vbo = try gfx_core.createBuffer();
+    verts_bg.vbo = try gfx_core.genBuffer();
+    colors_bg.vbo = try gfx_core.genBuffer();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_bg.vbo, verts_bg.buf_size, .Dynamic);
     try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_bg.vbo, colors_bg.buf_size, .Dynamic);
 
     //--- Setup scene ---//
-    colors_scene.vbo = try gfx_core.createBuffer();
-    verts_scene.vbo = try gfx_core.createBuffer();
+    // colors_scene.vbo = try gfx_core.createBuffer();
+    verts_scene.vbo = try gfx_core.genBuffer();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_scene.vbo, verts_scene.buf_size, .Dynamic);
-    try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_scene.vbo, colors_scene.buf_size, .Dynamic);
+    // try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_scene.vbo, colors_scene.buf_size, .Dynamic);
     verts_scene.buf = try allocator.create(verts_scene.buf_type);
     i = 0;
     while (i < cfg.gfx.depth_levels_max) : (i += 1) {
         verts_scene.buf_n[i] = 0;
     }
-    colors_scene.buf = try allocator.create(colors_scene.buf_type);
-    i = 0;
-    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
-        colors_scene.buf_n[i] = 0;
-    }
+    // colors_scene.buf = try allocator.create(colors_scene.buf_type);
+    // i = 0;
+    // while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+        // colors_scene.buf_n[i] = 0;
+    // }
 
     //--- Setup map ---//
-    verts_map.vbo = try gfx_core.createBuffer();
-    colors_map.vbo = try gfx_core.createBuffer();
+    verts_map.vbo = try gfx_core.genBuffer();
+    colors_map.vbo = try gfx_core.genBuffer();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_map.vbo,
                                          map_size_x * map_size_y * 8, .Dynamic);
     try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_map.vbo,
@@ -78,14 +71,17 @@ pub fn init() !void {
     colors_map.buf = try allocator.alloc(u32, map_size_x * map_size_y * 4);
 
     //--- Setup rays ---//
-    verts_rays.vbo = try gfx_core.createBuffer();
-    colors_rays.vbo = try gfx_core.createBuffer();
+    verts_rays.vbo = try gfx_core.genBuffer();
+    colors_rays.vbo = try gfx_core.genBuffer();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_rays.vbo, verts_rays.buf_size, .Dynamic);
     try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_rays.vbo, colors_rays.buf_size, .Dynamic);
     verts_rays.buf = try allocator.create(verts_rays.buf_type);
     colors_rays.buf = try allocator.create(colors_rays.buf_type);
 
     c.glEnable(c.GL_FRAMEBUFFER_SRGB);
+
+    const tete = try gfx_core.createFramebuffer(10, 10);
+    _ = tete;
 }
 
 pub fn deinit() void {
@@ -94,7 +90,7 @@ pub fn deinit() void {
     };
 
     allocator.destroy(verts_scene.buf);
-    allocator.destroy(colors_scene.buf);
+    // allocator.destroy(colors_scene.buf);
     allocator.free(colors_map.buf);
     allocator.free(verts_map.buf);
     allocator.destroy(colors_rays.buf);
@@ -107,6 +103,9 @@ pub fn deinit() void {
 pub fn initShaders() !void {
     log_gfx.info("Processing shaders", .{});
 
+    shader_program_pxy_crgba_f32 = try gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
+        cfg.gfx.shader_dir ++ "base.frag");
     shader_program_base = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag");
@@ -307,6 +306,14 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
+    const sp_pxy_crgba_f32 = gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
+        cfg.gfx.shader_dir ++ "base.frag") catch |e| {
+
+        log_gfx.err("Error reloading shaders: {}", .{e});
+        return;
+    };
+
     const sp_base = gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag") catch |e| {
@@ -323,6 +330,8 @@ pub fn reloadShaders() !void {
         return;
     };
 
+    try gfx_core.deleteShaderProgram(shader_program_pxy_crgba_f32);
+    shader_program_pxy_crgba_f32 = sp_pxy_crgba_f32;
     try gfx_core.deleteShaderProgram(shader_program_base);
     shader_program_base = sp_base;
     try gfx_core.deleteShaderProgram(shader_program_scene);
@@ -367,7 +376,7 @@ fn renderScene() !void {
 
     try gfx_core.bindVBO(verts_scene.vbo);
     try gfx_core.bindEBO(ebo);
-    try setVertexAttributeMode(.PxyCrgbaTuvH);
+    const s = try gfx_base.setVertexAttributeMode(.PxyCrgbaTuvH);
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
@@ -375,7 +384,7 @@ fn renderScene() !void {
                                              &verts_scene.buf[i-1]);
 
         // Draw based on indices.
-        try gfx_core.drawElements(.Triangles, @intCast(verts_scene.buf_n[i-1]*6/40));
+        try gfx_core.drawElements(.Triangles, @intCast(verts_scene.buf_n[i-1]*6/(4*s)));
 
         verts_scene.buf_n[i-1] = 0;
     }
@@ -407,6 +416,8 @@ fn renderMap() !void {
     try gfx_core.drawArrays(.Lines, 0, @intCast(verts_rays.buf_n / 2));
     colors_rays.buf_n = 0;
     verts_rays.buf_n = 0;
+
+    try gfx_base.renderBatch(shader_program_pxy_crgba_f32, .PxyCrgba, .Triangles);
 }
 
 //-----------------------------------------------------------------------------//
@@ -419,6 +430,7 @@ var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_
 const allocator = gpa.allocator();
 
 var shader_program_base: u32 = 0;
+var shader_program_pxy_crgba_f32: u32 = 0;
 var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
@@ -453,14 +465,14 @@ const verts_map = struct {
     var vbo: u32 = 0;
 };
 
-const colors_scene = struct {
-    const buf_size = 4096*2;
-    const buf_type = [cfg.gfx.depth_levels_max][colors_scene.buf_size]u32;
+// const colors_scene = struct {
+//     const buf_size = 4096*2;
+//     const buf_type = [cfg.gfx.depth_levels_max][colors_scene.buf_size]u32;
 
-    var buf: *colors_scene.buf_type = undefined;
-    var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
-    var vbo: u32 = 0;
-};
+//     var buf: *colors_scene.buf_type = undefined;
+//     var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
+//     var vbo: u32 = 0;
+// };
 
 const verts_scene = struct {
     const attrib_size = 40;
@@ -503,6 +515,12 @@ fn setProjection(w: u64, h: u64) void {
     const h_r = 2.0/@as(f32, @floatFromInt(h));
     const o_w = @as(f32, @floatFromInt(w/2));
     const o_h = @as(f32, @floatFromInt(h/2));
+    gfx_core.useShaderProgram(shader_program_pxy_crgba_f32) catch |e| {
+        log_gfx.err("{}", .{e});
+    };
+    gfx_core.setUniform4f(shader_program_pxy_crgba_f32, "t", w_r, h_r, o_w, o_h) catch |e| {
+        log_gfx.err("{}", .{e});
+    };
     gfx_core.useShaderProgram(shader_program_base) catch |e| {
         log_gfx.err("{}", .{e});
     };
@@ -518,50 +536,6 @@ fn setProjection(w: u64, h: u64) void {
 }
 
 //-----------------------------------------------------------------------------//
-//   Predefined vertex attribute modes
-//-----------------------------------------------------------------------------//
-
-fn setVertexAttributeMode(m: AttributeMode) !void {
-    switch (m) {
-        .Pxy => {
-            try gfx_core.enableVertexAttributes(0);
-            try gfx_core.disableVertexAttributes(1);
-            try gfx_core.disableVertexAttributes(2);
-            try gfx_core.disableVertexAttributes(3);
-            try gfx_core.setupVertexAttributesFloat(0, 2, 2, 0);
-        },
-        .PxyCrgba => {
-            try gfx_core.enableVertexAttributes(0);
-            try gfx_core.enableVertexAttributes(1);
-            try gfx_core.disableVertexAttributes(2);
-            try gfx_core.disableVertexAttributes(3);
-            try gfx_core.setupVertexAttributesFloat(0, 2, 6, 0);
-            try gfx_core.setupVertexAttributesFloat(1, 4, 6, 2);
-        },
-        .PxyCrgbaH => {
-            try gfx_core.enableVertexAttributes(0);
-            try gfx_core.enableVertexAttributes(1);
-            try gfx_core.enableVertexAttributes(2);
-            try gfx_core.disableVertexAttributes(3);
-            try gfx_core.setupVertexAttributesFloat(0, 2, 8, 0);
-            try gfx_core.setupVertexAttributesFloat(1, 4, 8, 2);
-            try gfx_core.setupVertexAttributesFloat(2, 2, 8, 6);
-        },
-        .PxyCrgbaTuvH => {
-            try gfx_core.enableVertexAttributes(0);
-            try gfx_core.enableVertexAttributes(1);
-            try gfx_core.enableVertexAttributes(2);
-            try gfx_core.enableVertexAttributes(3);
-            try gfx_core.setupVertexAttributesFloat(0, 2, 10, 0);
-            try gfx_core.setupVertexAttributesFloat(1, 4, 10, 2);
-            try gfx_core.setupVertexAttributesFloat(2, 2, 10, 6);
-            try gfx_core.setupVertexAttributesFloat(3, 2, 10, 8);
-        },
-        else => {}
-    }
-}
-
-//-----------------------------------------------------------------------------//
 //   Clean up
 //-----------------------------------------------------------------------------//
 
@@ -571,7 +545,7 @@ fn deleteBuffers() !void {
     try gfx_core.deleteBuffer(colors_bg.vbo);
     try gfx_core.deleteBuffer(verts_bg.vbo);
     try gfx_core.deleteBuffer(verts_scene.vbo);
-    try gfx_core.deleteBuffer(colors_scene.vbo);
+    // try gfx_core.deleteBuffer(colors_scene.vbo);
     try gfx_core.deleteBuffer(colors_map.vbo);
     try gfx_core.deleteBuffer(verts_map.vbo);
     try gfx_core.deleteBuffer(colors_rays.vbo);

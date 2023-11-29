@@ -26,7 +26,7 @@ const DrawMode = enum(c_uint) {
     Stream = c.GL_STREAM_DRAW
 };
 
-const PrimitiveMode = enum(c_uint) {
+pub const PrimitiveMode = enum(c_uint) {
     LineLoop = c.GL_LINE_LOOP,
     Lines = c.GL_LINES,
     Points = c.GL_POINTS,
@@ -211,7 +211,7 @@ pub fn bindVBOAndReserveBuffer(comptime T: type, target: BufferTarget, vbo: u32,
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn createBuffer() !u32 {
+pub fn genBuffer() !u32 {
     var b: u32 = 0;
     c.__glewGenBuffers.?(1, &b);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
@@ -227,9 +227,7 @@ pub fn deleteBuffer(b: u32) !void {
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 
-    var tex: u32 = 0;
-    c.glGenTextures(1, &tex);
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    var tex: u32 = try genTexture();
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
@@ -237,27 +235,115 @@ pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
+    // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_SRGB, @intCast(w), @intCast(h),
                    0, c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(data));
-    // c.__glewGenerateMipmap.?(c.GL_TEXTURE_2D);
+    c.__glewGenerateMipmap.?(c.GL_TEXTURE_2D);
 
-    log_gfx.debug("Texture generated, id={}, size={}x{}", .{tex, w, h});
+    log_gfx.debug("Texture created, size={}x{}", .{w, h});
     return tex;
 }
 
-pub fn createVAO() !u32 {
+pub fn genTexture() !u32 {
+    var tex: u32 = 0;
+    c.glGenTextures(1, &tex);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    log_gfx.debug("Texture object generated, id={}", .{tex});
+    return tex;
+}
+
+pub fn genVAO() !u32 {
     var vao: u32 = 0;
     c.__glewGenVertexArrays.?(1, &vao);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     log_gfx.debug("Vertex array object (VAO) generated, id={}", .{vao});
     return vao;
+}
+
+//-----------------------------------------------------------------------------//
+//   Framebuffer handling
+//-----------------------------------------------------------------------------//
+
+/// High level framebuffer data, including texture
+pub const fb_data = struct {
+    fbo: u32,
+    tex: u32,
+    w: u32,
+    h: u32
+};
+
+pub fn bindFBO(fbo: u32) !void {
+    if (fbo != state.bound_fbo) {
+        c.__glewBindFramebuffer.?(c.GL_FRAMEBUFFER, fbo);
+        state.bound_fbo = fbo;
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    }
+}
+
+pub fn checkFramebuffer(fbo: u32) !void {
+    try bindFBO(fbo);
+    if (c.__glewCheckFramebufferStatus.?(c.GL_FRAMEBUFFER) != c.GL_FRAMEBUFFER_COMPLETE) {
+        log_gfx.err("Framebuffer id={} is not complete", .{fbo});
+        return GraphicsError.OpenGLFailed;
+    }
+}
+
+pub fn genFBO() !u32 {
+    var b: u32 = 0;
+    c.__glewGenFramebuffers.?(1, &b);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+
+    log_gfx.debug("Framebuffer object generated, id={}", .{b});
+
+    return b;
+}
+
+/// High level function to create a framebuffer including texture
+pub fn createFramebuffer(w: u32, h: u32) !fb_data {
+    var fb = fb_data{ .fbo = 0, .tex = 0, .w = 0, .h = 0};
+
+    fb.w = w;
+    fb.h = h;
+
+    fb.fbo = try genFBO();
+
+    fb.tex = try genTexture();
+    c.glBindTexture(c.GL_TEXTURE_2D, fb.tex);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGB, @intCast(w), @intCast(h),
+                   0, c.GL_RGB, c.GL_UNSIGNED_BYTE, null);
+
+    c.__glewBindFramebuffer.?(c.GL_FRAMEBUFFER, fb.fbo);
+    c.__glewFramebufferTexture2D.?(c.GL_FRAMEBUFFER, c.GL_COLOR_ATTACHMENT0, c.GL_TEXTURE_2D, fb.tex, 0);
+
+    try checkFramebuffer(fb.fbo);
+
+    c.__glewBindFramebuffer.?(c.GL_FRAMEBUFFER, 0);
+
+    log_gfx.debug("Framebuffer with texture created, size={}x{}", .{w, h});
+
+    return fb;
+}
+
+pub fn deleteFBO(fbo: u32) !void {
+    c.__glewDeleteFrameBuffers.?(1, &fbo);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
 //-----------------------------------------------------------------------------//
@@ -522,6 +608,7 @@ const shader_ids = std.ArrayList(u8).init(allocator);
 const state = struct {
     var active_shader_program: u32 = 0;
     var bound_ebo: u32 = 0;
+    var bound_fbo: u32 = 0;
     var bound_vao: u32 = 0;
     var bound_vbo: u32 = 0;
     var bound_texture: u32 = 0;
@@ -563,6 +650,11 @@ fn initGLFW() !void {
     var glfw_error: bool = false;
 
     const r = c.glfwInit();
+    c.glfwWindowHint(c.GLFW_OPENGL_DEBUG_CONTEXT, c.GL_TRUE);
+    // c.glEnable(c.GL_DEBUG_OUTPUT);
+    // c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    // c.__glewDebugMessageCallback.?(debugMessage, null);
+    // glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE););
 
     if (r == c.GLFW_FALSE) {
         glfw_error = glfwCheckError();
@@ -591,6 +683,7 @@ fn initGLFW() !void {
 
     _ = c.glfwSetWindowSizeCallback(window, processWindowResizeEvent);
     if (!glfwCheckError()) return GraphicsError.GLFWFailed;
+
 }
 
 fn initOpenGL() !void {
@@ -638,6 +731,17 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
         log_gfx.err("Error resizing window ({}x{})", .{ w, h });
     };
 }
+
+// fn debugMessage(source: c.GLenum, deb_type: c.GLenum, id: c.GLuint, severity: c.GLenum,
+//                 length: c.GLsizei,  message: [*c]const c.GLchar, user_param: ?*const anyopaque) callconv(.C) void {
+//     _ = user_param;
+//     _ = length;
+//     _ = severity;
+//     _ = id;
+//     _ = deb_type;
+//     _ = source;
+//     log_gfx.debug("GL debug: {s}", .{message});
+// }
 
 //-----------------------------------------------------------------------------//
 //   Tests
