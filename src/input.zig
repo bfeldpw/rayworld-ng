@@ -4,7 +4,7 @@ const gfx_core = @import("gfx_core.zig");
 const gfx_rw = @import("gfx_rw.zig");
 const plr = @import("player.zig");
 // const rw_gui = @import("rw_gui.zig");
-// const sim = @import("sim.zig");
+const sim = @import("sim.zig");
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
@@ -42,12 +42,12 @@ pub fn processInputs(frequency: f32) void {
         if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS) plr.move(-4.0 / frequency);
         if (c.glfwGetKey(window, c.GLFW_KEY_E) == c.GLFW_PRESS) plr.moveUpDown(3.0 / frequency);
         if (c.glfwGetKey(window, c.GLFW_KEY_C) == c.GLFW_PRESS) plr.moveUpDown(-3.0 / frequency);
-        // if (c.glfwGetKey(window, c.GLFW_KEY_LEFT) == c.GLFW_PRESS) sim.moveMapLeft();
-        // if (c.glfwGetKey(window, c.GLFW_KEY_RIGHT) == c.GLFW_PRESS) sim.moveMapRight();
-        // if (c.glfwGetKey(window, c.GLFW_KEY_UP) == c.GLFW_PRESS) sim.moveMapUp();
-        // if (c.glfwGetKey(window, c.GLFW_KEY_DOWN) == c.GLFW_PRESS) sim.moveMapDown();
-        // if (c.glfwGetKey(window, c.GLFW_KEY_F3) == c.GLFW_PRESS) sim.zoomOutMap();
-        // if (c.glfwGetKey(window, c.GLFW_KEY_F4) == c.GLFW_PRESS) sim.zoomInMap();
+        if (c.glfwGetKey(window, c.GLFW_KEY_LEFT) == c.GLFW_PRESS) sim.moveMapLeft();
+        if (c.glfwGetKey(window, c.GLFW_KEY_RIGHT) == c.GLFW_PRESS) sim.moveMapRight();
+        if (c.glfwGetKey(window, c.GLFW_KEY_UP) == c.GLFW_PRESS) sim.moveMapUp();
+        if (c.glfwGetKey(window, c.GLFW_KEY_DOWN) == c.GLFW_PRESS) sim.moveMapDown();
+        if (c.glfwGetKey(window, c.GLFW_KEY_F3) == c.GLFW_PRESS) sim.zoomOutMap();
+        if (c.glfwGetKey(window, c.GLFW_KEY_F4) == c.GLFW_PRESS) sim.zoomInMap();
     }
 
     var cur_x: f64 = 0.0;
@@ -129,10 +129,10 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
 
     if (key == c.GLFW_KEY_F1 and action == c.GLFW_PRESS) is_f1 = is_f1 != true;
     if (key == c.GLFW_KEY_F2 and action == c.GLFW_PRESS) is_f2 = is_f2 != true;
-    // if (key == c.GLFW_KEY_F5 and action == c.GLFW_PRESS) sim.timing.decelerate();
-    // if (key == c.GLFW_KEY_F6 and action == c.GLFW_PRESS) sim.timing.accelerate();
-    // if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
-    // if (key == c.GLFW_KEY_F8 and action == c.GLFW_PRESS) sim.timing.increaseFpsTarget();
+    if (key == c.GLFW_KEY_F5 and action == c.GLFW_PRESS) sim.timing.decelerate();
+    if (key == c.GLFW_KEY_F6 and action == c.GLFW_PRESS) sim.timing.accelerate();
+    if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
+    if (key == c.GLFW_KEY_F8 and action == c.GLFW_PRESS) sim.timing.increaseFpsTarget();
     if (key == c.GLFW_KEY_E and mods == c.GLFW_MOD_CONTROL and action == c.GLFW_PRESS) {
         // rw_gui.toggleEditMode();
         is_edit_mode_enabled = is_edit_mode_enabled != true;
@@ -148,9 +148,9 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
             log_input.err("Unable to reload shaders: {}", .{e});
         };
     }
-    // if (key == c.GLFW_KEY_H and action == c.GLFW_PRESS) sim.toggleStationHook();
-    // if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
-    // if (key == c.GLFW_KEY_P and action == c.GLFW_PRESS) sim.togglePause();
+    if (key == c.GLFW_KEY_H and action == c.GLFW_PRESS) sim.toggleStationHook();
+    if (key == c.GLFW_KEY_M and action == c.GLFW_PRESS) sim.toggleMap();
+    if (key == c.GLFW_KEY_P and action == c.GLFW_PRESS) sim.togglePause();
     if (key == c.GLFW_KEY_Q and action == c.GLFW_PRESS) c.glfwSetWindowShouldClose(window, c.GLFW_TRUE);
 }
 
@@ -191,7 +191,7 @@ fn processScrollEvent(win: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     log_input.debug("Mouse scroll event, offset: {d:.0}, {d:.0}", .{x, y});
 }
 
-fn  handleWindowResize(w: u64, h: u64) void {
+fn  handleWindowResize(w: u32, h: u32) void {
     // prevent jumping player orientation on window resize
     is_resized = true;
     log_input.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});

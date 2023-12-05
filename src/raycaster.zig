@@ -103,12 +103,13 @@ pub fn createMap() !void {
     const w = 0.1;
     const h = 0.5;
     const d = plr.getDir();
-    try gfx_base.addVertexPxyCrgba((x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
-                                    0.0, 0.7, 0.0, 1.0);
-    try gfx_base.addVertexPxyCrgba((x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
-                                    0.0, 0.7, 0.0, 1.0);
-    try gfx_base.addVertexPxyCrgba((x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f,
-                                    0.0, 0.7, 0.0, 1.0);
+    var data = [18]f32 {(x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
+                         0.0, 0.7, 0.0, 1.0,
+                        (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
+                         0.0, 0.7, 0.0, 1.0,
+                        (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f,
+                         0.0, 0.7, 0.0, 1.0};
+    try gfx_base.addVertexData(0, &data);
 }
 
 pub fn createScene() void {

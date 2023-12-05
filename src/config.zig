@@ -5,7 +5,7 @@ pub const multithreading = true;
 /// Globally turn on the General Purpose Allocators (GPAs)
 /// verbose output
 pub const debug_allocator = false;
-pub const sub_sampling_base = 2;
+pub const sub_sampling_base = 4;
 pub const sub_sampling_blocky = false;
 
 pub const fnt = struct {
@@ -34,6 +34,10 @@ pub const gfx = struct {
     pub const fps_target = 60; // Hz
     pub const scale_by = ScalePreference.room_height;
     pub const ambient_normal_shading = 0.1; // interval [0, 1]
+
+    pub const scene_fbo_size_x_max = 8192;
+    pub const scene_fbo_size_y_max = 4096;
+    pub const scene_sampling_factor = 1.0;
 
     pub var room_height: f32 = 2.0; // meter
     pub var player_fov: f32 = 90; // degrees

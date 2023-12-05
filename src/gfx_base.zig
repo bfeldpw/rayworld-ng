@@ -22,12 +22,15 @@ const AttributeMode = enum {
 pub fn init() !void {
     // vao = try gfx_core.genVAO();
     vbo = try gfx_core.genBuffer();
-    try vbo_buf.ensureTotalCapacity(batch_size);
+    var vbo_buf_base = std.ArrayList(f32).init(allocator);
+    try vbo_buf_base.ensureTotalCapacity(batch_size);
+    try vbo_bufs.append(vbo_buf_base);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, vbo, batch_size, .Dynamic);
 }
 
 pub fn deinit() void {
-    vbo_buf.deinit();
+    for (vbo_bufs.items) |v| v.deinit();
+    vbo_bufs.deinit();
 
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -37,23 +40,42 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn addVertexPxyCrgba(x: f32, y: f32, r: f32, g: f32, b: f32, a: f32) !void {
-    try vbo_buf.append(x);
-    try vbo_buf.append(y);
-    try vbo_buf.append(r);
-    try vbo_buf.append(g);
-    try vbo_buf.append(b);
-    try vbo_buf.append(a);
+pub fn addBuffer(n: u32) !u32 {
+    const buf_id = vbo_bufs.items.len;
+    var vbo_buf = std.ArrayList(f32).init(allocator);
+    try vbo_buf.ensureTotalCapacity(n);
+    try vbo_bufs.append(vbo_buf);
+    return @intCast(buf_id);
 }
 
-pub fn renderBatch(sp: u32, m: AttributeMode, prim: gfx_core.PrimitiveMode) !void {
+pub fn addVertexData(buf_id: u32, data: []f32) !void {
+    try vbo_bufs.items[buf_id].appendSlice(data);
+}
+
+pub fn addCircle(buf_id: u32, c_x: f32, c_y: f32, ra: f32,
+                 r: f32, g: f32, b: f32, a: f32) !void {
+    const nr_of_segments = 100.0;
+
+    var angle: f32 = 0.0;
+    const inc = 2.0 * std.math.pi / nr_of_segments;
+    while (angle < 2.0 * std.math.pi) : (angle += inc) {
+        try vbo_bufs.items[buf_id].append(ra * @cos(angle) + c_x);
+        try vbo_bufs.items[buf_id].append(ra * @sin(angle) + c_y);
+        try vbo_bufs.items[buf_id].append(r);
+        try vbo_bufs.items[buf_id].append(g);
+        try vbo_bufs.items[buf_id].append(b);
+        try vbo_bufs.items[buf_id].append(a);
+    }
+}
+
+pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.PrimitiveMode) !void {
     try gfx_core.useShaderProgram(sp);
     // try gfx_core.bindVAO(vao);
-    try gfx_core.bindVBOAndBufferSubData(f32, 0, vbo, @intCast(vbo_buf.items.len), vbo_buf.items);
+    try gfx_core.bindVBOAndBufferSubData(f32, 0, vbo, @intCast(vbo_bufs.items[buf_id].items.len), vbo_bufs.items[buf_id].items);
     const s = try setVertexAttributeMode(m);
 
-    try gfx_core.drawArrays(prim, 0, @intCast(vbo_buf.items.len / s));
-    vbo_buf.clearRetainingCapacity();
+    try gfx_core.drawArrays(prim, 0, @intCast(vbo_bufs.items[buf_id].items.len / s));
+    vbo_bufs.items[buf_id].clearRetainingCapacity();
 }
 
 //-----------------------------------------------------------------------------//
@@ -115,6 +137,6 @@ var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_
 const allocator = gpa.allocator();
 
 const batch_size = 2_100_000; // 100 000 textured triangles (100 000 * (3 * (2 vert-coords + 4 colors + 2 tex-coords)
-var vbo_buf = std.ArrayList(f32).init(allocator);
+var vbo_bufs = std.ArrayList(std.ArrayList(f32)).init(allocator);
 // var vao: u32 = 0;
 var vbo: u32 = 0;

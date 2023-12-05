@@ -1,8 +1,8 @@
 const std = @import("std");
-const c = @import("c.zig").c;
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
+const sim = @import("sim.zig");
 const stats = @import("stats.zig");
 
 const builtin = @import("builtin");
@@ -49,10 +49,13 @@ pub fn init() !void {
     verts_scene.vbo = try gfx_core.genBuffer();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_scene.vbo, verts_scene.buf_size, .Dynamic);
     // try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_scene.vbo, colors_scene.buf_size, .Dynamic);
-    verts_scene.buf = try allocator.create(verts_scene.buf_type);
-    i = 0;
-    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
-        verts_scene.buf_n[i] = 0;
+    // verts_scene.buf = try allocator.create(verts_scene.buf_type);
+    var iter = verts_scene.buf.iterator();
+    while (iter.next()) |buf| {
+        i = 0;
+        while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+            buf.value_ptr.*.len[i] = 0;
+        }
     }
     // colors_scene.buf = try allocator.create(colors_scene.buf_type);
     // i = 0;
@@ -78,10 +81,17 @@ pub fn init() !void {
     verts_rays.buf = try allocator.create(verts_rays.buf_type);
     colors_rays.buf = try allocator.create(colors_rays.buf_type);
 
-    c.glEnable(c.GL_FRAMEBUFFER_SRGB);
+    fb_screen = try gfx_core.createFramebuffer(cfg.gfx.scene_fbo_size_x_max, cfg.gfx.scene_fbo_size_y_max);
+    updateFramebufferSize(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
 
-    const tete = try gfx_core.createFramebuffer(10, 10);
-    _ = tete;
+    fb_sim = try gfx_core.createFramebuffer(2000, 2000);
+
+    const v_buf =  try allocator.create(verts_scene.buf_type);
+    i = 0;
+    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+        v_buf.len[i] = 0;
+    }
+    try verts_scene.buf.put(fb_sim.tex, v_buf);
 }
 
 pub fn deinit() void {
@@ -89,7 +99,11 @@ pub fn deinit() void {
         log_gfx.err("Error deleting OpenGL buffers: {}", .{e});
     };
 
-    allocator.destroy(verts_scene.buf);
+    var iter = verts_scene.buf.valueIterator();
+    while (iter.next()) |value| {
+        allocator.destroy(value.*);
+    }
+    verts_scene.buf.deinit();
     // allocator.destroy(colors_scene.buf);
     allocator.free(colors_map.buf);
     allocator.free(verts_map.buf);
@@ -109,6 +123,9 @@ pub fn initShaders() !void {
     shader_program_base = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag");
+    shader_program_fullscreen = try gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "fullscreen.vert",
+        cfg.gfx.shader_dir ++ "fullscreen.frag");
     shader_program_scene = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "scene.vert",
         cfg.gfx.shader_dir ++ "scene.frag");
@@ -117,6 +134,10 @@ pub fn initShaders() !void {
 //-----------------------------------------------------------------------------//
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
+
+pub inline fn getSimFboTexture() u32 {
+    return fb_sim.tex;
+}
 
 var map_size_x: u32 = 10;
 var map_size_y: u32 = 10;
@@ -201,50 +222,52 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
                                 u_0: f32, u_1: f32, v0: f32, v1: f32,
                                 r: f32, g: f32, b: f32, a: f32,
                                 h: f32, ctr: f32, d0: u8, t: u32) void {
-    _ = t;
-    const i = verts_scene.buf_n[d0];
-    const bd = &verts_scene.buf[d0];
-    bd[i   ] = x0;
-    bd[i+1 ] = y0;
-    bd[i+2 ] = r;
-    bd[i+3 ] = g;
-    bd[i+4 ] = b;
-    bd[i+5 ] = a;
-    bd[i+6 ] = u_0;
-    bd[i+7 ] = v0;
-    bd[i+8 ] = h;
-    bd[i+9 ] = ctr;
-    bd[i+10] = x1;
-    bd[i+11] = y1;
-    bd[i+12] = r;
-    bd[i+13] = g;
-    bd[i+14] = b;
-    bd[i+15] = a;
-    bd[i+16] = u_1;
-    bd[i+17] = v0;
-    bd[i+18] = h;
-    bd[i+19] = ctr;
-    bd[i+20] = x1;
-    bd[i+21] = y2;
-    bd[i+22] = r;
-    bd[i+23] = g;
-    bd[i+24] = b;
-    bd[i+25] = a;
-    bd[i+26] = u_1;
-    bd[i+27 ] = v1;
-    bd[i+28] = h;
-    bd[i+29] = ctr;
-    bd[i+30] = x0;
-    bd[i+31] = y3;
-    bd[i+32] = r;
-    bd[i+33] = g;
-    bd[i+34] = b;
-    bd[i+35] = a;
-    bd[i+36] = u_0;
-    bd[i+37] = v1;
-    bd[i+38] = h;
-    bd[i+39] = ctr;
-    verts_scene.buf_n[d0] += 40;
+    if (verts_scene.buf.contains(t)) {
+        const buf_t = verts_scene.buf.get(t).?;
+        const i = buf_t.len[d0];
+        const bd = &buf_t.data[d0];
+        bd[i   ] = x0;
+        bd[i+1 ] = y0;
+        bd[i+2 ] = r;
+        bd[i+3 ] = g;
+        bd[i+4 ] = b;
+        bd[i+5 ] = a;
+        bd[i+6 ] = u_0;
+        bd[i+7 ] = v0;
+        bd[i+8 ] = h;
+        bd[i+9 ] = ctr;
+        bd[i+10] = x1;
+        bd[i+11] = y1;
+        bd[i+12] = r;
+        bd[i+13] = g;
+        bd[i+14] = b;
+        bd[i+15] = a;
+        bd[i+16] = u_1;
+        bd[i+17] = v0;
+        bd[i+18] = h;
+        bd[i+19] = ctr;
+        bd[i+20] = x1;
+        bd[i+21] = y2;
+        bd[i+22] = r;
+        bd[i+23] = g;
+        bd[i+24] = b;
+        bd[i+25] = a;
+        bd[i+26] = u_1;
+        bd[i+27 ] = v1;
+        bd[i+28] = h;
+        bd[i+29] = ctr;
+        bd[i+30] = x0;
+        bd[i+31] = y3;
+        bd[i+32] = r;
+        bd[i+33] = g;
+        bd[i+34] = b;
+        bd[i+35] = a;
+        bd[i+36] = u_0;
+        bd[i+37] = v1;
+        bd[i+38] = h;
+        bd[i+39] = ctr;
+        buf_t.len[d0] += 40;
+    }
 }
 
 pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
@@ -303,6 +326,17 @@ pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
 //   Processing
 //-----------------------------------------------------------------------------//
 
+pub fn registerTexture(w: u32, h: u32, data: []u8) !u32 {
+    const tex = try gfx_core.createTexture(w, h, data);
+    const v_buf =  try allocator.create(verts_scene.buf_type);
+    var i: u32 = 0;
+    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+        v_buf.len[i] = 0;
+    }
+    try verts_scene.buf.put(tex, v_buf);
+    return tex;
+}
+
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
@@ -322,6 +356,14 @@ pub fn reloadShaders() !void {
         return;
     };
 
+    const sp_fullscreen = gfx_core.createShaderProgramFromFiles(
+        cfg.gfx.shader_dir ++ "fullscreen.vert",
+        cfg.gfx.shader_dir ++ "fullscreen.frag") catch |e| {
+
+        log_gfx.err("Error reloading shaders: {}", .{e});
+        return;
+    };
+
     const sp_scene = gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "scene.vert",
         cfg.gfx.shader_dir ++ "scene.frag") catch |e| {
@@ -334,11 +376,13 @@ pub fn reloadShaders() !void {
     shader_program_pxy_crgba_f32 = sp_pxy_crgba_f32;
     try gfx_core.deleteShaderProgram(shader_program_base);
     shader_program_base = sp_base;
+    try gfx_core.deleteShaderProgram(shader_program_fullscreen);
+    shader_program_fullscreen = sp_fullscreen;
     try gfx_core.deleteShaderProgram(shader_program_scene);
     shader_program_scene = sp_scene;
 
     // Reset all uniforms
-    setProjection(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
+    updateProjection(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
 }
 
 //-----------------------------------------------------------------------------//
@@ -346,10 +390,29 @@ pub fn reloadShaders() !void {
 //-----------------------------------------------------------------------------//
 
 pub fn renderFrame() !void {
+    try gfx_core.disableGammaCorrectionFBO();
 
+    try gfx_core.bindFBO(fb_sim.fbo);
+    try gfx_core.clearFramebuffer();
+    try renderSimOverlay();
+
+    try gfx_core.bindFBO(fb_screen.fbo);
+    const w = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowWidth())) * cfg.gfx.scene_sampling_factor));
+    const h = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowHeight())) * cfg.gfx.scene_sampling_factor));
+    try gfx_core.setViewport(0, 0, w, h);
+    try gfx_core.clearFramebuffer();
     try renderFloorAndCeiling();
     try renderScene();
+
+    try gfx_core.enableGammaCorrectionFBO();
+    try gfx_core.bindFBO(0);
+    try gfx_core.setViewportFull();
+    try gfx_core.useShaderProgram(shader_program_fullscreen);
+    try gfx_core.bindTexture(fb_screen.tex);
+    try gfx_core.drawArrays(.Triangles, 0, 3);
+
     try renderMap();
+
 }
 
 fn renderFloorAndCeiling() !void {
@@ -372,7 +435,8 @@ fn renderFloorAndCeiling() !void {
 fn renderScene() !void {
     try gfx_core.useShaderProgram(shader_program_scene);
     try gfx_core.setUniform1f(shader_program_scene, "u_center",
-                              @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2)));
+                              @as(f32, @floatFromInt(fb_screen.h_vp)) * 0.5 *
+                                  cfg.gfx.scene_sampling_factor);
 
     try gfx_core.bindVBO(verts_scene.vbo);
     try gfx_core.bindEBO(ebo);
@@ -380,13 +444,19 @@ fn renderScene() !void {
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
-        try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_scene.vbo, @intCast(verts_scene.buf_n[i-1]),
-                                             &verts_scene.buf[i-1]);
+        var iter = verts_scene.buf.iterator();
+        while (iter.next()) |tex| {
+            if (tex.value_ptr.*.len[i-1] > 0) {
+                try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_scene.vbo, @intCast(tex.value_ptr.*.len[i-1]),
+                                                     &(tex.value_ptr.*.data[i-1]));
+                try gfx_core.bindTexture(tex.key_ptr.*);
 
-        // Draw based on indices.
-        try gfx_core.drawElements(.Triangles, @intCast(verts_scene.buf_n[i-1]*6/(4*s)));
+                // Draw based on indices.
+                try gfx_core.drawElements(.Triangles, @intCast(tex.value_ptr.*.len[i-1]*6/(4*s)));
 
-        verts_scene.buf_n[i-1] = 0;
+                tex.value_ptr.*.len[i-1] = 0;
+            }
+        }
     }
 }
 
@@ -417,7 +487,19 @@ fn renderMap() !void {
     colors_rays.buf_n = 0;
     verts_rays.buf_n = 0;
 
-    try gfx_base.renderBatch(shader_program_pxy_crgba_f32, .PxyCrgba, .Triangles);
+    try gfx_base.renderBatch(0, shader_program_pxy_crgba_f32, .PxyCrgba, .Triangles);
+}
+
+fn renderSimOverlay() !void {
+    if (sim.is_map_displayed) {
+        try gfx_core.setViewport(0, 0, fb_sim.w_vp, fb_sim.h_vp);
+        try gfx_core.setPointSize(5);
+        try gfx_base.renderBatch(sim.getBufferIdDebris(), shader_program_pxy_crgba_f32, .PxyCrgba, .Points);
+        try gfx_core.setPointSize(1);
+        try gfx_core.setLineWidth(5);
+        try gfx_base.renderBatch(sim.getBufferIdPlanet(), shader_program_pxy_crgba_f32, .PxyCrgba, .LineLoop);
+        try gfx_core.setLineWidth(1);
+    }
 }
 
 //-----------------------------------------------------------------------------//
@@ -430,10 +512,13 @@ var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_
 const allocator = gpa.allocator();
 
 var shader_program_base: u32 = 0;
+var shader_program_fullscreen: u32 = 0;
 var shader_program_pxy_crgba_f32: u32 = 0;
 var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
+var fb_screen: gfx_core.fb_data = undefined;
+var fb_sim: gfx_core.fb_data = undefined;
 
 const colors_bg = struct {
     const buf_size = 16;
@@ -477,10 +562,14 @@ const verts_map = struct {
 const verts_scene = struct {
     const attrib_size = 40;
     const buf_size = 4096*2*verts_scene.attrib_size;
-    const buf_type = [cfg.gfx.depth_levels_max][verts_scene.buf_size]f32;
+    const buf_type = struct {
+        data: [cfg.gfx.depth_levels_max][verts_scene.buf_size]f32 = undefined,
+        len: [cfg.gfx.depth_levels_max]u32 = undefined
+    };
 
-    var buf: *verts_scene.buf_type = undefined;
-    var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
+    var buf = std.AutoHashMap(u32, *buf_type).init(allocator);
+    // var buf: *verts_scene.buf_type = undefined;
+    // var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
     var vbo: u32 = 0;
 };
 
@@ -503,12 +592,30 @@ const verts_rays = struct {
 };
 
 
-fn handleWindowResize(w: u64, h: u64) void {
-    setProjection(w, h);
+fn handleWindowResize(w: u32, h: u32) void {
+    updateProjection(w, h);
+    updateFramebufferSize(w, h);
+
     log_gfx.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
 }
 
-fn setProjection(w: u64, h: u64) void {
+fn updateFramebufferSize(w: u32, h: u32) void {
+    fb_screen.w_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(w)) * cfg.gfx.scene_sampling_factor));
+    fb_screen.h_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(h)) * cfg.gfx.scene_sampling_factor));
+    const scale_x = @as(f32, @floatFromInt(fb_screen.w_vp)) / cfg.gfx.scene_fbo_size_x_max;
+    const scale_y = @as(f32, @floatFromInt(fb_screen.h_vp)) / cfg.gfx.scene_fbo_size_y_max;
+    gfx_core.useShaderProgram(shader_program_fullscreen) catch |e| {
+        log_gfx.err("Couldn't use shader program, id={}: {}", .{shader_program_fullscreen, e});
+    };
+    gfx_core.setUniform1f(shader_program_fullscreen, "u_tex_scale_x", scale_x ) catch |e| {
+        log_gfx.err("Couldn't set uniform u_tex_scale_x: {}", .{e});
+    };
+    gfx_core.setUniform1f(shader_program_fullscreen, "u_tex_scale_y", scale_y ) catch |e| {
+        log_gfx.err("Couldn't set uniform u_tex_scale_y: {}", .{e});
+    };
+}
+
+fn updateProjection(w: u64, h: u64) void {
     // Adjust projection for vertex shader
     // (simple ortho projection, therefore, no explicit matrix)
     const w_r = 2.0/@as(f32, @floatFromInt(w));

@@ -56,7 +56,12 @@ pub fn deinit() void {
     c.glfwTerminate();
     log_gfx.info("Terminating glfw", .{});
 
+    buffering_statistics.printStats();
     draw_call_statistics.printStats();
+    fbo_bind_statistics.printStats();
+    shader_program_statistics.printStats();
+    tex_bind_statistics.printStats();
+    vbo_bind_statistics.printStats();
 
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
@@ -79,11 +84,11 @@ pub inline fn getWindow() ?*c.GLFWwindow {
     return window;
 }
 
-pub inline fn getWindowHeight() u64 {
+pub inline fn getWindowHeight() u32 {
     return window_h;
 }
 
-pub inline fn getWindowWidth() u64 {
+pub inline fn getWindowWidth() u32 {
     return window_w;
 }
 
@@ -114,13 +119,13 @@ pub fn setPointSize(s: f32) !void {
     }
 }
 
-pub fn setViewport(x: u64, y: u64, w: u64, h: u64) !void {
+pub fn setViewport(x: u32, y: u32, w: u32, h: u32) !void {
     c.glViewport(@intCast(x), @intCast(y),
                  @intCast(w), @intCast(h));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn setViewportFull() void {
+pub fn setViewportFull() !void {
     c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
@@ -182,8 +187,9 @@ pub fn bindEBO(ebo: u32) !void {
 pub fn bindVBO(vbo: u32) !void {
     if (vbo != state.bound_vbo) {
         c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, vbo);
-        state.bound_vbo = vbo;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.bound_vbo = vbo;
+        vbo_bind_statistics.inc();
     }
 }
 
@@ -191,24 +197,28 @@ pub fn bindEBOAndBufferData(ebo: u32, n: u32, data: []u32, mode: DrawMode) !void
     try bindEBO(ebo);
     c.__glewBufferData.?(c.GL_ELEMENT_ARRAY_BUFFER, n*@sizeOf(u32), @ptrCast(data), @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    buffering_statistics.add(n*4);
 }
 
 pub fn bindVBOAndBufferData(vbo: u32, n: u32, data: []f32, mode: DrawMode) !void {
     try bindVBO(vbo);
     c.__glewBufferData.?(c.GL_ARRAY_BUFFER, n*@sizeOf(f32), @ptrCast(data), @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    buffering_statistics.add(n*4);
 }
 
 pub fn bindVBOAndBufferSubData(comptime T: type, offset: u32, vbo: u32, n: u32, data: []T) !void {
     try bindVBO(vbo);
     c.__glewBufferSubData.?(c.GL_ARRAY_BUFFER, offset, n*@sizeOf(T), @ptrCast(data));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    buffering_statistics.add(n * @sizeOf(T));
 }
 
 pub fn bindVBOAndReserveBuffer(comptime T: type, target: BufferTarget, vbo: u32, n: u32, mode: DrawMode) !void {
     try bindVBO(vbo);
     c.__glewBufferData.?(@intFromEnum(target), n*@sizeOf(T), null, @intFromEnum(mode));
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    buffering_statistics.add(n * @sizeOf(T));
 }
 
 pub fn genBuffer() !u32 {
@@ -223,6 +233,15 @@ pub fn genBuffer() !u32 {
 pub fn deleteBuffer(b: u32) !void {
     c.__glewDeleteBuffers.?(1, &b);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+}
+
+pub fn bindTexture(tex: u32) !void {
+    if (tex != state.bound_texture) {
+        c.glBindTexture(c.GL_TEXTURE_2D, tex);
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.bound_texture = tex;
+        tex_bind_statistics.inc();
+    }
 }
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
@@ -274,15 +293,34 @@ pub fn genVAO() !u32 {
 pub const fb_data = struct {
     fbo: u32,
     tex: u32,
+    w_vp: u32, // viewport width
+    h_vp: u32, // viewport height
     w: u32,
     h: u32
 };
 
+pub fn disableGammaCorrectionFBO() !void {
+    if (state.is_fbo_gamma_correction_enabled) {
+        c.glDisable(c.GL_FRAMEBUFFER_SRGB);
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.is_fbo_gamma_correction_enabled = false;
+    }
+}
+
+pub fn enableGammaCorrectionFBO() !void {
+    if (!state.is_fbo_gamma_correction_enabled) {
+        c.glEnable(c.GL_FRAMEBUFFER_SRGB);
+        if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.is_fbo_gamma_correction_enabled = true;
+    }
+}
+
 pub fn bindFBO(fbo: u32) !void {
     if (fbo != state.bound_fbo) {
         c.__glewBindFramebuffer.?(c.GL_FRAMEBUFFER, fbo);
-        state.bound_fbo = fbo;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.bound_fbo = fbo;
+        fbo_bind_statistics.inc();
     }
 }
 
@@ -292,6 +330,12 @@ pub fn checkFramebuffer(fbo: u32) !void {
         log_gfx.err("Framebuffer id={} is not complete", .{fbo});
         return GraphicsError.OpenGLFailed;
     }
+}
+
+pub fn clearFramebuffer() !void {
+    c.glClearColor(0, 0, 0, 1);
+    c.glClear(c.GL_COLOR_BUFFER_BIT);
+    if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
 pub fn genFBO() !u32 {
@@ -306,10 +350,12 @@ pub fn genFBO() !u32 {
 
 /// High level function to create a framebuffer including texture
 pub fn createFramebuffer(w: u32, h: u32) !fb_data {
-    var fb = fb_data{ .fbo = 0, .tex = 0, .w = 0, .h = 0};
+    var fb = fb_data{ .fbo = 0, .tex = 0, .w = 0, .h = 0, .w_vp = 0, .h_vp = 0};
 
     fb.w = w;
     fb.h = h;
+    fb.w_vp = w;
+    fb.h_vp = h;
 
     fb.fbo = try genFBO();
 
@@ -326,7 +372,7 @@ pub fn createFramebuffer(w: u32, h: u32) !fb_data {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGB, @intCast(w), @intCast(h),
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGB32F, @intCast(w), @intCast(h),
                    0, c.GL_RGB, c.GL_UNSIGNED_BYTE, null);
 
     c.__glewBindFramebuffer.?(c.GL_FRAMEBUFFER, fb.fbo);
@@ -505,15 +551,15 @@ pub fn setUniform4f(sp: u32, u: [*c]const u8, a: f32, b: f32, d: f32, e: f32) !v
 pub fn useShaderProgram(id: u32) !void {
     if (id != state.active_shader_program) {
         c.__glewUseProgram.?(id);
-        state.active_shader_program = id;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
+        state.active_shader_program = id;
+        shader_program_statistics.inc();
     }
 }
 
 pub fn finishFrame() !void {
     c.glfwSwapBuffers(window);
-    c.glClearColor(0, 0, 0.0, 1);
-    c.glClear(c.GL_COLOR_BUFFER_BIT);
+    try clearFramebuffer();
 
     // Sleep if time step (frame_time) is lower than that of the targeted
     // frequency. Make sure not to have a negative sleep for high frame
@@ -550,16 +596,21 @@ pub fn finishFrame() !void {
     }
     timer_main.reset();
 
+    buffering_statistics.finishFrame();
     draw_call_statistics.finishFrame();
+    fbo_bind_statistics.finishFrame();
+    shader_program_statistics.finishFrame();
+    tex_bind_statistics.finishFrame();
+    vbo_bind_statistics.finishFrame();
 }
 
 //-----------------------------------------------------------------------------//
 //   Window handling
 //-----------------------------------------------------------------------------//
 
-var window_resize_callbacks = std.ArrayList(*const fn (w: u64, h: u64) void).init(allocator);
+var window_resize_callbacks = std.ArrayList(*const fn (w: u32, h: u32) void).init(allocator);
 
-pub fn addWindowResizeCallback(cb: *const fn (w: u64, h: u64) void ) !void {
+pub fn addWindowResizeCallback(cb: *const fn (w: u32, h: u32) void ) !void {
     try window_resize_callbacks.append(cb);
     window_resize_callbacks.items[0](window_w, window_h);
 }
@@ -582,8 +633,8 @@ var gpa = if (cfg.debug_allocator) std.heap.GeneralPurposeAllocator(.{ .verbose_
 const allocator = gpa.allocator();
 
 var window: ?*c.GLFWwindow = null;
-var window_w: u64 = 640; // Window width
-var window_h: u64 = 480; // Window height
+var window_w: u32 = 640; // Window width
+var window_h: u32 = 480; // Window height
 var aspect: f32 = 640 / 480;
 var frame_time: i64 = @intFromFloat(1.0 / 5.0 * 1.0e9);
 var timer_main: std.time.Timer = undefined;
@@ -592,7 +643,13 @@ var fps_drop_count: u16 = 0;
 var fps_stable_count: u64 = 0;
 var fps: f32 = 60;
 
+var buffering_statistics = stats.PerFrameCounter.init("Data buffering (bytes)");
 var draw_call_statistics = stats.PerFrameCounter.init("Draw calls");
+var fbo_bind_statistics = stats.PerFrameCounter.init("FBO binds");
+var shader_program_statistics = stats.PerFrameCounter.init("Shader program switches");
+var tex_bind_statistics = stats.PerFrameCounter.init("Texture binds");
+var vbo_bind_statistics = stats.PerFrameCounter.init("VBO binds");
+
 // var quad_statistics = stats.PerFrameCounter.init("Quads");
 // var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");
 
@@ -609,10 +666,12 @@ const state = struct {
     var active_shader_program: u32 = 0;
     var bound_ebo: u32 = 0;
     var bound_fbo: u32 = 0;
+    var boudn_tex: u32 = 0;
     var bound_vao: u32 = 0;
     var bound_vbo: u32 = 0;
     var bound_texture: u32 = 0;
     var is_texturing_enabled: bool = false;
+    var is_fbo_gamma_correction_enabled: bool = false;
     var line_width: f32 = 1.0;
     var point_size: f32 = 1.0;
     var is_enabled_vertex_attrib = std.bit_set.IntegerBitSet(16).initEmpty();

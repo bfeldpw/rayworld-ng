@@ -11,7 +11,7 @@ const map = @import("map.zig");
 const plr = @import("player.zig");
 const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
-// const sim = @import("sim.zig");
+const sim = @import("sim.zig");
 
 pub const std_options = struct {
     pub const log_scope_levels = &[_]std.log.ScopeLevel{
@@ -51,6 +51,7 @@ pub fn main() !void {
     prf_map.start();
     try map.init();
     defer map.deinit();
+    map.setSimFboTexture(gfx.getSimFboTexture());
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
@@ -81,11 +82,11 @@ pub fn main() !void {
     //--------------------------------------
     //   Initialise background simulation
     //--------------------------------------
-    // try sim.init();
-    // defer sim.deinit();
-    // var sim_thread: std.Thread = undefined;
+    try sim.init();
+    defer sim.deinit();
+    var sim_thread: std.Thread = undefined;
 
-    // if (cfg.multithreading) sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
+    if (cfg.multithreading) sim_thread = try std.Thread.spawn(.{}, sim.run, .{});
 
 
     var hsr_thread: std.Thread = undefined;
@@ -120,7 +121,7 @@ pub fn main() !void {
         try gfx.renderFrame();
         prf_ren_frame.stop();
         prf_ren_sim.start();
-        // try sim.createScene();
+        try sim.createScene();
         prf_ren_sim.stop();
 
         prf_ren_gui.start();
@@ -168,8 +169,8 @@ pub fn main() !void {
         hsr_thread.join();
     }
 
-    // sim.stop();
-    // if (cfg.multithreading) sim_thread.join();
+    sim.stop();
+    if (cfg.multithreading) sim_thread.join();
 
     showPerformanceStats(prf_fps.getAvgAllMs(),
                          prf_idle.getAvgAllMs(),

@@ -89,6 +89,10 @@ pub const PerFrameCounter = struct {
         self.count = 0;
     }
 
+    pub fn add(self: *PerFrameCounter, n: u64) void {
+        self.count += n;
+    }
+
     pub fn inc(self: *PerFrameCounter) void {
         self.count += 1;
     }
