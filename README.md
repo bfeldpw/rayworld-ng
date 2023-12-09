@@ -16,7 +16,11 @@ My first steps in Zig, importing native C with Glfw and OpenGL for learning purp
 * Framebuffer objects (FBO) have been implemented and are used for
   * Rendering the scene in lower (subsampling, GPU performance gain) or higher (super-sampling, anti-aliasing) resolution
   * Rendering the simulation to a framebuffer's texture which can be mapped to a wall segment ("monitor")
-* Finally, a thread pool is used for raycasting which leads to a great performance gain. While multithreading has been beneficial before, the thread spawning in every frame caused some unneccessary overhead.
+* Finally, a thread pool is used for raycasting which leads to a great performance gain. While multithreading 
+has been beneficial before, the thread spawning in every frame caused some unneccessary overhead.
+
+* <img src="screenshots/ao_01.jpg" alt="drawing" width="40%"/> <img src="screenshots/sim_overlay_02.jpg" alt="drawing" width="40%"/>
+
 Note: GUI overlay has not been ported, yet.
 
 **2023-04-07** While major work on different aspects is going on in the background, a very simple, yet visually apparent feature has been added: not-that-flat-shading. Well, I guess it's technically flat shading, but since the relative angle to the wall changes with each ray, there is also a smoothing on flat walls and a kind of ambient occlusion in corners. Of course, pillars are a bit prettier (as in "rounder, more 3D"), as well.
