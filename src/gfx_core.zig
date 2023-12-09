@@ -246,7 +246,7 @@ pub fn bindTexture(tex: u32) !void {
 
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 
-    var tex: u32 = try genTexture();
+    const tex: u32 = try genTexture();
     c.glBindTexture(c.GL_TEXTURE_2D, tex);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 

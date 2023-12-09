@@ -28,9 +28,9 @@ pub fn build(b: *std.Build) void {
     exe.linkSystemLibrary("gl");
     exe.linkSystemLibrary("glew");
     exe.linkSystemLibrary("glfw");
-    if (optimize == std.builtin.Mode.ReleaseSafe) {
-        exe.strip = true;
-    }
+    // if (optimize == std.builtin.Mode.ReleaseSafe) {
+    //     exe.strip = true;
+    // }
     b.installArtifact(exe);
 
     // b.installDirectory(.{

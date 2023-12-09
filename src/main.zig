@@ -155,9 +155,9 @@ pub fn main() !void {
 
         if (builtin.os.tag == .linux) {
             const gfx_hsr = @import("gfx_hsr.zig");
-            if (gfx_hsr.is_reload_triggered.value) {
+            if (gfx_hsr.is_reload_triggered.load(.Monotonic)) {
                 try gfx.reloadShaders();
-                gfx_hsr.is_reload_triggered.value = false;
+                gfx_hsr.is_reload_triggered.store(false, .Monotonic);
             }
         }
     }

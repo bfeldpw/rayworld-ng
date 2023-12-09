@@ -81,7 +81,7 @@ pub fn init() !void {
     verts_rays.buf = try allocator.create(verts_rays.buf_type);
     colors_rays.buf = try allocator.create(colors_rays.buf_type);
 
-    fb_screen = try gfx_core.createFramebuffer(cfg.gfx.scene_fbo_size_x_max, cfg.gfx.scene_fbo_size_y_max);
+    fb_scene = try gfx_core.createFramebuffer(cfg.gfx.scene_fbo_size_x_max, cfg.gfx.scene_fbo_size_y_max);
     updateFramebufferSize(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
 
     fb_sim = try gfx_core.createFramebuffer(2000, 2000);
@@ -222,7 +222,9 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
                                 u_0: f32, u_1: f32, v0: f32, v1: f32,
                                 r: f32, g: f32, b: f32, a: f32,
                                 h: f32, ctr: f32, d0: u8, t: u32) void {
-    if (verts_scene.buf.contains(t)) {
+    // if (verts_scene.buf.contains(t)) {
+    // Only test for tex id = 0, this is faster than the hashmap's "contains"
+    if (t != 0) {
         const buf_t = verts_scene.buf.get(t).?;
         const i = buf_t.len[d0];
         const bd = &buf_t.data[d0];
@@ -268,58 +270,6 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
         bd[i+39] = ctr;
         buf_t.len[d0] += 40;
     }
-}
-
-pub fn addVerticalQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
-                        r: f32, g: f32, b: f32, a: f32,
-                        h: f32, ctr: f32, d0: u8) void {
-    _ = d0;
-    _ = ctr;
-    _ = h;
-    _ = a;
-    _ = b;
-    _ = g;
-    _ = r;
-    _ = y3;
-    _ = y2;
-    _ = y1;
-    _ = y0;
-    _ = x1;
-    _ = x0;
-    // const i = buf_n[d0];
-    // buf[d0][i   ] = x0;
-    // buf[d0][i+1 ] = y0;
-    // buf[d0][i+2 ] = r;
-    // buf[d0][i+3 ] = g;
-    // buf[d0][i+4 ] = b;
-    // buf[d0][i+5 ] = a;
-    // buf[d0][i+6 ] = h;
-    // buf[d0][i+7 ] = ctr;
-    // buf[d0][i+8 ] = x1;
-    // buf[d0][i+9 ] = y1;
-    // buf[d0][i+10] = r;
-    // buf[d0][i+11] = g;
-    // buf[d0][i+12] = b;
-    // buf[d0][i+13] = a;
-    // buf[d0][i+14] = h;
-    // buf[d0][i+15] = ctr;
-    // buf[d0][i+16] = x1;
-    // buf[d0][i+17] = y2;
-    // buf[d0][i+18] = r;
-    // buf[d0][i+19] = g;
-    // buf[d0][i+20] = b;
-    // buf[d0][i+21] = a;
-    // buf[d0][i+22] = h;
-    // buf[d0][i+23] = ctr;
-    // buf[d0][i+24] = x0;
-    // buf[d0][i+25] = y3;
-    // buf[d0][i+26] = r;
-    // buf[d0][i+27] = g;
-    // buf[d0][i+28] = b;
-    // buf[d0][i+29] = a;
-    // buf[d0][i+30] = h;
-    // buf[d0][i+31] = ctr;
-    // buf_n[d0] += 32;
 }
 
 //-----------------------------------------------------------------------------//
@@ -392,30 +342,39 @@ pub fn reloadShaders() !void {
 pub fn renderFrame() !void {
     try gfx_core.disableGammaCorrectionFBO();
 
+    // 1. Render to textures used in the scene
     try gfx_core.bindFBO(fb_sim.fbo);
     try gfx_core.clearFramebuffer();
     try renderSimOverlay();
 
-    try gfx_core.bindFBO(fb_screen.fbo);
-    const w = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowWidth())) * cfg.gfx.scene_sampling_factor));
-    const h = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowHeight())) * cfg.gfx.scene_sampling_factor));
-    try gfx_core.setViewport(0, 0, w, h);
+    // 2. Render the scene (walls, floor, ceiling)
+    try gfx_core.bindFBO(fb_scene.fbo);
     try gfx_core.clearFramebuffer();
-    try renderFloorAndCeiling();
+
     try renderScene();
 
+    // 3. Render on screen
     try gfx_core.enableGammaCorrectionFBO();
     try gfx_core.bindFBO(0);
-    try gfx_core.setViewportFull();
-    try gfx_core.useShaderProgram(shader_program_fullscreen);
-    try gfx_core.bindTexture(fb_screen.tex);
-    try gfx_core.drawArrays(.Triangles, 0, 3);
 
+    // 3a. Map scene to screen
+    try renderScreen();
+    // 3b. Overlay map
     try renderMap();
 
 }
 
 fn renderFloorAndCeiling() !void {
+    const w = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowWidth())) * cfg.gfx.scene_sampling_factor));
+    const h = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowHeight())) * cfg.gfx.scene_sampling_factor));
+
+    const o_w = @as(f32, @floatFromInt(w/2));
+    const o_h = @as(f32, @floatFromInt(h/2));
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+
+    try gfx_core.setViewport(0, 0, w, h);
     try gfx_core.useShaderProgram(shader_program_base);
     try gfx_core.bindVAO(vao_0);
     try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_bg.vbo, @intCast(verts_bg.buf_n), &verts_bg.buf);
@@ -433,10 +392,11 @@ fn renderFloorAndCeiling() !void {
 }
 
 fn renderScene() !void {
+    try renderFloorAndCeiling();
+
     try gfx_core.useShaderProgram(shader_program_scene);
     try gfx_core.setUniform1f(shader_program_scene, "u_center",
-                              @as(f32, @floatFromInt(fb_screen.h_vp)) * 0.5 *
-                                  cfg.gfx.scene_sampling_factor);
+                              @as(f32, @floatFromInt(fb_scene.h_vp)) * 0.5);
 
     try gfx_core.bindVBO(verts_scene.vbo);
     try gfx_core.bindEBO(ebo);
@@ -460,9 +420,21 @@ fn renderScene() !void {
     }
 }
 
+fn renderScreen() !void {
+    try gfx_core.setViewportFull();
+    try gfx_core.useShaderProgram(shader_program_fullscreen);
+    try gfx_core.bindTexture(fb_scene.tex);
+    try gfx_core.drawArrays(.Triangles, 0, 3);
+}
+
 fn renderMap() !void {
     //--- Map ---//
-    try gfx_core.useShaderProgram(shader_program_base);
+    const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
+    const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+
     try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_map.vbo, @intCast(verts_map.buf_n), verts_map.buf);
     try gfx_core.enableVertexAttributes(0);
     try gfx_core.setupVertexAttributesFloat(0, 2, 0, 0);
@@ -492,6 +464,11 @@ fn renderMap() !void {
 
 fn renderSimOverlay() !void {
     if (sim.is_map_displayed) {
+        const o_w = @as(f32, @floatFromInt(fb_sim.w_vp/2));
+        const o_h = @as(f32, @floatFromInt(fb_sim.h_vp/2));
+        const w_r = 1.0 / o_w;
+        const h_r = 1.0 / o_h;
+        updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
         try gfx_core.setViewport(0, 0, fb_sim.w_vp, fb_sim.h_vp);
         try gfx_core.setPointSize(5);
         try gfx_base.renderBatch(sim.getBufferIdDebris(), shader_program_pxy_crgba_f32, .PxyCrgba, .Points);
@@ -517,7 +494,7 @@ var shader_program_pxy_crgba_f32: u32 = 0;
 var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
-var fb_screen: gfx_core.fb_data = undefined;
+var fb_scene: gfx_core.fb_data = undefined;
 var fb_sim: gfx_core.fb_data = undefined;
 
 const colors_bg = struct {
@@ -600,10 +577,10 @@ fn handleWindowResize(w: u32, h: u32) void {
 }
 
 fn updateFramebufferSize(w: u32, h: u32) void {
-    fb_screen.w_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(w)) * cfg.gfx.scene_sampling_factor));
-    fb_screen.h_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(h)) * cfg.gfx.scene_sampling_factor));
-    const scale_x = @as(f32, @floatFromInt(fb_screen.w_vp)) / cfg.gfx.scene_fbo_size_x_max;
-    const scale_y = @as(f32, @floatFromInt(fb_screen.h_vp)) / cfg.gfx.scene_fbo_size_y_max;
+    fb_scene.w_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(w)) * cfg.gfx.scene_sampling_factor));
+    fb_scene.h_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(h)) * cfg.gfx.scene_sampling_factor));
+    const scale_x = @as(f32, @floatFromInt(fb_scene.w_vp)) / cfg.gfx.scene_fbo_size_x_max;
+    const scale_y = @as(f32, @floatFromInt(fb_scene.h_vp)) / cfg.gfx.scene_fbo_size_y_max;
     gfx_core.useShaderProgram(shader_program_fullscreen) catch |e| {
         log_gfx.err("Couldn't use shader program, id={}: {}", .{shader_program_fullscreen, e});
     };
@@ -618,26 +595,20 @@ fn updateFramebufferSize(w: u32, h: u32) void {
 fn updateProjection(w: u64, h: u64) void {
     // Adjust projection for vertex shader
     // (simple ortho projection, therefore, no explicit matrix)
-    const w_r = 2.0/@as(f32, @floatFromInt(w));
-    const h_r = 2.0/@as(f32, @floatFromInt(h));
-    const o_w = @as(f32, @floatFromInt(w/2));
-    const o_h = @as(f32, @floatFromInt(h/2));
-    gfx_core.useShaderProgram(shader_program_pxy_crgba_f32) catch |e| {
+    const o_w = @as(f32, @floatFromInt(w/2)) * cfg.gfx.scene_sampling_factor;
+    const o_h = @as(f32, @floatFromInt(h/2)) * cfg.gfx.scene_sampling_factor;
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_scene, w_r, h_r, o_w, o_h);
+}
+
+fn updateProjectionByShader(sp: u32, w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
+    gfx_core.useShaderProgram(sp) catch |e| {
         log_gfx.err("{}", .{e});
     };
-    gfx_core.setUniform4f(shader_program_pxy_crgba_f32, "t", w_r, h_r, o_w, o_h) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
-    gfx_core.useShaderProgram(shader_program_base) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
-    gfx_core.setUniform4f(shader_program_base, "t", w_r, h_r, o_w, o_h) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
-    gfx_core.useShaderProgram(shader_program_scene) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
-    gfx_core.setUniform4f(shader_program_scene, "t", w_r, h_r, o_w, o_h) catch |e| {
+    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, o_h) catch |e| {
         log_gfx.err("{}", .{e});
     };
 }

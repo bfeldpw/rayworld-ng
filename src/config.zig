@@ -5,7 +5,7 @@ pub const multithreading = true;
 /// Globally turn on the General Purpose Allocators (GPAs)
 /// verbose output
 pub const debug_allocator = false;
-pub const sub_sampling_base = 4;
+pub const sub_sampling_base = 3;
 pub const sub_sampling_blocky = false;
 
 pub const fnt = struct {
@@ -37,7 +37,7 @@ pub const gfx = struct {
 
     pub const scene_fbo_size_x_max = 8192;
     pub const scene_fbo_size_y_max = 4096;
-    pub const scene_sampling_factor = 1.0;
+    pub const scene_sampling_factor = 1.5; // maximum: 2.0
 
     pub var room_height: f32 = 2.0; // meter
     pub var player_fov: f32 = 90; // degrees
@@ -46,6 +46,10 @@ pub const gfx = struct {
         room_height,
         player_fov,
     };
+};
+
+pub const map = struct {
+    pub const texture_dir = "./resource/";
 };
 
 pub const rc = struct {

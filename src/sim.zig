@@ -73,8 +73,8 @@ pub fn createScene() !void {
         const win_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()));
 
         var hook: vec_2d = .{0.0, 0.0};
-        var zoom_x2: vec_2d = @splat(cam.zoom);
-        var win_center: vec_2d = .{win_w * 0.5, win_h * 0.5};
+        const zoom_x2: vec_2d = @splat(cam.zoom);
+        const win_center: vec_2d = .{win_w * 0.5, win_h * 0.5};
 
         if (cam.station_hook) {
             hook = objs.items(.pos)[1];
@@ -175,7 +175,7 @@ pub fn step() void {
         objs.items(.acc)[i] = e_0 * a_x2;
     }
     // if (cfg.sim.scenario == .falling_station) {
-        var drag: f64 = -1.0e-5;
+        const drag: f64 = -1.0e-5;
         objs.items(.acc)[1] += @as(vec_2d, @splat(drag)) * objs.items(.vel)[1];
     // }
 
