@@ -11,6 +11,14 @@ Simple Raycaster to learn Zig
 My first steps in Zig, importing native C with Glfw and OpenGL for learning purposes. Code might be hacky in some places, hopefully improving while learning. OpenGL fixed function pipeline is used purely out of lazyness and the fact, that a simple vertical line (maybe textured) is all that is needed for a raycasting algorithm in its most simplistic form. Might switch to core profile later, but that's secondary. Same applies for parameters and resources, for now, the map is hardcoded as are parameters (nevertheless there are parameters and not some magic numbers ;-)). Later, a map, its features, and configuration should be loaded from files, of course.
 
 ## News
+**2023-12-09** OpenGL core profile has been merged to main branch. After a lot of work, the main functionality has been moved to modern OpenGL, this includes:
+* Ambient occlusion has been re-introduced (better, shader-based)
+* Framebuffer objects (FBO) have been implemented and are used for
+  * Rendering the scene in lower (subsampling, GPU performance gain) or higher (super-sampling, anti-aliasing) resolution
+  * Rendering the simulation to a framebuffer's texture which can be mapped to a wall segment ("monitor")
+* Finally, a thread pool is used for raycasting which leads to a great performance gain. While multithreading has been beneficial before, the thread spawning in every frame caused some unneccessary overhead.
+Note: GUI overlay has not been ported, yet.
+
 **2023-04-07** While major work on different aspects is going on in the background, a very simple, yet visually apparent feature has been added: not-that-flat-shading. Well, I guess it's technically flat shading, but since the relative angle to the wall changes with each ray, there is also a smoothing on flat walls and a kind of ambient occlusion in corners. Of course, pillars are a bit prettier (as in "rounder, more 3D"), as well.
 
 * <img src="screenshots/shading_01.jpg" alt="drawing" width="40%"/> <img src="screenshots/shading_02.jpg" alt="drawing" width="40%"/>
