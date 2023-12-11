@@ -1,7 +1,7 @@
 const std = @import("std");
 const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
-const gfx_impl = @import("gfx_impl.zig");
+const gfx_core = @import("gfx_core.zig");
 
 //-----------------------------------------------------------------------------//
 //   Error Sets
@@ -68,8 +68,8 @@ pub const TextWidget = struct {
         var wrap: f32 = 0.0;
         const rm = ovl.resize_mode;
         const s = try fnt.getTextSize(self.text, wrap);
-        const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
-        const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
+        const win_w: f32 = @floatFromInt(gfx_core.getWindowWidth());
+        const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
 
         var w = ovl.width;
         var h = ovl.height;
@@ -196,22 +196,27 @@ pub inline fn getTextWidget(name: []const u8) GuiError!*TextWidget {
 //-----------------------------------------------------------------------------//
 
 pub fn drawCursor(x: f32, y: f32) void {
+    _ = y;
+    _ = x;
     const cursor_size = 15;
+    _ = cursor_size;
     const cursor_gap_center = 5;
+    _ = cursor_gap_center;
     const cursor_thickness = 3;
+    _ = cursor_thickness;
     if (is_cursor_visible) {
-        gfx_impl.setColor(0.2, 1.0, 0.2, 0.5);
-        gfx_impl.setLineWidth(cursor_thickness);
-        gfx_impl.addImmediateLine(x - cursor_size, y, x - cursor_gap_center, y);
-        gfx_impl.addImmediateLine(x + cursor_gap_center, y, x + cursor_size, y);
-        gfx_impl.addImmediateLine(x, y - cursor_size, x, y - cursor_gap_center);
-        gfx_impl.addImmediateLine(x, y + cursor_gap_center, x, y + cursor_size);
+        // gfx_impl.setColor(0.2, 1.0, 0.2, 0.5);
+        // gfx_impl.setLineWidth(cursor_thickness);
+        // gfx_impl.addImmediateLine(x - cursor_size, y, x - cursor_gap_center, y);
+        // gfx_impl.addImmediateLine(x + cursor_gap_center, y, x + cursor_size, y);
+        // gfx_impl.addImmediateLine(x, y - cursor_size, x, y - cursor_gap_center);
+        // gfx_impl.addImmediateLine(x, y + cursor_gap_center, x, y + cursor_size);
     }
 }
 
 pub fn drawOverlay(ovl: *Overlay) !void {
-    const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
-    const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
+    const win_w: f32 = @floatFromInt(gfx_core.getWindowWidth());
+    const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
 
     var w = ovl.width;
     var h = ovl.height;
@@ -260,8 +265,8 @@ pub fn drawOverlay(ovl: *Overlay) !void {
         ovl.ll_y = p_y;
     }
 
-    gfx_impl.setColor(ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
-    gfx_impl.addImmediateQuad(p_x, p_y, p_x + w, p_y + h);
+    // gfx_impl.setColor(ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
+    // gfx_impl.addImmediateQuad(p_x, p_y, p_x + w, p_y + h);
 
     //----------------
     // Draw the title
@@ -282,21 +287,21 @@ pub fn drawOverlay(ovl: *Overlay) !void {
                 title_x = p_x + w - s.w - ovl.title.frame;
             },
         }
-        gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
+        // gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
         try fnt.renderText(ovl.title.text, title_x, p_y, 0.0);
 
         if (ovl.title.is_separator_enabled) {
-            gfx_impl.setLineWidth(ovl.title.separator_thickness);
-            gfx_impl.addImmediateLine(p_x + ovl.title.frame, p_y + ovl.title.font_size, p_x + w - ovl.title.frame, p_y + ovl.title.font_size);
+            try gfx_core.setLineWidth(ovl.title.separator_thickness);
+            // gfx_impl.addImmediateLine(p_x + ovl.title.frame, p_y + ovl.title.font_size, p_x + w - ovl.title.frame, p_y + ovl.title.font_size);
         }
     }
     if (ovl.is_focussed) {
-        gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
-        gfx_impl.setLineWidth(1.0);
-        gfx_impl.addImmediateLine(p_x, p_y, p_x + w, p_y);
-        gfx_impl.addImmediateLine(p_x + w, p_y, p_x + w, p_y + h);
-        gfx_impl.addImmediateLine(p_x, p_y + h, p_x + w, p_y + h);
-        gfx_impl.addImmediateLine(p_x, p_y, p_x, p_y + h);
+        // gfx_impl.setColor(ovl.title.col[0], ovl.title.col[1], ovl.title.col[2], ovl.title.col[3]);
+        // gfx_impl.setLineWidth(1.0);
+        // gfx_impl.addImmediateLine(p_x, p_y, p_x + w, p_y);
+        // gfx_impl.addImmediateLine(p_x + w, p_y, p_x + w, p_y + h);
+        // gfx_impl.addImmediateLine(p_x, p_y + h, p_x + w, p_y + h);
+        // gfx_impl.addImmediateLine(p_x, p_y, p_x, p_y + h);
     }
 
     if (ovl.widget_type == .text and ovl.widget != null) {
@@ -305,7 +310,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
             return error.GuiWidgetCastFailed;
         };
         try fnt.setFont(tw.font_name, tw.font_size);
-        gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
+        // gfx_impl.setColor(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
         try tw.draw();
     }
 }
@@ -322,8 +327,8 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
     // (only relevant in edit mode if left mouse button pressed)
     //-----------------------------------------------------------
     if (edit_mode.is_enabled and mouse_l) {
-        var win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
-        var win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
+        const win_w: f32 = @floatFromInt(gfx_core.getWindowWidth());
+        const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
 
         // In the array of sorted overlays the last entry is the foremost one, since it
         // is drawn last and hence, will be focussed first
@@ -333,7 +338,7 @@ pub fn processOverlays(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
         // cursor is within that overlay
         var j: i64 = @intCast(overlays_sorted.items.len - 1);
         while (j >= 0) : (j -= 1) {
-            var i: usize = @intCast(j);
+            const i: usize = @intCast(j);
             const ovl = overlays_sorted.items[i];
             const x_p = edit_mode.mouse_x_prev;
             const y_p = edit_mode.mouse_y_prev;
@@ -440,8 +445,8 @@ const edit_mode = struct {
 };
 
 fn moveOverlay(ovl: *Overlay, x: f32, y: f32) void {
-    const win_w: f32 = @floatFromInt(gfx_impl.getWindowWidth());
-    const win_h: f32 = @floatFromInt(gfx_impl.getWindowHeight());
+    const win_w: f32 = @floatFromInt(gfx_core.getWindowWidth());
+    const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
 
     if (ovl.is_position_relative) {
         ovl.ll_x += x / win_w;

@@ -1,12 +1,11 @@
 test "main test" {
-    // const fnt = @import("font_manager.zig");
-    // const gfx = @import("graphics.zig");
+    const fnt = @import("font_manager.zig");
+    _ = fnt;
+    const gfx_core = @import("gfx_core.zig");
+    _ = gfx_core;
     // const gui = @import("gui.zig");
     const rc = @import("raycaster.zig");
-    const stats = @import("stats.zig");
-    // _ = fnt;
-    // _ = gfx;
-    // _ = gui;
     _ = rc;
+    const stats = @import("stats.zig");
     _ = stats;
 }

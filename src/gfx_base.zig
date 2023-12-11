@@ -52,6 +52,10 @@ pub fn addVertexData(buf_id: u32, data: []f32) !void {
     try vbo_bufs.items[buf_id].appendSlice(data);
 }
 
+pub fn getBufferToAddVertexData(buf_id: u32, n: u32) ![]f32 {
+    return try vbo_bufs.items[buf_id].addManyAsSlice(n);
+}
+
 pub fn addCircle(buf_id: u32, c_x: f32, c_y: f32, ra: f32,
                  r: f32, g: f32, b: f32, a: f32) !void {
     const nr_of_segments = 100.0;

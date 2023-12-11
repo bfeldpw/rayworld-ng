@@ -459,6 +459,7 @@ fn renderMap() !void {
     colors_rays.buf_n = 0;
     verts_rays.buf_n = 0;
 
+    updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
     try gfx_base.renderBatch(0, shader_program_pxy_crgba_f32, .PxyCrgba, .Triangles);
 }
 

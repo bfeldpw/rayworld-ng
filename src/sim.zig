@@ -108,14 +108,22 @@ pub fn createScene() !void {
         //                     100, win_h - 100, 0.4, 0.1, 0.0, 0.5};
         // try gfx_base.addVertexData(0, &data_bg);
 
-        var i: usize = 2;
-        while (i < objs.len) : (i += 1) {
-            const p = (objs.items(.pos)[i] + cam.p - hook) * zoom_x2 + win_center;
+        {
+            const data = try gfx_base.getBufferToAddVertexData(buf_id_debris, @intCast((objs.len - 2) * 6));
+            const data_p = data.ptr;
+            const tmp = ( cam.p - hook ) * zoom_x2 + win_center;
+            var i: usize = 2;
+            while (i < objs.len) : (i += 1) {
+                const p = objs.items(.pos)[i] * zoom_x2 + tmp;
+                const j = (i - 2) * 6;
 
-            var data = [6]f32{
-                @as(f32, @floatCast(p[0])), @as(f32, @floatCast(p[1])), 0.7, 0.2, 0.0, 0.5,
-            };
-            try gfx_base.addVertexData(buf_id_debris, &data);
+                data_p[j    ] = @as(f32, @floatCast(p[0]));
+                data_p[j + 1] = @as(f32, @floatCast(p[1]));
+                data_p[j + 2] = 0.7;
+                data_p[j + 3] = 0.2;
+                data_p[j + 4] = 0.0;
+                data_p[j + 5] = 0.5;
+            }
         }
 
         // The station

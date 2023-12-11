@@ -1,6 +1,5 @@
 const std = @import("std");
 const cfg = @import("config.zig");
-// const gfx = @import("graphics.zig"); const gfx_impl = @import("gfx_impl.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
 const gfx_rw = @import("gfx_rw.zig");
@@ -106,6 +105,10 @@ pub fn createMap() !void {
     const w = 0.1;
     const h = 0.5;
     const d = plr.getDir();
+    // var data = try gfx_base.getBufferToAddVertexData(0, 18);
+    // data.ptr[0] = 21;
+    // data.ptr[1] = 22;
+
     var data = [18]f32 {(x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
                          0.0, 0.7, 0.0, 1.0,
                         (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
@@ -1074,11 +1077,15 @@ fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, m_x: us
 //-----------------------------------------------------------------------------//
 
 test "raycaster: init/deinit" {
-    // try gfx.init();
-    try init();
+    try gfx_core.init();
+    try gfx_base.init();
+    try gfx_rw.init();
     try map.init();
-    // defer gfx_.deinit();
+    try init();
+    // try processRays(true);
+    defer gfx_core.deinit();
+    defer gfx_base.deinit();
+    defer gfx_rw.deinit();
     defer deinit();
     defer map.deinit();
-    // try processRays(false);
 }

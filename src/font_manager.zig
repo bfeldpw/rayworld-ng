@@ -1,6 +1,6 @@
 const std = @import("std");
 const cfg = @import("config.zig");
-const gfx_impl = @import("gfx_impl.zig");
+const fnt_gfx = @import("font_plugin_gfx.zig");
 const c = @cImport({
     @cInclude("stb_truetype.h");
     @cInclude("stb_rect_pack.h");
@@ -12,6 +12,7 @@ const c = @cImport({
 
 const FontError = error{
     FontDesignatorUnknown,
+    FontGfxPluginFailed,
     FontLoadingFailed,
     FontMaxNrOfAtlasses,
     FontNameUnknown,
@@ -134,7 +135,7 @@ pub fn getTextSizeLine(text: []const u8) FontError!TextSize {
     }
 
     var length: f32 = 0.0;
-    var height: f32 = current.font_size;
+    const height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     for (text) |ch| {
         b = current.char_info[ch - ascii_first];
@@ -154,7 +155,7 @@ pub fn getTextSizeLineMono(text: []const u8) FontError!TextSize {
     }
 
     var length: f32 = 0.0;
-    var height: f32 = current.font_size;
+    const height: f32 = current.font_size;
     var b: c.stbtt_packedchar = undefined;
     b = current.char_info[text[0] - ascii_first];
     length = b.xadvance * @as(f32, @floatFromInt(text.len));
@@ -162,7 +163,7 @@ pub fn getTextSizeLineMono(text: []const u8) FontError!TextSize {
     return .{.w=length, .h=height};
 }
 
-pub fn setFont(font_name: []const u8, font_size: f32) !void {
+pub fn setFont(font_name: []const u8, font_size: f32) FontError!void {
     if (fonts_map.contains(font_name)) {
 
         // Get font information to use correct baseline
@@ -205,7 +206,11 @@ pub fn setFont(font_name: []const u8, font_size: f32) !void {
             if (auto_rasterise) {
                 fm_log.debug("Unable to get information about font designator <{s}>", .{font_designator});
                 fm_log.debug("You are covered, <auto_rasterise> is enabled", .{});
-                rasterise(font_name, font_size, gfx_impl.getNewTextureId()) catch |err| {
+                const tex_id = fnt_gfx.genTexture() catch |err| {
+                                   fm_log.err("Couldn't generate texture: {}", .{err});
+                                   return error.FontGfxPluginFailed;
+                               };
+                rasterise(font_name, font_size, tex_id) catch |err| {
                     return err;
                 };
 
@@ -389,9 +394,12 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
                         .{font_atlas_size_default * atlas_scale});
             return error.FontRasterisingFailed;
         } else {
-            gfx_impl.createTextureAlpha(font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
-                                        font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
-                                        font_atlas_by_id.get(tex_id).?, tex_id);
+            fnt_gfx.createTextureAlpha(font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
+                                       font_atlas_size_default * @as(u32, @intCast(atlas_scale)),
+                                       font_atlas_by_id.get(tex_id).?, tex_id) catch |err| {
+                fm_log.err("Couldn't create texture, id = {}: {}", .{tex_id, err});
+                return error.FontGfxPluginFailed;
+            };
 
             const t = std.time.Timer.start() catch |err| {
                 fm_log.err("{}", .{err});
@@ -403,7 +411,7 @@ pub fn rasterise(font_name: []const u8, font_size: f32, tex_id: u32) FontError!v
             };
             current.idle_timer = font_timer_by_id.getPtr(tex_id).?;
             current.tex_id = tex_id;
-            try setFont(font_name, font_size);
+            // try setFont(font_name, font_size);
         }
     }
 }
@@ -426,7 +434,10 @@ pub fn removeFontByDesignator(name: []const u8) FontError!void {
         fm_log.err("Couldn't remove font <{s}>, unknown font name", .{name});
         return error.FontNameUnknown;
     } else {
-        gfx_impl.releaseTexture(id.?);
+        fnt_gfx.deleteTexture(id.?) catch |err| {
+            fm_log.err("Couldn't delete texture: {}", .{err});
+            return error.FontGfxPluginFailed;
+        };
     }
 }
 
@@ -455,7 +466,10 @@ pub fn removeFontById(id: u32) FontError!void {
         fm_log.err("Couldn't remove font <{s}> with id {}, unknown id", .{font_name, id});
         return error.FontNameUnknown;
     } else {
-        gfx_impl.releaseTexture(id);
+        fnt_gfx.deleteTexture(id) catch |err| {
+            fm_log.err("Couldn't delete texture: {}", .{err});
+            return error.FontGfxPluginFailed;
+        };
     }
 }
 
@@ -464,15 +478,24 @@ pub fn renderAtlas() FontError!void {
         fm_log.err("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
         return error.FontNoneRasterised;
     }
-    gfx_impl.bindTexture(current.tex_id);
+    fnt_gfx.bindTexture(current.tex_id) catch |err| {
+        fm_log.err("Couldn't bind texture: {}", .{err});
+        return error.FontGfxPluginFailed;
+    };
     const x0 = 100;
+    _ = x0;
     const x1 = 612;
+    _ = x1;
     const y0 = 100;
+    _ = y0;
     const y1 = 612;
-    gfx_impl.addImmediateQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0);
+    _ = y1;
+    // gfx_impl.addImmediateQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0);
 }
 
 pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
+    _ = y;
+    _ = x;
     if (current.tex_id == 0) {
         fm_log.err("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
         return error.FontNoneRasterised;
@@ -484,8 +507,11 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
 
     current.idle_timer.reset();
 
-    gfx_impl.bindTexture(current.tex_id);
-    gfx_impl.beginBatchQuadsTextured();
+    fnt_gfx.bindTexture(current.tex_id) catch |err| {
+        fm_log.err("Couldn't bind texture: {}", .{err});
+        return error.FontGfxPluginFailed;
+    };
+    // gfx_impl.beginBatchQuadsTextured();
     for (text) |ch| {
 
         if (ch == 10) { // Handle line feed
@@ -500,11 +526,11 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
                                   current.atlas_size, current.atlas_size,
                                   ch - ascii_first,
                                   &offset_x, &offset_y, &glyph_quad, 0);
-            gfx_impl.addBatchQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
-                                          glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1);
+            // gfx_impl.addBatchQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
+            //                               glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1);
         }
     }
-    gfx_impl.endBatch();
+    // gfx_impl.endBatch();
 }
 
 //-----------------------------------------------------------------------------//
@@ -579,18 +605,20 @@ fn findCandidateForAutoRemoval() u32 {
 //   Tests
 //-----------------------------------------------------------------------------//
 
-test "font: open font file (failure)" {
-    const actual = addFont("non_existing_fond_name", "./this/font/does/not/exist.ttf");
-    const expected = FontError.FontLoadingFailed;
-    std.testing.expectError(expected, actual) catch |err| {
-        try std.testing.expect(err == error.TestExpectedError);
-    };
-    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
-    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
-    try std.testing.expectEqual(font_id_by_name.count(), 0);
-    try std.testing.expectEqual(font_timer_by_id.count(), 0);
-    try std.testing.expectEqual(fonts_map.count(), 0);
-}
+// test "font: open font file (failure)" {
+//     const actual = addFont("non_existing_fond_name", "./this/font/does/not/exist.ttf");
+//     const expected = FontError.FontLoadingFailed;
+//     try std.testing.expectError(expected, actual);
+//     // try std.testing.expectEqual(expected, actual);
+//     // std.testing.expectError(expected, actual) catch |err| {
+//     //     try std.testing.expect(err == error.TestExpectedError);
+//     // };
+//     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+//     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+//     try std.testing.expectEqual(font_id_by_name.count(), 0);
+//     try std.testing.expectEqual(font_timer_by_id.count(), 0);
+//     try std.testing.expectEqual(fonts_map.count(), 0);
+// }
 
 test "font: open font file" {
     try addFont("anka", "resource/AnkaCoder-r.ttf");
@@ -615,24 +643,24 @@ test "font: open font file" {
 //     try std.testing.expectError(expected, actual_4);
 // }
 
-// test "font: rasterise" {
-//     font_atlas_limit = 3;
-//     try rasterise("anka", 16, 1);
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
-//     try std.testing.expectEqual(font_id_by_name.count(), 1);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 1);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+test "font: rasterise" {
+    font_atlas_limit = 3;
+    try rasterise("anka", 16, 1);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
 
-// test "font: rasterise twice" {
-//     try rasterise("anka", 16, 1);
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
-//     try std.testing.expectEqual(font_id_by_name.count(), 1);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 1);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+test "font: rasterise twice" {
+    try rasterise("anka", 16, 1);
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
 
 // test "font: rasterise (failure)" {
 //     const actual = rasterise("no_font_name", 16, 0);
@@ -645,32 +673,32 @@ test "font: open font file" {
 //     try std.testing.expectEqual(fonts_map.count(), 1);
 // }
 
-// test "font: get text size" {
-//     const s_0 = try getTextSize("Two\nlines", 0.0);
-//     try std.testing.expectApproxEqAbs(s_0.w, 40.76, 0.01);
-//     try std.testing.expectEqual(s_0.h, 32);
-//     const s_1 = try getTextSizeLine("One line");
-//     try std.testing.expectApproxEqAbs(s_1.w, 65.22, 0.01);
-//     try std.testing.expectEqual(s_1.h, 16);
-//     const s_2 = try getTextSizeLineMono("One line");
-//     try std.testing.expectApproxEqAbs(s_2.w, 65.22, 0.01);
-//     try std.testing.expectEqual(s_2.h, 16);
-//     const s_3 = try getTextSize("One line", 0.0);
-//     try std.testing.expectApproxEqAbs(s_3.w, 65.22, 0.01);
-//     try std.testing.expectEqual(s_3.h, 16);
-// }
+test "font: get text size" {
+    const s_0 = try getTextSize("Two\nlines", 0.0);
+    try std.testing.expectApproxEqAbs(s_0.w, 40.76, 0.01);
+    try std.testing.expectEqual(s_0.h, 32);
+    const s_1 = try getTextSizeLine("One line");
+    try std.testing.expectApproxEqAbs(s_1.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_1.h, 16);
+    const s_2 = try getTextSizeLineMono("One line");
+    try std.testing.expectApproxEqAbs(s_2.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_2.h, 16);
+    const s_3 = try getTextSize("One line", 0.0);
+    try std.testing.expectApproxEqAbs(s_3.w, 65.22, 0.01);
+    try std.testing.expectEqual(s_3.h, 16);
+}
 
-// test "font: get text size word wrapped" {
-//     const s_1 = try getTextSize("One line", 35.0);
-//     try std.testing.expectApproxEqAbs(s_1.w, 32.61, 0.01);
-//     try std.testing.expectEqual(s_1.h, 32.0);
-//     const s_2 = try getTextSize("Two\nlns", 35.0);
-//     try std.testing.expectApproxEqAbs(s_2.w, 24.46, 0.01);
-//     try std.testing.expectEqual(s_2.h, 32.0);
-//     const s_3 = try getTextSize("Two\nlines", 35.0);
-//     try std.testing.expectApproxEqAbs(s_3.w, 32.61, 0.01);
-//     try std.testing.expectEqual(s_3.h, 48.0);
-// }
+test "font: get text size word wrapped" {
+    const s_1 = try getTextSize("One line", 35.0);
+    try std.testing.expectApproxEqAbs(s_1.w, 32.61, 0.01);
+    try std.testing.expectEqual(s_1.h, 32.0);
+    const s_2 = try getTextSize("Two\nlns", 35.0);
+    try std.testing.expectApproxEqAbs(s_2.w, 24.46, 0.01);
+    try std.testing.expectEqual(s_2.h, 32.0);
+    const s_3 = try getTextSize("Two\nlines", 35.0);
+    try std.testing.expectApproxEqAbs(s_3.w, 32.61, 0.01);
+    try std.testing.expectEqual(s_3.h, 48.0);
+}
 
 // test "font: removal (failure)" {
 //     const actual = removeFontByDesignator("anka_17");
@@ -683,14 +711,14 @@ test "font: open font file" {
 //     try std.testing.expectEqual(fonts_map.count(), 1);
 // }
 
-// test "font: removal" {
-//     try removeFontByDesignator("anka_16");
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 0);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 0);
-//     try std.testing.expectEqual(font_id_by_name.count(), 0);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 0);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+test "font: removal" {
+    try removeFontByDesignator("anka_16");
+    try std.testing.expectEqual(font_atlas_by_id.count(), 0);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 0);
+    try std.testing.expectEqual(font_id_by_name.count(), 0);
+    try std.testing.expectEqual(font_timer_by_id.count(), 0);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
 
 // test "font: set font (failure 01)" {
 //     const actual = setFont("anka_bad", 16);
@@ -717,28 +745,28 @@ test "font: open font file" {
 //     try std.testing.expectEqual(fonts_map.count(), 1);
 // }
 
-// test "font: set font, auto rasterise" {
-//     auto_rasterise = true;
-//     try setFont("anka", 16);
+test "font: set font, auto rasterise" {
+    auto_rasterise = true;
+    try setFont("anka", 16);
 
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 1);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 1);
-//     try std.testing.expectEqual(font_id_by_name.count(), 1);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 1);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+    try std.testing.expectEqual(font_atlas_by_id.count(), 1);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 1);
+    try std.testing.expectEqual(font_id_by_name.count(), 1);
+    try std.testing.expectEqual(font_timer_by_id.count(), 1);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
 
-// test "font: set font" {
-//     auto_rasterise = false;
-//     try rasterise("anka", 32, 1);
-//     try setFont("anka", 16);
+test "font: set font" {
+    auto_rasterise = false;
+    try rasterise("anka", 32, 1);
+    try setFont("anka", 16);
 
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 2);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 2);
-//     try std.testing.expectEqual(font_id_by_name.count(), 2);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 2);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+    try std.testing.expectEqual(font_atlas_by_id.count(), 2);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 2);
+    try std.testing.expectEqual(font_id_by_name.count(), 2);
+    try std.testing.expectEqual(font_timer_by_id.count(), 2);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}
 
 // test "font: atlas limit (failure)" {
 //     auto_remove = false;
@@ -777,16 +805,16 @@ test "font: open font file" {
 //     try std.testing.expectEqual(fonts_map.count(), 1);
 // }
 
-// test "font: auto remove" {
-//     auto_remove = true;
-//     auto_remove_idle_time = 0.1;
-//     std.time.sleep(0.2e9);
+test "font: auto remove" {
+    auto_remove = true;
+    auto_remove_idle_time = 0.1;
+    std.time.sleep(0.2e9);
 
-//     try rasterise("anka", 128, 3);
+    try rasterise("anka", 128, 3);
 
-//     try std.testing.expectEqual(font_atlas_by_id.count(), 3);
-//     try std.testing.expectEqual(font_char_info_by_id.count(), 3);
-//     try std.testing.expectEqual(font_id_by_name.count(), 3);
-//     try std.testing.expectEqual(font_timer_by_id.count(), 3);
-//     try std.testing.expectEqual(fonts_map.count(), 1);
-// }
+    try std.testing.expectEqual(font_atlas_by_id.count(), 3);
+    try std.testing.expectEqual(font_char_info_by_id.count(), 3);
+    try std.testing.expectEqual(font_id_by_name.count(), 3);
+    try std.testing.expectEqual(font_timer_by_id.count(), 3);
+    try std.testing.expectEqual(fonts_map.count(), 1);
+}

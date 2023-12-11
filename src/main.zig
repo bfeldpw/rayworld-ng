@@ -5,7 +5,7 @@ const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
 const gfx = @import("gfx_rw.zig");
-// const rw_gui = @import("rw_gui.zig");
+const gui_rw = @import("gui_rw.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
@@ -60,9 +60,9 @@ pub fn main() !void {
     //----------------
     //   Init gui
     //----------------
-    // try rw_gui.init();
-    // try rw_gui.setHelpMessage(help_message);
-    // defer rw_gui.deinit();
+    try gui_rw.init();
+    try gui_rw.setHelpMessage(help_message);
+    defer gui_rw.deinit();
 
     //--------------------------------
     //   Prepare performance timers
@@ -139,8 +139,8 @@ pub fn main() !void {
         var cur_x: f64 = 0;
         var cur_y: f64 = 0;
         input.getCursorPos(&cur_x, &cur_y);
-        // try rw_gui.process(@floatCast(cur_x), @floatCast(cur_y),
-        //                    input.isMouseButtonLeftPressed(), input.getMouseState().wheel);
+        try gui_rw.process(@floatCast(cur_x), @floatCast(cur_y),
+                           input.isMouseButtonLeftPressed(), input.getMouseState().wheel);
         prf_ren_gui.stop();
 
         prf_ren.stop();
