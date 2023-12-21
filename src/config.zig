@@ -5,8 +5,31 @@ pub const multithreading = true;
 /// Globally turn on the General Purpose Allocators (GPAs)
 /// verbose output
 pub const debug_allocator = false;
-pub const sub_sampling_base = 3;
+
+pub var sub_sampling_base: u32 = 2;
 pub const sub_sampling_blocky = false;
+
+pub const sub = struct {
+    /// Enables auto-subsampling. Based on raycasting and
+    /// render time, the number of rays will be reduced in
+    /// case of high load
+    pub const auto = false;
+    /// Upper threshold in [ms] for raycasting and rendering
+    /// If exceeded, number of rays will be reduced
+    pub const th_high = 6.0;
+    /// Lower threshold in [ms] for raycasting and rendering
+    /// If below, number of rays will be increased
+    pub const th_low = 5.0;
+    /// Maximum subsampling (minimum number of rays). Only
+    /// every n-th ray will be casted
+    pub const max = 50;
+    /// Minimum subsampling (maximum number of rays). Every
+    /// n-th ray will be casted
+    pub const min = 2;
+    /// Number of frames for averaging, to avoid noisy
+    /// changes in the number of rays
+    pub const fps_damping = 20;
+};
 
 pub const fnt = struct {
     /// Rasterise a loaded font if requested size
@@ -50,14 +73,16 @@ pub const gfx = struct {
 
 pub const map = struct {
     pub const texture_dir = "./resource/";
+    pub const fb_w = 1024;
+    pub const fb_h = 2048;
 };
 
 pub const rc = struct {
     pub const map_display_every_nth_line = 1;
-    pub const map_display_height = 0.4;
+    pub const map_display_height = 1.0;
     pub const map_display_opacity = 0.8;
-    pub const map_display_reflections_max = gfx.depth_levels_max-1;
-    pub const segments_max = gfx.depth_levels_max-1;
+    pub const map_display_reflections_max = gfx.depth_levels_max - 1;
+    pub const segments_max = gfx.depth_levels_max - 1;
     pub const segments_splits_max = 2;
     pub const threads_max = 16;
 };

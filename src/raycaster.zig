@@ -3,7 +3,8 @@ const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
 const gfx_rw = @import("gfx_rw.zig");
-const map = @import("map.zig"); const stats = @import("stats.zig");
+const map = @import("map.zig");
+const stats = @import("stats.zig");
 const plr = @import("player.zig");
 
 //-----------------------------------------------------------------------------//
@@ -38,84 +39,84 @@ pub fn deinit() void {
 
 pub fn createMap() !void {
     const m = map.get();
-    const map_cells_y = @as(f32, map.get().len);
-    const win_h: f32 = @floatFromInt(gfx_core.getWindowHeight());
-    const f = win_h * cfg.rc.map_display_height / map_cells_y; // scale factor cell -> px
-    const o = win_h - f * map_cells_y; // y-offset for map drawing in px
+    const scale_x = @as(f32, cfg.map.fb_w) / map.getSizeX();
+    const scale_y = @as(f32, cfg.map.fb_h) / map.getSizeY();
 
     for (m, 0..) |y, j| {
         for (y, 0..) |cell, i| {
             const c = map.getColor(j, i);
             switch (cell) {
                 .floor => {
-                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
-                             o + @as(f32, @floatFromInt(j)) * f,
-                             @as(f32, @floatFromInt(i + 1)) * f,
-                             o + @as(f32, @floatFromInt(j + 1)) * f,
-                             gfx_core.compressColor(c.r, c.g, c.b, cfg.rc.map_display_opacity));
+                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * scale_x,
+                                   @as(f32, @floatFromInt(j)) * scale_y,
+                                   @as(f32, @floatFromInt(i + 1)) * scale_x,
+                                   @as(f32, @floatFromInt(j + 1)) * scale_y,
+                                   gfx_core.compressColor(c.r, c.g, c.b, 1.0));
                 },
                 .wall, .wall_thin, .mirror, .glass, .pillar, .pillar_glass => {
-                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * f,
-                             o + @as(f32, @floatFromInt(j)) * f,
-                             @as(f32, @floatFromInt(i + 1)) * f,
-                             o + @as(f32, @floatFromInt(j + 1)) * f,
-                             gfx_core.compressColor(
-                             0 + 0.1 * c.r,
-                             0 + 0.1 * c.g,
-                             0 + 0.1 * c.b,
-                             cfg.rc.map_display_opacity));
+                    gfx_rw.addQuad(@as(f32, @floatFromInt(i)) * scale_x,
+                                   @as(f32, @floatFromInt(j)) * scale_y,
+                                   @as(f32, @floatFromInt(i + 1)) * scale_x,
+                                   @as(f32, @floatFromInt(j + 1)) * scale_y,
+                                   gfx_core.compressColor(
+                                       0 + 0.1 * c.r,
+                                       0 + 0.1 * c.g,
+                                       0 + 0.1 * c.b, 1.0));
                 },
             }
         }
     }
 
     var i: usize = 0;
-    while (i < rays.seg_i0.len) : (i += 1) {
+    while (i < rays.items.len) : (i += 1) {
         if (i % cfg.rc.map_display_every_nth_line == 0) {
-            var j: i32 = @intCast(rays.seg_i1[i]);
-            const j0: i32 = @intCast(rays.seg_i0[i]);
+            var j: i32 = @intCast(rays.items[i].seg_i1);
+            const j0: i32 = @intCast(rays.items[i].seg_i0);
 
             if (j - j0 > cfg.rc.map_display_reflections_max) {
                 j = j0 + cfg.rc.map_display_reflections_max;
             }
-            // const color_step = 1.0 / @as(f32, cfg.rc.map_display_reflections_max + 1);
 
             while (j >= j0) : (j -= 1) {
-                // const color_grade = color_step * @as(f32, @floatFromInt(j-j0));
                 const k: usize = @intCast(j);
                 if (j == j0) {
-                    gfx_rw.addLine(segments.x0[k] * f,
-                                o + segments.y0[k] * f,
-                                segments.x1[k] * f,
-                                o + segments.y1[k] * f,
-                                gfx_core.compressColor(0.0, 0.0, 1.0, 0.1));
+                    gfx_rw.addLine(segments.pos.items[k].x0 * scale_x,
+                                   segments.pos.items[k].y0 * scale_y,
+                                   segments.pos.items[k].x1 * scale_x,
+                                   segments.pos.items[k].y1 * scale_y,
+                                   gfx_core.compressColor(0.0, 0.0, 1.0, 0.1));
                 } else {
-                    gfx_rw.addLine(segments.x0[k] * f,
-                                o + segments.y0[k] * f,
-                                segments.x1[k] * f,
-                                o + segments.y1[k] * f,
-                                gfx_core.compressColor(0.0, 0.75, 1.0, 0.05/@as(f32, @floatFromInt(j-j0))));
+                    gfx_rw.addLine(segments.pos.items[k].x0 * scale_x,
+                                   segments.pos.items[k].y0 * scale_y,
+                                   segments.pos.items[k].x1 * scale_x,
+                                   segments.pos.items[k].y1 * scale_y,
+                                   gfx_core.compressColor(0.0, 0.75, 1.0, 0.05/@as(f32, @floatFromInt(j-j0))));
                 }
             }
         }
     }
 
     const x = plr.getPosX();
+    _ = x;
     const y = plr.getPosY();
+    _ = y;
     const w = 0.1;
+    _ = w;
     const h = 0.5;
+    _ = h;
     const d = plr.getDir();
+    _ = d;
     // var data = try gfx_base.getBufferToAddVertexData(0, 18);
     // data.ptr[0] = 21;
     // data.ptr[1] = 22;
 
-    var data = [18]f32 {(x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
-                         0.0, 0.7, 0.0, 1.0,
-                        (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
-                         0.0, 0.7, 0.0, 1.0,
-                        (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f,
-                         0.0, 0.7, 0.0, 1.0};
-    try gfx_base.addVertexData(0, &data);
+    // var data = [18]f32 {(x - w * @sin(d)) * f, o + (y + w * @cos(d)) * f,
+    //                      0.0, 0.7, 0.0, 1.0,
+    //                     (x + h * @cos(d)) * f, o + (y + h * @sin(d)) * f,
+    //                      0.0, 0.7, 0.0, 1.0,
+    //                     (x + w * @sin(d)) * f, o + (y - w * @cos(d)) * f,
+    //                      0.0, 0.7, 0.0, 1.0};
+    // try gfx_base.addVertexData(0, &data);
 }
 
 pub fn createScene() void {
@@ -142,29 +143,31 @@ pub fn createScene() void {
         y0_cvs: f32,
         y1: f32,
         y1_cvs: f32,
+        h_ssao: f32
     };
     var previous: [depth_levels]Previous = undefined;
 
     for (&previous) |*value| {
         value.m_x = 0;
         value.m_y = 0;
+        value.u_of_uv = 0;
         value.tex_id = 0;
     }
 
-    while (i < rays.seg_i0.len) : (i += 1) {
-        const x = @as(f32, @floatFromInt(i)) * cfg.gfx.scene_sampling_factor * cfg.sub_sampling_base;
-        const j0 = rays.seg_i0[i];
-        const j1 = rays.seg_i1[i];
+    while (i < rays.items.len) : (i += 1) {
+        const x = @as(f32, @floatFromInt(i+1)) * cfg.gfx.scene_sampling_factor * @as(f32 ,@floatFromInt(cfg.sub_sampling_base));
+        const j0 = rays.items[i].seg_i0;
+        const j1 = rays.items[i].seg_i1;
         var j = j1;
 
         // Angle between current ray and player direction
         const ang_0 = (@as(f32, @floatFromInt(i)) /
-                       @as(f32, @floatFromInt(rays.seg_i0.len)) - 0.5) * plr.getFOV();
+                       @as(f32, @floatFromInt(rays.items.len)) - 0.5) * plr.getFOV();
 
         while (j >= j0) : (j -= 1) {
 
             const k = @as(usize, j);
-            const sub_sampling = segments.sub_sample_level[k];
+            const sub_sampling = segments.sub_sample_level.items[k];
             const depth_layer: u8 = @intCast(j - j0 + 1);
 
             if (i % sub_sampling == 0) {
@@ -176,7 +179,7 @@ pub fn createScene() void {
                 // that differentiates it from polygons.
                 // Note: Even when using the cosine, walls are not perfectly straight, since
                 // angular resolution becomes non-constant, especially for large FOVs
-                var d = segments.d[k];
+                var d = segments.d.items[k];
                 d *= (0.5 + 0.5 * @cos(ang_0));
 
                 // Restrict minimum distance, i.e. maximum height drawn
@@ -189,9 +192,9 @@ pub fn createScene() void {
                 if (d_norm > 1) d_norm = 1;
 
                 shift_and_tilt = win_h * plr.getPosZ() / (d + 1e-3) + tilt;
-                const m_x = segments.cell_x[k];
-                const m_y = segments.cell_y[k];
-                const cell_type = segments.cell_type[k];
+                const m_x = segments.cell.items[k].x;
+                const m_y = segments.cell.items[k].y;
+                const cell_type = segments.cell.items[k].t;
 
                 var prev = &previous[depth_layer];
 
@@ -200,29 +203,29 @@ pub fn createScene() void {
                 var col_norm: f32 = col_amb;
                 var u_of_uv: f32 = 0;
                 if (cell_type != .pillar and cell_type != .pillar_glass) {
-                    if (segments.contact_axis[k] == .x) {
-                        u_of_uv = segments.x1[k] - @trunc(segments.x1[k]);
+                    if (segments.cell.items[k].contact_axis == .x) {
+                        u_of_uv = segments.pos.items[k].x1 - @trunc(segments.pos.items[k].x1);
                         col_norm += (1.0 - col_amb) * @abs(@sin(ang_0 + plr.getDir()));
-                        if (segments.y0[k] < segments.y1[k]) {
+                        if (segments.pos.items[k].y0 < segments.pos.items[k].y1) {
                             u_of_uv = 1 - u_of_uv;
                         }
                     } else {
-                        u_of_uv = segments.y1[k] - @trunc(segments.y1[k]);
+                        u_of_uv = segments.pos.items[k].y1 - @trunc(segments.pos.items[k].y1);
                         col_norm += (1.0 - col_amb) * @abs(@cos(ang_0 + plr.getDir()));
-                        if (segments.x0[k] > segments.x1[k]) {
+                        if (segments.pos.items[k].x0 > segments.pos.items[k].x1) {
                             u_of_uv = 1 - u_of_uv;
                         }
                     }
                 } else {
                     // Flat shading for pillars
-                    const p_x = segments.x1[k] - @as(f32, @floatFromInt(m_x));
-                    const p_y = segments.y1[k] - @as(f32, @floatFromInt(m_y));
+                    const p_x = segments.pos.items[k].x1 - @as(f32, @floatFromInt(m_x));
+                    const p_y = segments.pos.items[k].y1 - @as(f32, @floatFromInt(m_y));
                     // Norm vector:
                     const n_x = p_x - map.getPillar(m_y, m_x).center_x;
                     const n_y = p_y - map.getPillar(m_y, m_x).center_y;
                     // Colliding ray vector:
-                    const r_x= segments.x1[k] - segments.x0[k];
-                    const r_y= segments.y1[k] - segments.y0[k];
+                    const r_x= segments.pos.items[k].x1 - segments.pos.items[k].x0;
+                    const r_y= segments.pos.items[k].y1 - segments.pos.items[k].y0;
 
                     var ang_n = std.math.atan2(f32, n_y, n_x);
                     if (ang_n < 0) ang_n += 2.0 * std.math.pi;
@@ -237,7 +240,7 @@ pub fn createScene() void {
 
                 const col = map.getColor(m_y, m_x);
 
-                const col_shading = std.math.pow(f32, std.math.clamp(d_norm, 0.0, 1.0), 1.7) * col_norm;
+                const col_shading = std.math.pow(f32, std.math.clamp(d_norm, 0.0, 1.0), 1.5) * col_norm;
                 const canvas = map.getCanvas(m_y, m_x);
                 const canvas_col = map.getCanvasColor(m_y, m_x);
                 const tex_id = map.getTextureID(m_y, m_x).id;
@@ -258,7 +261,7 @@ pub fn createScene() void {
                 var is_new = true;
                 const abs_x = @abs(@as(i16, @intCast(m_x)) - @as(i16, @intCast(prev.m_x)));
                 const abs_y = @abs(@as(i16, @intCast(m_y)) - @as(i16, @intCast(prev.m_y)));
-                const axis = segments.contact_axis[k];
+                const axis = segments.cell.items[k].contact_axis;
                 if (axis == .x and abs_x < 2 and m_y == prev.m_y) is_new = false;
                 if (axis == .y and abs_y < 2 and m_x == prev.m_x) is_new = false;
                 if ((m_x != prev.m_x or m_y != prev.m_y) and
@@ -267,21 +270,23 @@ pub fn createScene() void {
                 if (prev.tex_id != tex_id) is_new = true;
 
                 if (is_new) prev.x = x - @as(f32, @floatFromInt(sub_sampling)) * cfg.gfx.scene_sampling_factor
-                                                                               * cfg.sub_sampling_base;
+                                                                               * @as(f32, @floatFromInt(cfg.sub_sampling_base));
                 if (cfg.sub_sampling_blocky or is_new) {
-                    prev.u_of_uv = u_of_uv;
+                    prev.u_of_uv = 0; //u_of_uv;
                     prev.y0_cvs = y0_cvs;
                     prev.y0 = y0;
                     prev.y1_cvs = y1_cvs;
                     prev.y1 = y1;
+                    prev.h_ssao = h_ssao;
                 }
 
                 if (tex_id != 0) {
                     gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, prev.u_of_uv, u_of_uv, 0, 1,
-                                                 col_shading * col.r,
-                                                 col_shading * col.g,
-                                                 col_shading * col.b, col.a,
-                                                 h_ssao, shift_and_tilt, depth_layer, tex_id);
+                                                    @min(col_shading * col.r, col.r),
+                                                    @min(col_shading * col.g, col.g),
+                                                    @min(col_shading * col.b, col.b),
+                                                    col.a,
+                                                    prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, tex_id);
                 } else {
                     // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
                     //                      col_shading * col.r,
@@ -289,10 +294,10 @@ pub fn createScene() void {
                     //                      col_shading * col.b, col.a,
                     //                      h_ssao, shift_and_tilt, depth_layer);
                     gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, 0, 0, 0, 0,
-                                         col_shading * col.r,
-                                         col_shading * col.g,
-                                         col_shading * col.b, col.a,
-                                            h_ssao, shift_and_tilt, depth_layer, 0);
+                                                    col_shading * col.r,
+                                                    col_shading * col.g,
+                                                    col_shading * col.b, col.a,
+                                                    prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, 0);
                 }
                 if (canvas.bottom + canvas.top > 0.0) {
                     if (canvas.tex_id != 0) {
@@ -300,12 +305,12 @@ pub fn createScene() void {
                                                      col_shading * canvas_col.r,
                                                      col_shading * canvas_col.g,
                                                      col_shading * canvas_col.b, canvas_col.a,
-                                                     h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
+                                                     prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
                         gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1, prev.u_of_uv, u_of_uv, 1, 1 - canvas.bottom,
                                                      col_shading * canvas_col.r,
                                                      col_shading * canvas_col.g,
                                                      col_shading * canvas_col.b, canvas_col.a,
-                                                     h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
+                                                     prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
                     } else {
                         // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
                         //                     col_shading * canvas_col.r,
@@ -324,8 +329,9 @@ pub fn createScene() void {
                 prev.m_y = m_y;
                 prev.tex_id = tex_id;
                 prev.x = x;
+                prev.u_of_uv = u_of_uv;
+                prev.h_ssao = h_ssao;
                 if (!cfg.sub_sampling_blocky) {
-                    prev.u_of_uv = u_of_uv;
                     prev.y0_cvs = y0_cvs;
                     prev.y0 = y0;
                     prev.y1 = y1;
@@ -343,15 +349,15 @@ pub fn processRays(comptime multithreading: bool) !void {
     try reallocRaysOnChange();
 
     const angle: f32 = @mulAdd(f32, -0.5, plr.getFOV(), plr.getDir());
-    const inc_angle: f32 = plr.getFOV() / @as(f32, @floatFromInt(rays.seg_i0.len));
+    const inc_angle: f32 = plr.getFOV() / @as(f32, @floatFromInt(rays.items.len));
 
-    const split = rays.seg_i0.len / cpus;
+    const split = rays.items.len / cpus;
 
     if (multithreading) {
         var cpu: u8 = 0;
         while (cpu < cpus) : (cpu += 1) {
             var last = (cpu + 1) * split;
-            if (cpu == cpus - 1) last = rays.seg_i0.len;
+            if (cpu == cpus - 1) last = rays.items.len;
             thread_group_rays.start();
 
             try std.Thread.Pool.spawn(&thread_pool, traceMultipleRays, .{ cpu * split, last, @mulAdd(f32, inc_angle, @floatFromInt(cpu * split), angle), inc_angle });
@@ -382,137 +388,70 @@ var shift_and_tilt: f32 = 0;
 
 /// Struct of arrays (SOA) to store ray data
 const RayData = struct {
-    seg_i0: []usize,
-    seg_i1: []usize,
+    seg_i0: usize,
+    seg_i1: usize,
+};
+
+const PosData = struct {
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32
+};
+
+const CellData = struct {
+    x: usize,
+    y: usize,
+    t: map.CellType,
+    contact_axis: Axis
 };
 
 /// Struct of arrays (SOA) to store data of ray segments
 const RaySegmentData = struct {
-    x0: []f32,
-    y0: []f32,
-    x1: []f32,
-    y1: []f32,
-    d: []f32,
-    contact_axis: []Axis,
-    sub_sample_level: []u8,
-    cell_type: []map.CellType,
-    cell_x: []usize,
-    cell_y: []usize,
+    pos: std.ArrayList(PosData),
+    cell: std.ArrayList(CellData),
+    sub_sample_level: std.ArrayList(u8),
+    d: std.ArrayList(f32)
 };
 
 /// Struct of array instanciation to store ray data. Memory allocation is done
 /// in @init function
-var rays = RayData{
-    .seg_i0 = undefined,
-    .seg_i1 = undefined,
-};
+var rays = std.ArrayList(RayData).init(allocator);
 
 /// Struct of array instanciation to store ray segment data. Memory allocation is
 /// done in @init function
 var segments = RaySegmentData{
-    .x0 = undefined,
-    .y0 = undefined,
-    .x1 = undefined,
-    .y1 = undefined,
-    .d = undefined,
-    .contact_axis = undefined,
-    .sub_sample_level = undefined,
-    .cell_type = undefined,
-    .cell_x = undefined,
-    .cell_y = undefined,
+    .pos = std.ArrayList(PosData).init(allocator),
+    .cell = std.ArrayList(CellData).init(allocator),
+    .sub_sample_level = std.ArrayList(u8).init(allocator),
+    .d = std.ArrayList(f32).init(allocator),
 };
 
 fn allocMemory(n: usize) !void {
-    // Allocate for memory for ray data
-    rays.seg_i0 = allocator.alloc(usize, n) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(rays.seg_i0);
-    rays.seg_i1 = allocator.alloc(usize, n) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(rays.seg_i1);
-
     const s = cfg.rc.segments_splits_max;
 
-    // Allocate memory for segment data
-    segments.x0 = allocator.alloc(f32, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.x0);
-    segments.y0 = allocator.alloc(f32, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.y0);
-    segments.x1 = allocator.alloc(f32, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.x1);
-    segments.y1 = allocator.alloc(f32, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.y1);
-    segments.d = allocator.alloc(f32, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.d);
-    segments.contact_axis = allocator.alloc(Axis, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.contact_axis);
-    segments.sub_sample_level = allocator.alloc(u8, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.sub_sample_level);
-    segments.cell_type = allocator.alloc(map.CellType, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.cell_type);
-    segments.cell_x = allocator.alloc(usize, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.cell_x);
-    segments.cell_y = allocator.alloc(usize, n * s * segments_max) catch |e| {
-        log_ray.err("Allocation error ", .{});
-        return e;
-    };
-    errdefer allocator.free(segments.cell_y);
+    try rays.resize(n);
+    try segments.pos.resize(n * s * segments_max);
+    try segments.cell.resize(n * s * segments_max);
+    try segments.sub_sample_level.resize(n * s * segments_max);
+    try segments.d.resize(n * s * segments_max);
 }
 
 fn freeMemory() void {
-    allocator.free(rays.seg_i0);
-    allocator.free(rays.seg_i1);
-    allocator.free(segments.x0);
-    allocator.free(segments.y0);
-    allocator.free(segments.x1);
-    allocator.free(segments.y1);
-    allocator.free(segments.d);
-    allocator.free(segments.contact_axis);
-    allocator.free(segments.sub_sample_level);
-    allocator.free(segments.cell_type);
-    allocator.free(segments.cell_x);
-    allocator.free(segments.cell_y);
+    rays.deinit();
+    segments.pos.deinit();
+    segments.cell.deinit();
+    segments.sub_sample_level.deinit();
+    segments.d.deinit();
 }
 
 fn reallocRaysOnChange() !void {
-    if (gfx_core.getWindowWidth() / cfg.sub_sampling_base != rays.seg_i0.len) {
+    if (gfx_core.getWindowWidth() / cfg.sub_sampling_base != rays.items.len) {
         log_ray.debug("Reallocating memory for ray data", .{});
 
-        freeMemory();
         try allocMemory(gfx_core.getWindowWidth() / cfg.sub_sampling_base);
 
-        log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.seg_i0.len});
+        log_ray.debug("Window resized, changing number of initial rays -> {}", .{rays.items.len});
     }
 }
 
@@ -525,11 +464,11 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
 
     while (i < i_1) {
         const j = segments_max * i;
-        rays.seg_i0[i] = j;
-        rays.seg_i1[i] = j;
-        segments.x0[j] = p_x;
-        segments.y0[j] = p_y;
-        segments.sub_sample_level[j] = 1;
+        rays.items[i].seg_i0 = j;
+        rays.items[i].seg_i1 = j;
+        segments.pos.items[j].x0 = p_x;
+        segments.pos.items[j].y0 = p_y;
+        segments.sub_sample_level.items[j] = 1;
 
         traceSingleSegment(angle, j, i);
 
@@ -555,8 +494,8 @@ const ContactStatus = struct {
 };
 
 fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map.CellType, n_prev: f32, refl_lim: i8) void {
-    var s_x = segments.x0[s_i]; // segment pos x
-    var s_y = segments.y0[s_i]; // segment pos y
+    var s_x = segments.pos.items[s_i].x0; // segment pos x
+    var s_y = segments.pos.items[s_i].y0; // segment pos y
     var d_x = d_x0; // direction x
     var d_y = d_y0; // direction y
     const g_x = d_y / d_x; // gradient/derivative of the segment for direction x
@@ -930,28 +869,28 @@ fn resolveContactPillar(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, 
     if (w >= 0) {
         const d_p = c_a - @sqrt(w);
         if (d_p >= 0) {
-            segments.d[s_i] = d_p;
-            segments.cell_x[s_i] = m_x;
-            segments.cell_y[s_i] = m_y;
-            segments.cell_type[s_i] = m_v;
+            segments.d.items[s_i] = d_p;
+            segments.cell.items[s_i].x = m_x;
+            segments.cell.items[s_i].y = m_y;
+            segments.cell.items[s_i].t = m_v;
 
-            segments.x1[s_i] = s_x.* + d_x0 * d_p;
-            segments.y1[s_i] = s_y.* + d_y0 * d_p;
+            segments.pos.items[s_i].x1 = s_x.* + d_x0 * d_p;
+            segments.pos.items[s_i].y1 = s_y.* + d_y0 * d_p;
 
             const r_x = (d_x0 * d_p - e_x) / r;
             const r_y = (d_y0 * d_p - e_y) / r;
             d_x.* = 2 * (-e_x * r_x - e_y * r_y) * r_x - d_x0 * d_p;
             d_y.* = 2 * (-e_x * r_x - e_y * r_y) * r_y - d_y0 * d_p;
 
-            const s_x0 = segments.x0[s_i];
-            const s_y0 = segments.y0[s_i];
+            const s_x0 = segments.pos.items[s_i].x0;
+            const s_y0 = segments.pos.items[s_i].y0;
             const s_dx = s_x.* - s_x0;
             const s_dy = s_y.* - s_y0;
             // Accumulate distances, if first segment, set
-            if (s_i > rays.seg_i0[r_i]) {
-                segments.d[s_i] = segments.d[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+            if (s_i > rays.items[r_i].seg_i0) {
+                segments.d.items[s_i] = segments.d.items[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             } else {
-                segments.d[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+                segments.d.items[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             }
 
             s_x.* += d_x0 * d_p;
@@ -979,13 +918,13 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
     if (w >= 0) {
         const d_p = c_a - @sqrt(w);
         if (d_p >= 0) {
-            segments.d[s_i] = d_p;
-            segments.cell_x[s_i] = m_x;
-            segments.cell_y[s_i] = m_y;
-            segments.cell_type[s_i] = m_v;
+            segments.d.items[s_i] = d_p;
+            segments.cell.items[s_i].x = m_x;
+            segments.cell.items[s_i].y = m_y;
+            segments.cell.items[s_i].t = m_v;
 
-            segments.x1[s_i] = s_x.* + d_x0 * d_p;
-            segments.y1[s_i] = s_y.* + d_y0 * d_p;
+            segments.pos.items[s_i].x1 = s_x.* + d_x0 * d_p;
+            segments.pos.items[s_i].y1 = s_y.* + d_y0 * d_p;
 
             const alpha = std.math.atan2(f32, d_y0, d_x0) -
                           std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
@@ -1003,15 +942,15 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
             // d_x.* = 2 * (-e_x * r_x - e_y * r_y) * r_x - d_x0 * d_p;
             // d_y.* = 2 * (-e_x * r_x - e_y * r_y) * r_y - d_y0 * d_p;
 
-            const s_x0 = segments.x0[s_i];
-            const s_y0 = segments.y0[s_i];
+            const s_x0 = segments.pos.items[s_i].x0;
+            const s_y0 = segments.pos.items[s_i].y0;
             const s_dx = s_x.* - s_x0;
             const s_dy = s_y.* - s_y0;
             // Accumulate distances, if first segment, set
-            if (s_i > rays.seg_i0[r_i]) {
-                segments.d[s_i] = segments.d[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+            if (s_i > rays.items[r_i].seg_i0) {
+                segments.d.items[s_i] = segments.d.items[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             } else {
-                segments.d[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+                segments.d.items[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             }
 
             s_x.* += d_x0 * d_p;
@@ -1024,48 +963,50 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
 }
 
 fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, m_x: usize, m_y: usize, m_v: map.CellType, c_prev: map.CellType, n_prev: f32, s_i: usize, r_i: usize, s_x: f32, s_y: f32, d_x: f32, d_y: f32) void {
-    segments.contact_axis[s_i] = contact_axis;
+    segments.cell.items[s_i].contact_axis = contact_axis;
 
     // if there is any kind of contact and a the segment ends, save all
     // common data
     if (contact_status.finish_segment == true and m_v != .pillar and m_v != .pillar_glass) {
         if (c_prev == .glass and m_v == .floor) {
-            segments.cell_x[s_i] = segments.cell_x[s_i - 1];
-            segments.cell_y[s_i] = segments.cell_y[s_i - 1];
-            segments.cell_type[s_i] = segments.cell_type[s_i - 1];
+            const s_ip = s_i - 1;
+            segments.cell.items[s_i].x = segments.cell.items[s_ip].x;
+            segments.cell.items[s_i].y = segments.cell.items[s_ip].y;
+            segments.cell.items[s_i].t = segments.cell.items[s_ip].t;
         } else {
-            segments.cell_x[s_i] = m_x;
-            segments.cell_y[s_i] = m_y;
-            segments.cell_type[s_i] = m_v;
+            segments.cell.items[s_i].x = m_x;
+            segments.cell.items[s_i].y = m_y;
+            segments.cell.items[s_i].t = m_v;
         }
-        segments.x1[s_i] = s_x;
-        segments.y1[s_i] = s_y;
-        const s_x0 = segments.x0[s_i];
-        const s_y0 = segments.y0[s_i];
+        var pos = &segments.pos.items[s_i];
+        pos.x1 = s_x;
+        pos.y1 = s_y;
+        const s_x0 = pos.x0;
+        const s_y0 = pos.y0;
         const s_dx = s_x - s_x0;
         const s_dy = s_y - s_y0;
 
         // Accumulate distances, if first segment, set
-        if (s_i > rays.seg_i0[r_i]) {
-            segments.d[s_i] = segments.d[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy);
+        if (s_i > rays.items[r_i].seg_i0) {
+            segments.d.items[s_i] = segments.d.items[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy);
         } else {
-            segments.d[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy);
+            segments.d.items[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy);
         }
     }
     // Prepare next segment
     // Only prepare next segment if not already the last segment of the
     // last ray!
-    if (contact_status.prepare_next_segment and s_i + 1 < rays.seg_i0.len * segments_max) {
+    if (contact_status.prepare_next_segment and s_i + 1 < rays.items.len * segments_max) {
         // Just be sure to stay below the maximum segment number per ray
         // if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_status.reflection_limit) {
         const refl = contact_status.reflection_limit + 1;
         if (refl > 0) {
             const subs = map.getReflection(m_y, m_x).sub_sampling;
             if (r_i % subs == 0) {
-                segments.x0[s_i + 1] = s_x;
-                segments.y0[s_i + 1] = s_y;
-                segments.sub_sample_level[s_i + 1] = segments.sub_sample_level[s_i] * subs;
-                rays.seg_i1[r_i] += 1;
+                segments.pos.items[s_i + 1].x0 = s_x;
+                segments.pos.items[s_i + 1].y0 = s_y;
+                segments.sub_sample_level.items[s_i + 1] = segments.sub_sample_level.items[s_i] * subs;
+                rays.items[r_i].seg_i1 += 1;
                 traceSingleSegment0(d_x, d_y, s_i + 1, r_i, contact_status.cell_type_prev, n_prev, contact_status.reflection_limit);
             }
         }

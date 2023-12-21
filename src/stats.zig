@@ -65,6 +65,7 @@ pub const PerFrameCounter = struct {
 
     frame_count: u64,
     count: u64,
+    count_p: u64,
     max: u64,
     min: u64,
     name: []const u8,
@@ -73,6 +74,7 @@ pub const PerFrameCounter = struct {
     pub fn init(n: []const u8) PerFrameCounter {
         return PerFrameCounter {
             .count = 0,
+            .count_p = 0,
             .frame_count = 0,
             .max = 0,
             .min = 18_446_744_073_709_551_615,
@@ -81,11 +83,16 @@ pub const PerFrameCounter = struct {
         };
     }
 
+    pub inline fn getCount(self: *PerFrameCounter) u64 {
+        return self.count_p;
+    }
+
     pub fn finishFrame(self: *PerFrameCounter) void {
         self.sum += self.count;
         self.max = @max(self.count, self.max);
         self.min = @min(self.count, self.min);
         self.frame_count += 1;
+        self.count_p = self.count;
         self.count = 0;
     }
 

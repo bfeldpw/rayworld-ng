@@ -1,7 +1,10 @@
 const std = @import("std");
 const cfg = @import("config.zig");
+const fnt = @import("font_manager.zig");
+const fnt_gfx = @import("font_plugin_gfx.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
+const map = @import("map.zig");
 const sim = @import("sim.zig");
 const stats = @import("stats.zig");
 
@@ -57,21 +60,17 @@ pub fn init() !void {
             buf.value_ptr.*.len[i] = 0;
         }
     }
-    // colors_scene.buf = try allocator.create(colors_scene.buf_type);
-    // i = 0;
-    // while (i < cfg.gfx.depth_levels_max) : (i += 1) {
-        // colors_scene.buf_n[i] = 0;
-    // }
 
     //--- Setup map ---//
     verts_map.vbo = try gfx_core.genBuffer();
     colors_map.vbo = try gfx_core.genBuffer();
+    const map_n = map.getSizeX() * map.getSizeY();
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_map.vbo,
-                                         map_size_x * map_size_y * 8, .Dynamic);
+                                         map_n * 8, .Dynamic);
     try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_map.vbo,
-                                         map_size_x * map_size_y * 4, .Dynamic);
-    verts_map.buf = try allocator.alloc(f32, map_size_x * map_size_y * 8);
-    colors_map.buf = try allocator.alloc(u32, map_size_x * map_size_y * 4);
+                                         map_n * 4, .Dynamic);
+    verts_map.buf = try allocator.alloc(f32, map_n * 8);
+    colors_map.buf = try allocator.alloc(u32, map_n * 4);
 
     //--- Setup rays ---//
     verts_rays.vbo = try gfx_core.genBuffer();
@@ -81,23 +80,38 @@ pub fn init() !void {
     verts_rays.buf = try allocator.create(verts_rays.buf_type);
     colors_rays.buf = try allocator.create(colors_rays.buf_type);
 
+    // Framebuffer for scene
     fb_scene = try gfx_core.createFramebuffer(cfg.gfx.scene_fbo_size_x_max, cfg.gfx.scene_fbo_size_y_max);
     updateFramebufferSize(gfx_core.getWindowWidth(), gfx_core.getWindowHeight());
+    {
+        fb_sim = try gfx_core.createFramebuffer(1024, 1024);
 
-    fb_sim = try gfx_core.createFramebuffer(2000, 2000);
-
-    const v_buf =  try allocator.create(verts_scene.buf_type);
-    i = 0;
-    while (i < cfg.gfx.depth_levels_max) : (i += 1) {
-        v_buf.len[i] = 0;
+        const v_buf =  try allocator.create(verts_scene.buf_type);
+        i = 0;
+        while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+            v_buf.len[i] = 0;
+        }
+        try verts_scene.buf.put(fb_sim.tex, v_buf);
     }
-    try verts_scene.buf.put(fb_sim.tex, v_buf);
+    // Framebuffer for map
+    {
+        const v_buf =  try allocator.create(verts_scene.buf_type);
+        i = 0;
+        while (i < cfg.gfx.depth_levels_max) : (i += 1) {
+            v_buf.len[i] = 0;
+        }
+        fb_map = try gfx_core.createFramebuffer(cfg.map.fb_w, cfg.map.fb_h);
+        try verts_scene.buf.put(fb_map.tex, v_buf);
+    }
 }
 
 pub fn deinit() void {
     deleteBuffers() catch |e| {
         log_gfx.err("Error deleting OpenGL buffers: {}", .{e});
     };
+    // try gfx_core.deleteShaderProgram(shader_program_base);
+    // try gfx_core.deleteShaderProgram(shader_program_scene);
+    // try gfx_core.deleteShaderProgram(shader_program_fullscreen);
 
     var iter = verts_scene.buf.valueIterator();
     while (iter.next()) |value| {
@@ -117,9 +131,6 @@ pub fn deinit() void {
 pub fn initShaders() !void {
     log_gfx.info("Processing shaders", .{});
 
-    shader_program_pxy_crgba_f32 = try gfx_core.createShaderProgramFromFiles(
-        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
-        cfg.gfx.shader_dir ++ "base.frag");
     shader_program_base = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag");
@@ -135,25 +146,29 @@ pub fn initShaders() !void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
+pub inline fn getMapFboTexture() u32 {
+    return fb_map.tex;
+}
+
 pub inline fn getSimFboTexture() u32 {
     return fb_sim.tex;
 }
 
-var map_size_x: u32 = 10;
-var map_size_y: u32 = 10;
+// var map_size_x: u32 = 10;
+// var map_size_y: u32 = 10;
 
-pub fn setMapSize(x: u32, y: u32) !void {
-    if (x * y > map_size_x * map_size_y) {
-        try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_map.vbo, x * y * 4, .Dynamic);
-        try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_map.vbo, x * y * 8, .Dynamic);
-        colors_map.buf = try allocator.realloc(colors_map.buf, x * y * 4);
-        verts_map.buf = try allocator.realloc(verts_map.buf, x * y * 8);
-        log_gfx.debug("Map size changed, allocating new buffers and VBOs: ({},{}) -> ({},{})",
-                      .{map_size_x, map_size_y, x, y});
-    }
-    map_size_x = x;
-    map_size_y = y;
-}
+// pub fn setMapSize(x: u32, y: u32) !void {
+//     if (x * y > map_size_x * map_size_y) {
+//         try gfx_core.bindVBOAndReserveBuffer(u32, .Array, colors_map.vbo, x * y * 4, .Dynamic);
+//         try gfx_core.bindVBOAndReserveBuffer(f32, .Array, verts_map.vbo, x * y * 8, .Dynamic);
+//         colors_map.buf = try allocator.realloc(colors_map.buf, x * y * 4);
+//         verts_map.buf = try allocator.realloc(verts_map.buf, x * y * 8);
+//         log_gfx.debug("Map size changed, allocating new buffers and VBOs: ({},{}) -> ({},{})",
+//                       .{map_size_x, map_size_y, x, y});
+//     }
+//     map_size_x = x;
+//     map_size_y = y;
+// }
 
 //-----------------------------------------------------------------------------//
 //   Fill render pipeline
@@ -221,7 +236,7 @@ pub fn addQuadBackground(x0: f32, x1: f32, y0: f32, y1: f32, g0: f32, g1: f32) v
 pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3: f32,
                                 u_0: f32, u_1: f32, v0: f32, v1: f32,
                                 r: f32, g: f32, b: f32, a: f32,
-                                h: f32, ctr: f32, d0: u8, t: u32) void {
+                                h0: f32, h1: f32, ctr: f32, d0: u8, t: u32) void {
     // if (verts_scene.buf.contains(t)) {
     // Only test for tex id = 0, this is faster than the hashmap's "contains"
     if (t != 0) {
@@ -236,7 +251,7 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
         bd[i+5 ] = a;
         bd[i+6 ] = u_0;
         bd[i+7 ] = v0;
-        bd[i+8 ] = h;
+        bd[i+8 ] = h0;
         bd[i+9 ] = ctr;
         bd[i+10] = x1;
         bd[i+11] = y1;
@@ -246,7 +261,7 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
         bd[i+15] = a;
         bd[i+16] = u_1;
         bd[i+17] = v0;
-        bd[i+18] = h;
+        bd[i+18] = h1;
         bd[i+19] = ctr;
         bd[i+20] = x1;
         bd[i+21] = y2;
@@ -256,7 +271,7 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
         bd[i+25] = a;
         bd[i+26] = u_1;
         bd[i+27 ] = v1;
-        bd[i+28] = h;
+        bd[i+28] = h1;
         bd[i+29] = ctr;
         bd[i+30] = x0;
         bd[i+31] = y3;
@@ -266,7 +281,7 @@ pub fn addVerticalTexturedQuadY(x0: f32, x1: f32, y0: f32, y1: f32, y2: f32, y3:
         bd[i+35] = a;
         bd[i+36] = u_0;
         bd[i+37] = v1;
-        bd[i+38] = h;
+        bd[i+38] = h0;
         bd[i+39] = ctr;
         buf_t.len[d0] += 40;
     }
@@ -290,13 +305,13 @@ pub fn registerTexture(w: u32, h: u32, data: []u8) !u32 {
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
-    const sp_pxy_crgba_f32 = gfx_core.createShaderProgramFromFiles(
-        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
-        cfg.gfx.shader_dir ++ "base.frag") catch |e| {
+    // const sp_pxy_crgba_f32 = gfx_core.createShaderProgramFromFiles(
+    //     cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
+    //     cfg.gfx.shader_dir ++ "base.frag") catch |e| {
 
-        log_gfx.err("Error reloading shaders: {}", .{e});
-        return;
-    };
+    //     log_gfx.err("Error reloading shaders: {}", .{e});
+    //     return;
+    // };
 
     const sp_base = gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
@@ -322,8 +337,8 @@ pub fn reloadShaders() !void {
         return;
     };
 
-    try gfx_core.deleteShaderProgram(shader_program_pxy_crgba_f32);
-    shader_program_pxy_crgba_f32 = sp_pxy_crgba_f32;
+    // try gfx_core.deleteShaderProgram(shader_program_pxy_crgba_f32);
+    // shader_program_pxy_crgba_f32 = sp_pxy_crgba_f32;
     try gfx_core.deleteShaderProgram(shader_program_base);
     shader_program_base = sp_base;
     try gfx_core.deleteShaderProgram(shader_program_fullscreen);
@@ -341,27 +356,28 @@ pub fn reloadShaders() !void {
 
 pub fn renderFrame() !void {
     try gfx_core.disableGammaCorrectionFBO();
+    try gfx_core.bindVAO(vao_0);
 
     // 1. Render to textures used in the scene
     try gfx_core.bindFBO(fb_sim.fbo);
     try gfx_core.clearFramebuffer();
     try renderSimOverlay();
 
+    try gfx_core.bindFBO(fb_map.fbo);
+    try gfx_core.clearFramebuffer();
+    try renderMap();
+
     // 2. Render the scene (walls, floor, ceiling)
     try gfx_core.bindFBO(fb_scene.fbo);
     try gfx_core.clearFramebuffer();
-
     try renderScene();
 
     // 3. Render on screen
     try gfx_core.enableGammaCorrectionFBO();
     try gfx_core.bindFBO(0);
+    try gfx_core.clearFramebuffer();
 
-    // 3a. Map scene to screen
-    try renderScreen();
-    // 3b. Overlay map
-    try renderMap();
-
+    try renderSceneToScreen();
 }
 
 fn renderFloorAndCeiling() !void {
@@ -372,11 +388,10 @@ fn renderFloorAndCeiling() !void {
     const o_h = @as(f32, @floatFromInt(h/2));
     const w_r = 1.0 / o_w;
     const h_r = 1.0 / o_h;
-    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_base, w_r, -h_r, o_w, o_h);
 
     try gfx_core.setViewport(0, 0, w, h);
     try gfx_core.useShaderProgram(shader_program_base);
-    try gfx_core.bindVAO(vao_0);
     try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_bg.vbo, @intCast(verts_bg.buf_n), &verts_bg.buf);
     try gfx_core.enableVertexAttributes(0);
     try gfx_core.setupVertexAttributesFloat(0, 2, 0, 0);
@@ -420,7 +435,7 @@ fn renderScene() !void {
     }
 }
 
-fn renderScreen() !void {
+fn renderSceneToScreen() !void {
     try gfx_core.setViewportFull();
     try gfx_core.useShaderProgram(shader_program_fullscreen);
     try gfx_core.bindTexture(fb_scene.tex);
@@ -429,11 +444,12 @@ fn renderScreen() !void {
 
 fn renderMap() !void {
     //--- Map ---//
-    const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
-    const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
+    const o_w = @as(f32, @floatFromInt(fb_map.w/2));
+    const o_h = @as(f32, @floatFromInt(fb_map.h/2));
     const w_r = 1.0 / o_w;
     const h_r = 1.0 / o_h;
     updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+    try gfx_core.setViewport(0, 0, fb_map.w, fb_map.h);
 
     try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_map.vbo, @intCast(verts_map.buf_n), verts_map.buf);
     try gfx_core.enableVertexAttributes(0);
@@ -458,25 +474,38 @@ fn renderMap() !void {
     try gfx_core.drawArrays(.Lines, 0, @intCast(verts_rays.buf_n / 2));
     colors_rays.buf_n = 0;
     verts_rays.buf_n = 0;
-
-    updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
-    try gfx_base.renderBatch(0, shader_program_pxy_crgba_f32, .PxyCrgba, .Triangles);
 }
 
 fn renderSimOverlay() !void {
     if (sim.is_map_displayed) {
-        const o_w = @as(f32, @floatFromInt(fb_sim.w_vp/2));
-        const o_h = @as(f32, @floatFromInt(fb_sim.h_vp/2));
-        const w_r = 1.0 / o_w;
-        const h_r = 1.0 / o_h;
-        updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
+        {
+            const o_w = @as(f32, @floatFromInt(fb_sim.w_vp/2));
+            const o_h = @as(f32, @floatFromInt(fb_sim.h_vp/2));
+            const w_r = 1.0 / o_w;
+            const h_r = 1.0 / o_h;
+            gfx_base.updateProjectionPxyTuvCuniF32Font(w_r, -h_r, o_w, o_h);
+        }
         try gfx_core.setViewport(0, 0, fb_sim.w_vp, fb_sim.h_vp);
-        try gfx_core.setPointSize(5);
-        try gfx_base.renderBatch(sim.getBufferIdDebris(), shader_program_pxy_crgba_f32, .PxyCrgba, .Points);
+        try fnt.setFont("anka_b", 32);
+        try fnt.renderText("Gravity simulation, 10000 asteroids", 10, 10, 0.0, 1.0, 0.1, 0.0, 0.6);
+        {
+            const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
+            const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
+            const w_r = 1.0 / o_w;
+            const h_r = 1.0 / o_h;
+            gfx_base.updateProjectionPxyTuvCuniF32(w_r, h_r, o_w, o_h);
+        }
+        try gfx_core.setPointSize(2);
+        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdDebris(), .Points);
         try gfx_core.setPointSize(1);
-        try gfx_core.setLineWidth(5);
-        try gfx_base.renderBatch(sim.getBufferIdPlanet(), shader_program_pxy_crgba_f32, .PxyCrgba, .LineLoop);
-        try gfx_core.setLineWidth(1);
+        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdPlanet(), .TriangleFan);
+        {
+            const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
+            const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
+            const w_r = 1.0 / o_w;
+            const h_r = 1.0 / o_h;
+            gfx_base.updateProjectionPxyTuvCuniF32Font(w_r, h_r, o_w, o_h);
+        }
     }
 }
 
@@ -491,10 +520,10 @@ const allocator = gpa.allocator();
 
 var shader_program_base: u32 = 0;
 var shader_program_fullscreen: u32 = 0;
-var shader_program_pxy_crgba_f32: u32 = 0;
 var shader_program_scene: u32 = 0;
 var ebo: u32 = 0;
 var vao_0: u32 = 0;
+var fb_map: gfx_core.fb_data = undefined;
 var fb_scene: gfx_core.fb_data = undefined;
 var fb_sim: gfx_core.fb_data = undefined;
 
@@ -528,15 +557,6 @@ const verts_map = struct {
     var vbo: u32 = 0;
 };
 
-// const colors_scene = struct {
-//     const buf_size = 4096*2;
-//     const buf_type = [cfg.gfx.depth_levels_max][colors_scene.buf_size]u32;
-
-//     var buf: *colors_scene.buf_type = undefined;
-//     var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
-//     var vbo: u32 = 0;
-// };
-
 const verts_scene = struct {
     const attrib_size = 40;
     const buf_size = 4096*2*verts_scene.attrib_size;
@@ -546,8 +566,6 @@ const verts_scene = struct {
     };
 
     var buf = std.AutoHashMap(u32, *buf_type).init(allocator);
-    // var buf: *verts_scene.buf_type = undefined;
-    // var buf_n: [cfg.gfx.depth_levels_max]u32 = undefined;
     var vbo: u32 = 0;
 };
 
@@ -582,9 +600,6 @@ fn updateFramebufferSize(w: u32, h: u32) void {
     fb_scene.h_vp = @as(u32, @intFromFloat(@as(f32, @floatFromInt(h)) * cfg.gfx.scene_sampling_factor));
     const scale_x = @as(f32, @floatFromInt(fb_scene.w_vp)) / cfg.gfx.scene_fbo_size_x_max;
     const scale_y = @as(f32, @floatFromInt(fb_scene.h_vp)) / cfg.gfx.scene_fbo_size_y_max;
-    gfx_core.useShaderProgram(shader_program_fullscreen) catch |e| {
-        log_gfx.err("Couldn't use shader program, id={}: {}", .{shader_program_fullscreen, e});
-    };
     gfx_core.setUniform1f(shader_program_fullscreen, "u_tex_scale_x", scale_x ) catch |e| {
         log_gfx.err("Couldn't set uniform u_tex_scale_x: {}", .{e});
     };
@@ -600,15 +615,11 @@ fn updateProjection(w: u64, h: u64) void {
     const o_h = @as(f32, @floatFromInt(h/2)) * cfg.gfx.scene_sampling_factor;
     const w_r = 1.0 / o_w;
     const h_r = 1.0 / o_h;
-    updateProjectionByShader(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
     updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
     updateProjectionByShader(shader_program_scene, w_r, h_r, o_w, o_h);
 }
 
 fn updateProjectionByShader(sp: u32, w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
-    gfx_core.useShaderProgram(sp) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
     gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, o_h) catch |e| {
         log_gfx.err("{}", .{e});
     };

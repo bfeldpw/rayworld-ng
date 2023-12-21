@@ -8,4 +8,6 @@ test "main test" {
     _ = rc;
     const stats = @import("stats.zig");
     _ = stats;
+    const main = @import("main.zig");
+    _ = main;
 }

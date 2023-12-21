@@ -2,9 +2,7 @@ const std = @import("std");
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
-// const gui = @import("gui.zig");
 const stats = @import("stats.zig");
-
 
 pub var is_map_displayed: bool = false;
 
@@ -39,8 +37,8 @@ pub fn init() !void {
 
     log_sim.debug("Number of objects: {}", .{objs.len});
 
-    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 2 + 2); // Reserve for debris and station
-    buf_id_planet = try gfx_base.addBuffer(100 * 2); // Reserve for debris and station
+    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 6 + 12); // Reserve for debris and station
+    buf_id_planet = try gfx_base.addBuffer(100 * 6); // Reserve for debris and station
 }
 
 pub fn deinit() void {

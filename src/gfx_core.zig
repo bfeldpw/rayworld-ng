@@ -30,7 +30,9 @@ pub const PrimitiveMode = enum(c_uint) {
     LineLoop = c.GL_LINE_LOOP,
     Lines = c.GL_LINES,
     Points = c.GL_POINTS,
-    Triangles = c.GL_TRIANGLES
+    Triangles = c.GL_TRIANGLES,
+    TriangleFan = c.GL_TRIANGLE_FAN,
+    TriangleStrip = c.GL_TRIANGLE_STRIP
 };
 
 const ShaderType = enum(c_uint) {
@@ -61,6 +63,7 @@ pub fn deinit() void {
     fbo_bind_statistics.printStats();
     shader_program_statistics.printStats();
     tex_bind_statistics.printStats();
+    uniform_update_statistics.printStats();
     vbo_bind_statistics.printStats();
 
     const leaked = gpa.deinit();
@@ -70,6 +73,34 @@ pub fn deinit() void {
 //-----------------------------------------------------------------------------//
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
+
+pub inline fn getStatsBytesBuffered() u64 {
+    return buffering_statistics.getCount();
+}
+
+pub inline fn getStatsDrawCalls() u64 {
+    return draw_call_statistics.getCount();
+}
+
+pub inline fn getStatsFboBinds() u64 {
+    return fbo_bind_statistics.getCount();
+}
+
+pub inline fn getStatsShaderProgramSwitches() u64 {
+    return shader_program_statistics.getCount();
+}
+
+pub inline fn getStatsTextureBinds() u64 {
+    return tex_bind_statistics.getCount();
+}
+
+pub inline fn getStatsVboBinds() u64 {
+    return vbo_bind_statistics.getCount();
+}
+
+pub inline fn getStatsUniformUpdates() u64 {
+    return uniform_update_statistics.getCount();
+}
 
 pub inline fn getAspect() f32 {
     return aspect;
@@ -388,9 +419,9 @@ pub fn createFramebuffer(w: u32, h: u32) !fb_data {
     c.glBindTexture(c.GL_TEXTURE_2D, fb.tex);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_MIRRORED_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_BORDER);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_BORDER);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
@@ -562,15 +593,19 @@ pub fn loadShader(file_name: []const u8, src: *[]u8) !void {
 }
 
 pub fn setUniform1f(sp: u32, u: [*c]const u8, a: f32) !void {
+    try useShaderProgram(sp);
     const l: i32 = c.__glewGetUniformLocation.?(sp, u);
     c.__glewUniform1f.?(l, a);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    uniform_update_statistics.inc();
 }
 
 pub fn setUniform4f(sp: u32, u: [*c]const u8, a: f32, b: f32, d: f32, e: f32) !void {
+    try useShaderProgram(sp);
     const l: i32 = c.__glewGetUniformLocation.?(sp, u);
     c.__glewUniform4f.?(l, a, b, d, e);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
+    uniform_update_statistics.inc();
 }
 
 pub fn useShaderProgram(id: u32) !void {
@@ -604,6 +639,7 @@ pub fn finishFrame() !void {
             log_gfx.info("Too many fps drops, disabling sleep, frequency target no longer valid", .{});
         }
     }
+
     if (fps_stable_count > 100) {
         fps_drop_count = 0;
         fps_stable_count = 0;
@@ -627,6 +663,7 @@ pub fn finishFrame() !void {
     shader_program_statistics.finishFrame();
     tex_bind_statistics.finishFrame();
     vbo_bind_statistics.finishFrame();
+    uniform_update_statistics.finishFrame();
 }
 
 //-----------------------------------------------------------------------------//
@@ -674,6 +711,7 @@ var fbo_bind_statistics = stats.PerFrameCounter.init("FBO binds");
 var shader_program_statistics = stats.PerFrameCounter.init("Shader program switches");
 var tex_bind_statistics = stats.PerFrameCounter.init("Texture binds");
 var vbo_bind_statistics = stats.PerFrameCounter.init("VBO binds");
+var uniform_update_statistics = stats.PerFrameCounter.init("Uniform updates");
 
 // var quad_statistics = stats.PerFrameCounter.init("Quads");
 // var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");

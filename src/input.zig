@@ -3,7 +3,7 @@ const c = @import("c.zig").c;
 const gfx_core = @import("gfx_core.zig");
 const gfx_rw = @import("gfx_rw.zig");
 const plr = @import("player.zig");
-// const rw_gui = @import("rw_gui.zig");
+const gui_rw = @import("gui_rw.zig");
 const sim = @import("sim.zig");
 
 //-----------------------------------------------------------------------------//
@@ -54,14 +54,18 @@ pub fn processInputs(frequency: f32) void {
     var cur_y: f64 = 0.0;
     const c_x: [*c]f64 = &cur_x;
     const c_y: [*c]f64 = &cur_y;
-    c.glfwGetCursorPos(window, c_x, c_y);
+    if (!is_edit_mode_enabled) {
+        c.glfwGetCursorPos(window, c_x, c_y);
+    }
 
     if (!is_resized) {
         plr.turn(@as(f32, @floatCast(cur_x)) * -0.001);
         plr.lookUpDown(@as(f32, @floatCast(cur_y)) * 0.001);
     }
 
-    c.glfwSetCursorPos(window, 0, 0);
+    if (!is_edit_mode_enabled) {
+        c.glfwSetCursorPos(window, 0, 0);
+    }
     is_resized = false;
 }
 
@@ -134,7 +138,7 @@ fn processKeyPressEvent(win: ?*c.GLFWwindow, key: c_int, scancode: c_int, action
     if (key == c.GLFW_KEY_F7 and action == c.GLFW_PRESS) sim.timing.decreaseFpsTarget();
     if (key == c.GLFW_KEY_F8 and action == c.GLFW_PRESS) sim.timing.increaseFpsTarget();
     if (key == c.GLFW_KEY_E and mods == c.GLFW_MOD_CONTROL and action == c.GLFW_PRESS) {
-        // rw_gui.toggleEditMode();
+        gui_rw.toggleEditMode();
         is_edit_mode_enabled = is_edit_mode_enabled != true;
         if (is_edit_mode_enabled) {
             _ = c.glfwSetCursorPos(window, @floatFromInt(gfx_core.getWindowWidth()/2),

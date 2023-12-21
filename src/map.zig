@@ -1,6 +1,5 @@
 const std = @import("std");
 const cfg = @import("config.zig");
-const gfx_core = @import("gfx_core.zig");
 const gfx_rw = @import("gfx_rw.zig");
 const img = @import("image_loader.zig");
 
@@ -51,7 +50,7 @@ pub fn deinit() void {
 //   Getter/Setter
 //-----------------------------------------------------------------------------//
 
-pub inline fn get() *const [map_size_y][map_size_x]CellType {
+pub inline fn get() *[map_size_y][map_size_x]CellType {
     return &map_current.cell_type;
 }
 
@@ -94,8 +93,12 @@ pub inline fn getResolution() u32 {
     return res;
 }
 
+pub inline fn setMapFboTexture(id: u32) void {
+    attribute_components.texture.items[6].id = id;
+}
+
 pub inline fn setSimFboTexture(id: u32) void {
-    attribute_components.texture.items[4].id = id;
+    attribute_components.texture.items[5].id = id;
 }
 
 //-----------------------------------------------------------------------------//
@@ -203,10 +206,10 @@ const map_celltype_tmp = [map_size_y][map_size_x]u8{
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 3, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },
-    [_]u8{ 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1 },
+    [_]u8{ 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 1, 1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2, 2, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1 },
     [_]u8{ 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 2, 1, 0, 0, 0, 1 },
@@ -246,9 +249,9 @@ fn fillMap() !void {
     // -- wall, pillar
     try attribute_components.color.append(.{ .r = 0.85, .g = 0.85, .b = 0.9, .a = 0.7 });
     // -- mirror
-    try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.2, .a = 0.1 });
+    try attribute_components.color.append(.{ .r = 0.0, .g = 0.0, .b = 0.3, .a = 0.1 });
     // -- glass
-    try attribute_components.color.append(.{ .r = 0.0, .g = 0.2, .b = 0.0, .a = 0.01 });
+    try attribute_components.color.append(.{ .r = 0.0, .g = 0.1, .b = 0.0, .a = 0.02 });
     // -- pillar_glass
     try attribute_components.color.append(.{ .r = 1.0, .g = 1.0, .b = 0.0, .a = 0.2 });
     // -- glass canvas
@@ -286,7 +289,10 @@ fn fillMap() !void {
     try attribute_components.texture.append(.{ .id = 0 });
     try attribute_components.texture.append(.{ .id = 0 });
     try attribute_components.texture.append(.{ .id = 0 });
+    try attribute_components.texture.append(.{ .id = 0 });
     // -- sim monitor
+    try attribute_components.texture.append(.{ .id = 0 });
+    // -- map monitor
     try attribute_components.texture.append(.{ .id = 0 });
 
     // Default attributes wall_thin
@@ -322,7 +328,7 @@ fn fillMap() !void {
                     map_current.i_color[j][i] = 2;
                     map_current.i_glass[j][i] = 0;
                     map_current.i_reflection[j][i] = 1;
-                    map_current.i_texture[j][i] = 0;
+                    map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
                 .glass => {
@@ -331,7 +337,7 @@ fn fillMap() !void {
                     map_current.i_glass[j][i] = 0;
                     map_current.i_pillar[j][i] = 2; // only relevant for glass_pillar
                     map_current.i_reflection[j][i] = 1;
-                    map_current.i_texture[j][i] = 0;
+                    map_current.i_texture[j][i] = 1;
                     map_current.i_wall[j][i] = 0;
                 },
                 .pillar => {
@@ -359,12 +365,24 @@ fn fillMap() !void {
     map_current.i_texture[6][10] = 3;
     // Sim monitor
     map_current.i_canvas[10][3] = 3;
-    map_current.i_texture[10][3] = 4;
+    map_current.i_color[10][3] = 1;
+    map_current.i_texture[10][3] = 5;
+
+    map_current.i_glass[ 8][3] = 1;
+    map_current.i_texture[ 9][3] = 2;
+    map_current.i_texture[11][3] = 2;
 
     map_current.i_canvas[11][7] = 0;
     map_current.i_color[11][7] = 2;
     map_current.i_pillar[11][7] = 2;
     map_current.i_reflection[11][7] = 1;
+
+    // map_current.i_texture[12][2] = 4;
+
+    // Map monitor
+    map_current.i_color[8][8] = 1;
+    map_current.i_texture[8][8] = 6;
+
     map_current.i_pillar[18][6] = 0;
     map_current.i_pillar[18][9] = 0;
     map_current.i_wall_thin[19][16] = 1;
@@ -398,6 +416,12 @@ fn loadResources() !void {
         const image = try img.loadImage(dir ++ "metal_01-3_1024x2048_bfeld.jpg");
         const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
         attribute_components.texture.items[3].id = tex;
+        log_map.debug("Creating texture attribute with texture ID={}", .{tex});
+        img.releaseImage();
+    }{
+        const image = try img.loadImage(dir ++ "wildtextures_medival-metal-doors.jpg");
+        const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
+        attribute_components.texture.items[4].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
     }

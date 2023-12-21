@@ -25,8 +25,9 @@ const FontError = error{
 //-----------------------------------------------------------------------------//
 
 /// Initialise font manager. This reserves memory for...
-pub fn init() void {
+pub fn init() !void {
     fm_log.info("Initialising font manager", .{});
+    try fnt_gfx.init();
 }
 
 /// Shut down font manager, freeing all allocated memory
@@ -483,19 +484,21 @@ pub fn renderAtlas() FontError!void {
         return error.FontGfxPluginFailed;
     };
     const x0 = 100;
-    _ = x0;
     const x1 = 612;
-    _ = x1;
     const y0 = 100;
-    _ = y0;
     const y1 = 612;
-    _ = y1;
-    // gfx_impl.addImmediateQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0);
+    fnt_gfx.addQuadTextured(x0, y0, x1, y1, 0.0, 0.0, 1.0, 1.0) catch |err| {
+        fm_log.err("Couldn't add textured quad: {}", .{err});
+        return error.FontGfxPluginFailed;
+    };
+    fnt_gfx.renderBatch() catch |err| {
+        fm_log.err("Couldn't render textured quad: {}", .{err});
+        return error.FontGfxPluginFailed;
+    };
 }
 
-pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
-    _ = y;
-    _ = x;
+pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32,
+                  r: f32, g: f32, b: f32, a: f32) FontError!void {
     if (current.tex_id == 0) {
         fm_log.err("No fonts have been rasterised. Use <addFont> and <rasterise> or <setFont>.", .{});
         return error.FontNoneRasterised;
@@ -511,7 +514,6 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
         fm_log.err("Couldn't bind texture: {}", .{err});
         return error.FontGfxPluginFailed;
     };
-    // gfx_impl.beginBatchQuadsTextured();
     for (text) |ch| {
 
         if (ch == 10) { // Handle line feed
@@ -526,11 +528,17 @@ pub fn renderText(text: []const u8, x: f32, y: f32, ww: f32) FontError!void {
                                   current.atlas_size, current.atlas_size,
                                   ch - ascii_first,
                                   &offset_x, &offset_y, &glyph_quad, 0);
-            // gfx_impl.addBatchQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
-            //                               glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1);
+            fnt_gfx.addQuadTextured(glyph_quad.x0+x, glyph_quad.y0+y, glyph_quad.x1+x, glyph_quad.y1+y,
+                                    glyph_quad.s0, glyph_quad.t0, glyph_quad.s1, glyph_quad.t1) catch |err| {
+                fm_log.err("Couldn't add textured quad: {}", .{err});
+                return error.FontGfxPluginFailed;
+            };
         }
     }
-    // gfx_impl.endBatch();
+    fnt_gfx.renderBatch(r, g, b, a) catch |err| {
+        fm_log.err("Couldn't render textured quad: {}", .{err});
+        return error.FontGfxPluginFailed;
+    };
 }
 
 //-----------------------------------------------------------------------------//

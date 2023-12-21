@@ -2,9 +2,10 @@ const std = @import("std");
 const builtin = @import("builtin");
 const c = @import("c.zig").c;
 const cfg = @import("config.zig");
+const gfx = @import("gfx_rw.zig");
 const gfx_core = @import("gfx_core.zig");
 const gfx_base = @import("gfx_base.zig");
-const gfx = @import("gfx_rw.zig");
+const gui = @import("gui.zig");
 const gui_rw = @import("gui_rw.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
@@ -51,11 +52,12 @@ pub fn main() !void {
     prf_map.start();
     try map.init();
     defer map.deinit();
+    map.setMapFboTexture(gfx.getMapFboTexture());
     map.setSimFboTexture(gfx.getSimFboTexture());
     prf_map.stop();
     std.log.info("Map loading took {d:.2}ms", .{prf_map.getAvgAllMs()});
 
-    try gfx.setMapSize(map.getSizeX(), map.getSizeY());
+    // try gfx.setMapSize(map.getSizeX(), map.getSizeY());
 
     //----------------
     //   Init gui
@@ -63,6 +65,8 @@ pub fn main() !void {
     try gui_rw.init();
     try gui_rw.setHelpMessage(help_message);
     defer gui_rw.deinit();
+    const sys_map = try gui.getTextureWidget("sys_map_tex");
+    sys_map.tex_id = gfx.getSimFboTexture();
 
     //--------------------------------
     //   Prepare performance timers
@@ -78,6 +82,7 @@ pub fn main() !void {
     var prf_fps = try stats.PerFrameTimerBuffered(prf_buffer).init();
     var prf_in = try stats.PerFrameTimerBuffered(prf_buffer).init();
     var prf_rc = try stats.PerFrameTimerBuffered(prf_buffer).init();
+    var prf_sub = try stats.PerFrameTimerBuffered(cfg.sub.fps_damping).init();
 
     //--------------------------------------
     //   Initialise background simulation
@@ -104,13 +109,17 @@ pub fn main() !void {
 
         adjustFovOnAspectChange(); // Polling for now, should be event triggered
 
+        prf_sub.start();
         prf_rc.start();
         try rc.processRays(cfg.multithreading);
         prf_rc.stop();
 
-        // if (!cfg.multithreading) sim.step();
-
         prf_ren.start();
+        // if (!cfg.multithreading) sim.step();
+        prf_ren_sim.start();
+        try sim.createScene();
+        prf_ren_sim.stop();
+
         prf_ren_scene.start();
         rc.createScene();
         prf_ren_scene.stop();
@@ -120,30 +129,29 @@ pub fn main() !void {
         prf_ren_frame.start();
         try gfx.renderFrame();
         prf_ren_frame.stop();
-        prf_ren_sim.start();
-        try sim.createScene();
-        prf_ren_sim.stop();
 
         prf_ren_gui.start();
-        // try rw_gui.updatePerformanceStats(prf_fps.getAvgBufMs(),
-        //                                   prf_idle.getAvgBufMs(),
-        //                                   prf_in.getAvgBufMs(),
-        //                                   prf_rc.getAvgBufMs(),
-        //                                   prf_ren.getAvgBufMs(),
-        //                                   prf_ren_scene.getAvgBufMs(),
-        //                                   prf_ren_frame.getAvgBufMs(),
-        //                                   prf_ren_map.getAvgBufMs(),
-        //                                   prf_ren_gui.getAvgBufMs(),
-        //                                   prf_ren_sim.getAvgBufMs(),
-        //                                   sim.getAvgBufMs());
+        try gui_rw.updatePerformanceStats(prf_fps.getAvgBufMs(),
+                                          prf_idle.getAvgBufMs(),
+                                          prf_in.getAvgBufMs(),
+                                          prf_rc.getAvgBufMs(),
+                                          prf_ren.getAvgBufMs(),
+                                          prf_ren_scene.getAvgBufMs(),
+                                          prf_ren_frame.getAvgBufMs(),
+                                          prf_ren_map.getAvgBufMs(),
+                                          prf_ren_gui.getAvgBufMs(),
+                                          prf_ren_sim.getAvgBufMs(),
+                                          sim.getAvgBufMs());
         var cur_x: f64 = 0;
         var cur_y: f64 = 0;
         input.getCursorPos(&cur_x, &cur_y);
         try gui_rw.process(@floatCast(cur_x), @floatCast(cur_y),
                            input.isMouseButtonLeftPressed(), input.getMouseState().wheel);
         prf_ren_gui.stop();
-
         prf_ren.stop();
+        prf_sub.stop();
+
+        adjustSampling(cfg.sub.auto, prf_sub.getAvgBufMs());
 
         input.resetStates();
 
@@ -182,10 +190,13 @@ pub fn main() !void {
                          prf_ren_map.getAvgAllMs(),
                          prf_ren_gui.getAvgAllMs(),
                          prf_ren_sim.getAvgAllMs(),
-                         0.0);
-                         // sim.getAvgAllMs());
+                         sim.getAvgAllMs());
 
 }
+
+//-----------------------------------------------------------------------------//
+//   Internal
+//-----------------------------------------------------------------------------//
 
 fn adjustFovOnAspectChange() void {
     const aspect = gfx_core.getAspect();
@@ -195,6 +206,26 @@ fn adjustFovOnAspectChange() void {
     } else { // scale_by == player_fov
         plr.setFOV(std.math.degreesToRadians(f32, cfg.gfx.player_fov));
         cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
+    }
+}
+
+var counter: usize = 0;
+
+fn adjustSampling(comptime is_enabled: bool, t: f64) void {
+    if (is_enabled) {
+        if (t > cfg.sub.th_high and
+            cfg.sub_sampling_base < cfg.sub.max and
+            counter > cfg.sub.fps_damping * 2) {
+            cfg.sub_sampling_base += 1;
+            counter = 0;
+        } else if (t < cfg.sub.th_low and
+            cfg.sub_sampling_base > cfg.sub.min and
+            counter > cfg.sub.fps_damping * 2) {
+            cfg.sub_sampling_base -= 1;
+            counter = 0;
+        } else {
+            counter += 1;
+        }
     }
 }
 
@@ -250,3 +281,48 @@ const help_message = "=====================\n" ++
             "  F7/F8:  time acceleration thread frequency\n" ++
             "          - 100Hz base x factor\n" ++
             "          - automatically reduced if load too high";
+
+//-----------------------------------------------------------------------------//
+//   Testing
+//-----------------------------------------------------------------------------//
+
+test "sample_adjustments_auto" {
+    counter = 0;
+    adjustSampling(true, 0.0);
+    try std.testing.expectEqual(counter, 1);
+    counter = 0;
+    adjustSampling(false, 0.0);
+    try std.testing.expectEqual(counter, 0);
+}
+
+test "sample_adjustments_th_high" {
+    counter = cfg.sub.fps_damping * 2 + 1;
+    cfg.sub_sampling_base = cfg.sub.max - 1;
+    adjustSampling(true, cfg.sub.th_high + 0.1);
+
+    try std.testing.expectEqual(counter, 0);
+    try std.testing.expectEqual(cfg.sub_sampling_base, cfg.sub.max);
+
+    counter = cfg.sub.fps_damping * 2 + 1;
+    cfg.sub_sampling_base = cfg.sub.max - 1;
+    adjustSampling(true, cfg.sub.th_high - 0.1);
+
+    try std.testing.expectEqual(counter, cfg.sub.fps_damping * 2 + 2);
+    try std.testing.expectEqual(cfg.sub_sampling_base, cfg.sub.max - 1);
+}
+
+test "sample_adjustments_th_low" {
+    counter = cfg.sub.fps_damping * 2 + 1;
+    cfg.sub_sampling_base = cfg.sub.min + 1;
+    adjustSampling(true, cfg.sub.th_low - 0.1);
+
+    try std.testing.expectEqual(counter, 0);
+    try std.testing.expectEqual(cfg.sub_sampling_base, cfg.sub.min);
+
+    counter = cfg.sub.fps_damping * 2 + 1;
+    cfg.sub_sampling_base = cfg.sub.min + 1;
+    adjustSampling(true, cfg.sub.th_low + 0.1);
+
+    try std.testing.expectEqual(counter, cfg.sub.fps_damping * 2 + 2);
+    try std.testing.expectEqual(cfg.sub_sampling_base, cfg.sub.min + 1);
+}
