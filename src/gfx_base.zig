@@ -28,11 +28,13 @@ pub fn init() !void {
 
     const buf_base = buffer_type{
         .data = data_buf,
-        .vbo = try gfx_core.genBuffer(),
+        .vbo_0 = try gfx_core.genBuffer(),
+        .vbo_1 = try gfx_core.genBuffer(),
         .size = batch_size
     };
     try bufs.append(buf_base);
-    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[0].vbo, batch_size, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[0].vbo_0, batch_size, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[0].vbo_1, batch_size, .Dynamic);
 
     shader_program_pxy_crgba_f32 = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
@@ -81,11 +83,13 @@ pub fn addBuffer(n: u32) !u32 {
 
     const buf = buffer_type{
         .data = data_buf,
-        .vbo = try gfx_core.genBuffer(),
+        .vbo_0 = try gfx_core.genBuffer(),
+        .vbo_1 = try gfx_core.genBuffer(),
         .size = n
     };
     try bufs.append(buf);
-    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo, n, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_0, n, .Dynamic);
+    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_1, n, .Dynamic);
     return @intCast(buf_id);
 }
 
@@ -120,22 +124,22 @@ pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.Primit
 
         const s: u32 = @intCast(bufs.items[buf_id].data.items.len);
 
-        try gfx_core.bindVBOAndBufferData(bufs.items[buf_id].vbo, s,
+        try gfx_core.bindVBOAndBufferData(bufs.items[buf_id].vbo_0, s,
                                           bufs.items[buf_id].data.items, .Dynamic);
         bufs.items[buf_id].size = s;
         log_gfx.debug("Resizing vbo {}, n = {}", .{buf_id, s});
 
     } else {
-
-        try gfx_core.bindVBOAndBufferSubData(f32, 0, bufs.items[buf_id].vbo,
+        try gfx_core.bindVBOAndBufferSubData(f32, 0, bufs.items[buf_id].vbo_0,
                                              @intCast(bufs.items[buf_id].data.items.len),
                                              bufs.items[buf_id].data.items);
-
     }
     const s = try setVertexAttributeMode(m);
-
+    try gfx_core.bindVBO(bufs.items[buf_id].vbo_1);
     try gfx_core.drawArrays(prim, 0, @intCast(bufs.items[buf_id].data.items.len / s));
+
     bufs.items[buf_id].data.clearRetainingCapacity();
+    std.mem.swap(u32, &bufs.items[buf_id].vbo_0, &bufs.items[buf_id].vbo_1);
 }
 
 pub fn renderBatchPxyCrgbaF32(buf_id: u32, prim: gfx_core.PrimitiveMode) !void {
@@ -242,7 +246,8 @@ const allocator = gpa.allocator();
 
 const buffer_type = struct{
     size: u32,
-    vbo: u32,
+    vbo_0: u32,
+    vbo_1: u32,
     data: std.ArrayList(f32),
 };
 var bufs = std.ArrayList(buffer_type).init(allocator);
@@ -256,32 +261,40 @@ var shader_program_pxy_tuv_cuni_f32_font: u32 = 0;
 fn handleWindowResize(w: u32, h: u32) void {
     // Adjust projection for vertex shader
     // (simple ortho projection, therefore, no explicit matrix)
-    const o_w = @as(f32, @floatFromInt(w/2));
-    const o_h = @as(f32, @floatFromInt(h/2));
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    updateProjection(shader_program_pxy_crgba_f32, w_r, h_r, o_w, o_h);
-    updateProjection(shader_program_pxy_cuni_f32, w_r, h_r, o_w, o_h);
-    updateProjection(shader_program_pxy_tuv_cuni_f32, w_r, h_r, o_w, o_h);
-    updateProjection(shader_program_pxy_tuv_cuni_f32_font, w_r, h_r, o_w, o_h);
+    updateProjection(shader_program_pxy_crgba_f32, w, h);
+    updateProjection(shader_program_pxy_cuni_f32, w, h);
+    updateProjection(shader_program_pxy_tuv_cuni_f32, w, h);
+    updateProjection(shader_program_pxy_tuv_cuni_f32_font, w, h);
 
     log_gfx.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
 }
 
-pub fn updateProjection(sp: u32, w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
-    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, o_h) catch |e| {
+pub fn updateProjection(sp: u32, w: i64, h: i64) void {
+    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
+    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
         log_gfx.err("{}", .{e});
     };
 }
 
-pub fn updateProjectionPxyTuvCuniF32(w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
-    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "t", w_r, h_r, o_w, o_h) catch |e| {
+pub fn updateProjectionPxyTuvCuniF32(w: i64, h: i64) void {
+    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
+    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
         log_gfx.err("{}", .{e});
     };
 }
 
-pub fn updateProjectionPxyTuvCuniF32Font(w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
-    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "t", w_r, h_r, o_w, o_h) catch |e| {
+pub fn updateProjectionPxyTuvCuniF32Font(w: i64, h: i64) void {
+    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
+    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
         log_gfx.err("{}", .{e});
     };
 }

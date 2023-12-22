@@ -13,7 +13,7 @@ pub const sub = struct {
     /// Enables auto-subsampling. Based on raycasting and
     /// render time, the number of rays will be reduced in
     /// case of high load
-    pub const auto = false;
+    pub const auto = true;
     /// Upper threshold in [ms] for raycasting and rendering
     /// If exceeded, number of rays will be reduced
     pub const th_high = 6.0;

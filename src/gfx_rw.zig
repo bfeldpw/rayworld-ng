@@ -383,12 +383,7 @@ pub fn renderFrame() !void {
 fn renderFloorAndCeiling() !void {
     const w = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowWidth())) * cfg.gfx.scene_sampling_factor));
     const h = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowHeight())) * cfg.gfx.scene_sampling_factor));
-
-    const o_w = @as(f32, @floatFromInt(w/2));
-    const o_h = @as(f32, @floatFromInt(h/2));
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    updateProjectionByShader(shader_program_base, w_r, -h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_base, w, -@as(i64, @intCast(h)));
 
     try gfx_core.setViewport(0, 0, w, h);
     try gfx_core.useShaderProgram(shader_program_base);
@@ -444,11 +439,7 @@ fn renderSceneToScreen() !void {
 
 fn renderMap() !void {
     //--- Map ---//
-    const o_w = @as(f32, @floatFromInt(fb_map.w/2));
-    const o_h = @as(f32, @floatFromInt(fb_map.h/2));
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_base, fb_map.w, fb_map.h);
     try gfx_core.setViewport(0, 0, fb_map.w, fb_map.h);
 
     try gfx_core.bindVBOAndBufferSubData(f32, 0, verts_map.vbo, @intCast(verts_map.buf_n), verts_map.buf);
@@ -479,32 +470,22 @@ fn renderMap() !void {
 fn renderSimOverlay() !void {
     if (sim.is_map_displayed) {
         {
-            const o_w = @as(f32, @floatFromInt(fb_sim.w_vp/2));
-            const o_h = @as(f32, @floatFromInt(fb_sim.h_vp/2));
-            const w_r = 1.0 / o_w;
-            const h_r = 1.0 / o_h;
-            gfx_base.updateProjectionPxyTuvCuniF32Font(w_r, -h_r, o_w, o_h);
+            gfx_base.updateProjectionPxyTuvCuniF32Font(fb_sim.w_vp, -@as(i64, @intCast(fb_sim.h_vp)));
         }
         try gfx_core.setViewport(0, 0, fb_sim.w_vp, fb_sim.h_vp);
         try fnt.setFont("anka_b", 32);
         try fnt.renderText("Gravity simulation, 10000 asteroids", 10, 10, 0.0, 1.0, 0.1, 0.0, 0.6);
         {
-            const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
-            const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
-            const w_r = 1.0 / o_w;
-            const h_r = 1.0 / o_h;
-            gfx_base.updateProjectionPxyTuvCuniF32(w_r, h_r, o_w, o_h);
+            gfx_base.updateProjectionPxyTuvCuniF32(gfx_core.getWindowWidth(),
+                                                   gfx_core.getWindowHeight());
         }
         try gfx_core.setPointSize(2);
         try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdDebris(), .Points);
         try gfx_core.setPointSize(1);
         try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdPlanet(), .TriangleFan);
         {
-            const o_w = @as(f32, @floatFromInt(gfx_core.getWindowWidth()/2));
-            const o_h = @as(f32, @floatFromInt(gfx_core.getWindowHeight()/2));
-            const w_r = 1.0 / o_w;
-            const h_r = 1.0 / o_h;
-            gfx_base.updateProjectionPxyTuvCuniF32Font(w_r, h_r, o_w, o_h);
+            gfx_base.updateProjectionPxyTuvCuniF32Font(gfx_core.getWindowWidth(),
+                                                       gfx_core.getWindowHeight());
         }
     }
 }
@@ -589,7 +570,9 @@ const verts_rays = struct {
 
 
 fn handleWindowResize(w: u32, h: u32) void {
-    updateProjection(w, h);
+    const w_s = @as(u32, @intFromFloat(@as(f32, @floatFromInt(w)) * cfg.gfx.scene_sampling_factor));
+    const h_s = @as(u32, @intFromFloat(@as(f32, @floatFromInt(h)) * cfg.gfx.scene_sampling_factor));
+    updateProjection(w_s, h_s);
     updateFramebufferSize(w, h);
 
     log_gfx.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
@@ -608,19 +591,19 @@ fn updateFramebufferSize(w: u32, h: u32) void {
     };
 }
 
-fn updateProjection(w: u64, h: u64) void {
+fn updateProjection(w: i64, h: i64) void {
     // Adjust projection for vertex shader
     // (simple ortho projection, therefore, no explicit matrix)
-    const o_w = @as(f32, @floatFromInt(w/2)) * cfg.gfx.scene_sampling_factor;
-    const o_h = @as(f32, @floatFromInt(h/2)) * cfg.gfx.scene_sampling_factor;
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    updateProjectionByShader(shader_program_base, w_r, h_r, o_w, o_h);
-    updateProjectionByShader(shader_program_scene, w_r, h_r, o_w, o_h);
+    updateProjectionByShader(shader_program_base, w, h);
+    updateProjectionByShader(shader_program_scene, w, h);
 }
 
-fn updateProjectionByShader(sp: u32, w_r: f32, h_r: f32, o_w: f32, o_h: f32) void {
-    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, o_h) catch |e| {
+fn updateProjectionByShader(sp: u32, w: i64, h: i64) void {
+    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
+    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
+    const w_r = 1.0 / o_w;
+    const h_r = 1.0 / o_h;
+    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
         log_gfx.err("{}", .{e});
     };
 }
