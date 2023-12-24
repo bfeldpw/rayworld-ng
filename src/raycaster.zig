@@ -365,7 +365,7 @@ pub fn processRays(comptime multithreading: bool) !void {
         while (!thread_group_rays.isDone()) std.time.sleep(1000);
         thread_group_rays.reset();
     } else {
-        traceMultipleRays(0, rays.seg_i0.len, angle, inc_angle);
+        traceMultipleRays(0, rays.items.len, angle, inc_angle);
     }
 }
 
@@ -475,7 +475,7 @@ fn traceMultipleRays(i_0: usize, i_1: usize, angle_0: f32, inc: f32) void {
         i += 1;
         angle += inc;
     }
-    thread_group_rays.finish();
+    if (cfg.multithreading) thread_group_rays.finish();
 }
 
 inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
@@ -926,16 +926,19 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
             segments.pos.items[s_i].x1 = s_x.* + d_x0 * d_p;
             segments.pos.items[s_i].y1 = s_y.* + d_y0 * d_p;
 
-            const alpha = std.math.atan2(f32, d_y0, d_x0) -
-                          std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
-                                              d_x0 * d_p - pillar.center_x);
+            const norm = std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
+                                             d_x0 * d_p - pillar.center_x);
+            const alpha = std.math.atan2(f32, d_y0, d_x0) - norm;
+
+                          // std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
+                          //                     d_x0 * d_p - pillar.center_x);
                         // std.math.atan2(f32, d_y0 * d_p - @intToFloat(f32, m_y) + pillar.center_y,
                         //                     d_x0 * d_p - @intToFloat(f32, m_x) + pillar.center_x);
             // if (alpha >  std.math.pi) alpha -= 2.0 * std.math.pi;
             // if (alpha < -std.math.pi) alpha += 2.0 * std.math.pi;
             const beta = alpha / n;
-            d_y.* = @sin(beta);
-            d_x.* = @cos(beta);
+            d_y.* = @sin(beta + norm);
+            d_x.* = @cos(beta + norm);
 
             // const r_x = (d_x0 * d_p - e_x) / r;
             // const r_y = (d_y0 * d_p - e_y) / r;
