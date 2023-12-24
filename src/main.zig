@@ -115,7 +115,7 @@ pub fn main() !void {
         prf_rc.stop();
 
         prf_ren.start();
-        // if (!cfg.multithreading) sim.step();
+        if (!cfg.multithreading) sim.step();
         prf_ren_sim.start();
         try sim.createScene();
         prf_ren_sim.stop();
