@@ -486,136 +486,179 @@ inline fn traceSingleSegment(angle: f32, s_i: usize, r_i: usize) void {
 
 const Axis = enum { x, y };
 
-const ContactStatus = struct {
+const ContactData = struct {
+    axis: Axis,
     finish_segment: bool,
     prepare_next_segment: bool,
     reflection_limit: i8,
     cell_type_prev: map.CellType,
 };
 
+const TraceData = struct {
+    d_x0: f32 = 1, // initial direction, normalised
+    d_y0: f32 = 0,
+    d_x: f32 = 1,  // direction
+    d_y: f32 = 0,
+    g_x: f32 = 1, // gradient of segment
+    g_y: f32 = 1,
+    n_prev: f32 = 1, // material index of previous cell
+    o_x: f32 = 0.5, // offset depending on direction to test within cell
+    o_y: f32 = 0.5,
+    sign_x: f32 = 1, // cell stepping directional sign
+    sign_y: f32 = 1,
+    s_x: f32 = 1, // current end position of segment
+    s_y: f32 = 1,
+    r_i: usize = 0, // index of currently traced ray
+    s_i: usize = 0, // index of currently traced segment
+    m_x: usize = 1, // position in map (cell index)
+    m_y: usize = 1,
+    axis: Axis = .y,
+    c: map.CellType  = .floor,
+    c_prev: map.CellType = .floor // type of previous cell
+};
+
 fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map.CellType, n_prev: f32, refl_lim: i8) void {
-    var s_x = segments.pos.items[s_i].x0; // segment pos x
-    var s_y = segments.pos.items[s_i].y0; // segment pos y
-    var d_x = d_x0; // direction x
-    var d_y = d_y0; // direction y
-    const g_x = d_y / d_x; // gradient/derivative of the segment for direction x
-    const g_y = d_x / d_y; // gradient/derivative of the segment for direction y
 
-    var sign_x: f32 = 1;
-    var sign_y: f32 = 1;
+    var trace_data: TraceData = .{};
 
-    var a: Axis = .y; // primary axis for stepping
-    if (@abs(d_x) > @abs(d_y)) a = .x;
-    if (d_x < 0) sign_x = -1;
-    if (d_y < 0) sign_y = -1;
+    trace_data.s_x = segments.pos.items[s_i].x0;
+    trace_data.s_y = segments.pos.items[s_i].y0;
+    trace_data.d_x0 = d_x0;
+    trace_data.d_y0 = d_y0;
+    trace_data.d_x = d_x0;
+    trace_data.d_y = d_y0;
+    // var s_x = segments.pos.items[s_i].x0; // segment pos x
+    // var s_y = segments.pos.items[s_i].y0; // segment pos y
+    // var d_x = d_x0; // direction x
+    // var d_y = d_y0; // direction y
+    trace_data.g_x = trace_data.d_y / trace_data.d_x; // gradient/derivative of the segment for direction x
+    trace_data.g_y = trace_data.d_x / trace_data.d_y; // gradient/derivative of the segment for direction y
+    trace_data.r_i = r_i;
+    trace_data.s_i = s_i;
+    trace_data.n_prev = n_prev;
 
-    var material_index_prev = n_prev;
+    // var sign_x: f32 = 1;
+    // var sign_y: f32 = 1;
 
-    var contact_status: ContactStatus = .{ .finish_segment = false, .prepare_next_segment = true, .reflection_limit = 0, .cell_type_prev = c_prev };
+    if (@abs(trace_data.d_x) > @abs(trace_data.d_y)) trace_data.axis = .x;
+    if (trace_data.d_x < 0) trace_data.sign_x = -1;
+    if (trace_data.d_y < 0) trace_data.sign_y = -1;
 
-    while (!contact_status.finish_segment) {
-        var o_x: f32 = 0;
-        var o_y: f32 = 0;
-        var contact_axis: Axis = .x;
+    const contact_data: ContactData = .{.axis = .x, .finish_segment = false, .prepare_next_segment = true, .reflection_limit = refl_lim, .cell_type_prev = c_prev };
 
-        advanceToNextCell(&d_x, &d_y, &s_x, &s_y, &o_x, &o_y, &sign_x, &sign_y, &a, &contact_axis, g_x, g_y);
+    // const split = false;
+    while (!contact_data.finish_segment) {
+        trace_data.o_x = 0;
+        trace_data.o_y = 0;
+        // var contact_axis: Axis = .x;
+        contact_data.axis = .x;
 
-        var m_y: usize = @intFromFloat(s_y + o_y);
-        var m_x: usize = @intFromFloat(s_x + o_x);
-        if (m_y > map.get().len - 1) m_y = map.get().len - 1;
-        if (m_x > map.get()[0].len - 1) m_x = map.get()[0].len - 1;
-        const m_v = map.get()[m_y][m_x];
+        // if (!split) {
+            advanceToNextCell(&trace_data, &contact_data);
+        // }
+
+        trace_data.m_y = @intFromFloat(trace_data.s_y + trace_data.o_y);
+        trace_data.m_x = @intFromFloat(trace_data.s_x + trace_data.o_x);
+        if (trace_data.m_y > map.get().len - 1) trace_data.m_y = map.get().len - 1;
+        if (trace_data.m_x > map.get()[0].len - 1) trace_data.m_x = map.get()[0].len - 1;
+        const m_v = map.get()[trace_data.m_y][trace_data.m_x];
 
         // React to cell type
         switch (m_v) {
             .floor => {
-                if (map.get()[@intFromFloat(plr.getPosY())][@intFromFloat(plr.getPosX())] == .wall_thin) {
-                // if (contact_status.cell_type_prev == .wall_thin) {
-                    contact_status = resolveContactWallThin(&d_x, &d_y, &s_x, &s_y, m_x, m_y,
-                                                            r_i, &contact_axis, refl_lim, d_x0, d_y0);
-                } else {
-                    contact_status = resolveContactFloor(&d_x, &d_y, &material_index_prev, contact_status.cell_type_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
-                }
+                // if (map.get()[@intFromFloat(plr.getPosY())][@intFromFloat(plr.getPosX())] == .wall_thin) {
+                // if (contact_data.cell_type_prev == .wall_thin) {
+                    // contact_data = resolveContactWallThin(&trace_data, &contact_data);
+                // } else {
+                    contact_data = resolveContactFloor(&trace_data, &contact_data);
+                // }
             },
             .wall => {
-                contact_status = resolveContactWall(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
+                contact_data = resolveContactWall(&trace_data, &contact_data);
             },
-            .wall_thin => {
-                contact_status = resolveContactWallThin(&d_x, &d_y, &s_x, &s_y, m_x, m_y,
-                                                        r_i, &contact_axis, refl_lim, d_x0, d_y0);
-            },
-            .mirror => {
-                contact_status = resolveContactMirror(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
-            },
-            .glass => {
-                contact_status = resolveContactGlass(&d_x, &d_y, &material_index_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
-            },
-            .pillar => {
-                contact_status = resolveContactPillar(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
-            },
-            .pillar_glass => {
-                contact_status = resolveContactPillarGlass(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
-            },
+            // .wall_thin => {
+                // contact_data = resolveContactWallThin(&d_x, &d_y, &s_x, &s_y, m_x, m_y,
+                                                        // r_i, &contact_axis, refl_lim, d_x0, d_y0);
+            // },
+            // .mirror => {
+                // contact_data = resolveContactMirror(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
+            // },
+            // .glass => {
+                // if (!split) {
+                    // contact_data = resolveContactGlass(&d_x, &d_y, &material_index_prev, m_x, m_y, contact_axis, refl_lim, d_x0, d_y0);
+                    // split = true;
+                // } else {
+                    // contact_data = resolveContactMirror(&d_x, &d_y, m_x, m_y, r_i, contact_axis, refl_lim, d_x0, d_y0);
+                    // split = false;
+                // }
+            // },
+            // .pillar => {
+                // contact_data = resolveContactPillar(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
+            // },
+            // .pillar_glass => {
+                // contact_data = resolveContactPillarGlass(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
+            // },
+                else => {
+                contact_data = resolveContactWall(&trace_data, &contact_data);
+            }
         }
 
-        proceedPostContact(contact_status, contact_axis, m_x, m_y, m_v, c_prev, material_index_prev, s_i, r_i, s_x, s_y, d_x, d_y);
+        proceedPostContact(&trace_data, &contact_data);
     }
 }
 
-fn advanceToNextCell(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, o_x: *f32, o_y: *f32, sign_x: *f32, sign_y: *f32, axis: *Axis, contact_axis: *Axis, g_x: f32, g_y: f32) void {
-    if (sign_x.* == 1) {
-        d_x.* = @trunc(s_x.* + 1) - s_x.*;
+fn advanceToNextCell(t: *TraceData, cd: *ContactData) void {
+    if (t.sign_x == 1) {
+        t.d_x = @trunc(t.s_x + 1) - t.s_x;
     } else {
-        d_x.* = @ceil(s_x.* - 1) - s_x.*;
+        t.d_x = @ceil(t.s_x - 1) - t.s_x;
     }
-    if (sign_y.* == 1) {
-        d_y.* = @trunc(s_y.* + 1) - s_y.*;
+    if (t.sign_y == 1) {
+        t.d_y = @trunc(t.s_y + 1) - t.s_y;
     } else {
-        d_y.* = @ceil(s_y.* - 1) - s_y.*;
+        t.d_y = @ceil(t.s_y - 1) - t.s_y;
     }
 
-    if (axis.* == .x) {
-        if (@abs(d_x.* * g_x) < @abs(d_y.*)) {
-            s_x.* += d_x.*;
-            s_y.* += @abs(d_x.* * g_x) * sign_y.*;
-            if (sign_x.* == -1) o_x.* = -0.5;
-            contact_axis.* = .y;
+    if (t.axis == .x) {
+        if (@abs(t.d_x * t.g_x) < @abs(t.d_y)) {
+            t.s_x += t.d_x;
+            t.s_y += @abs(t.d_x * t.g_x) * t.sign_y;
+            if (t.sign_x == -1) t.o_x = -0.5;
+            cd.axis = .y;
         } else {
-            s_x.* += @abs(d_y.* * g_y) * sign_x.*;
-            s_y.* += d_y.*;
-            if (sign_y.* == -1) o_y.* = -0.5;
-            contact_axis.* = .x;
+            t.s_x += @abs(t.d_y * t.g_y) * t.sign_x;
+            t.s_y += t.d_y;
+            if (t.sign_y == -1) t.o_y = -0.5;
+            cd.axis = .x;
         }
     } else { // (axis.* == .y)
-        if (@abs(d_y.* * g_y) < @abs(d_x.*)) {
-            s_x.* += @abs(d_y.* * g_y) * sign_x.*;
-            s_y.* += d_y.*;
-            if (sign_y.* == -1) o_y.* = -0.5;
-            contact_axis.* = .x;
+        if (@abs(t.d_y * t.g_y) < @abs(t.d_x)) {
+            t.s_x += @abs(t.d_y * t.g_y) * t.sign_x;
+            t.s_y += t.d_y;
+            if (t.sign_y == -1) t.o_y = -0.5;
+            cd.axis = .x;
         } else {
-            s_x.* += d_x.*;
-            s_y.* += @abs(d_x.* * g_x) * sign_y.*;
-            if (sign_x.* == -1) o_x.* = -0.5;
-            contact_axis.* = .y;
+            t.s_x += t.d_x;
+            t.s_y += @abs(t.d_x * t.g_x) * t.sign_y;
+            if (t.sign_x == -1) t.o_x = -0.5;
+            cd.axis = .y;
         }
     }
 }
 
-fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev: map.CellType,
-                              m_x: usize, m_y: usize, contact_axis: Axis, refl_lim: i8,
-                              d_x0: f32, d_y0: f32) ContactStatus {
-    const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
-    var ctp = cell_type_prev;
-    if (cell_type_prev == .glass) {
-        n_prev.* = map.getGlass(m_y, m_x).n;
-        const n = 1.0 / n_prev.*;
+fn resolveContactFloor(t: *TraceData, c: *ContactData) ContactData {
+    const r_lim = @min(c.reflection_limit, map.getReflection(t.m_y, t.m_x).limit);
+    var ctp = t.c_prev;
+    if (t.c_prev == .glass) {
+        t.n_prev = map.getGlass(t.m_y, t.m_x).n;
+        const n = 1.0 / t.n_prev;
         const refl = std.math.asin(@as(f32, n));
-        if (contact_axis == .x) {
-            const alpha = std.math.atan2(f32, @abs(d_x0), @abs(d_y0));
+        if (c.axis == .x) {
+            const alpha = std.math.atan2(f32, @abs(t.d_x0), @abs(t.d_y0));
             // total inner reflection?
             if (alpha > refl) {
-                d_y.* = -d_y0;
-                d_x.* = d_x0;
+                t.d_y = -t.d_y0;
+                t.d_x = t.d_x0;
                 ctp = .glass;
             } else {
                 // const beta = std.math.asin(@sin(alpha) / n);
@@ -624,18 +667,18 @@ fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev: map.C
                 // This can be optimised a little:
                 const beta_x = @sin(alpha) / n;
                 const beta_y = std.math.asin(beta_x);
-                d_x.* = beta_x;
-                d_y.* = @cos(beta_y);
-                if (d_x0 < 0) d_x.* = -d_x.*;
-                if (d_y0 < 0) d_y.* = -d_y.*;
+                t.d_x = beta_x;
+                t.d_y = @cos(beta_y);
+                if (t.d_x0 < 0) t.d_x = -t.d_x;
+                if (t.d_y0 < 0) t.d_y = -t.d_y;
                 ctp = .floor;
             }
         } else { // contact_axis == .y
-            const alpha = std.math.atan2(f32, @abs(d_y0), @abs(d_x0));
+            const alpha = std.math.atan2(f32, @abs(t.d_y0), @abs(t.d_x0));
             // total inner reflection?
             if (alpha > refl) {
-                d_y.* = d_y0;
-                d_x.* = -d_x0;
+                t.d_y = t.d_y0;
+                t.d_x = -t.d_x0;
                 ctp = .glass;
             } else {
                 // const beta = std.math.asin(@sin(alpha) / n);
@@ -644,163 +687,163 @@ fn resolveContactFloor(d_x: *f32, d_y: *f32, n_prev: *f32, cell_type_prev: map.C
                 // This can be optimised a little:
                 const beta_y = @sin(alpha) / n;
                 const beta_x = std.math.asin(beta_y);
-                d_y.* = beta_y;
-                d_x.* = @cos(beta_x);
-                if (d_x0 < 0) d_x.* = -d_x.*;
-                if (d_y0 < 0) d_y.* = -d_y.*;
+                t.d_y = beta_y;
+                t.d_x = @cos(beta_x);
+                if (t.d_x0 < 0) t.d_x = -t.d_x;
+                if (t.d_y0 < 0) t.d_y = -t.d_y;
                 ctp = .floor;
             }
         }
-        return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = ctp };
+        return .{.axis = c.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = ctp };
     } else {
         ctp = .floor;
-        n_prev.* = 1.0;
-        return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = ctp };
+        t.n_prev = 1.0;
+        return .{.axis = c.axis, .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = ctp };
     }
 }
 
-fn resolveContactWall(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
+fn resolveContactWall(t: *TraceData, cd: *ContactData) ContactData {
     const hsh = std.hash.Murmur3_32;
-    const scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
-    const scatter_f = map.getReflection(m_y, m_x).diffusion;
-    if (contact_axis == .x) {
-        d_y.* = -d_y0;
-        d_x.* = d_x0 + scatter * scatter_f;
+    const scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(t.r_i)))) / std.math.maxInt(u32);
+    const scatter_f = map.getReflection(t.m_y, t.m_x).diffusion;
+    if (cd.axis == .x) {
+        t.d_y = -t.d_y0;
+        t.d_x = t.d_x0 + scatter * scatter_f;
     } else {
-        d_x.* = -d_x0;
-        d_y.* = d_y0 + scatter * scatter_f;
+        t.d_x = -t.d_x0;
+        t.d_y = t.d_y0 + scatter * scatter_f;
     }
-    const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
+    const r_lim = @min(cd.reflection_limit, map.getReflection(t.m_y, t.m_x).limit);
 
-    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall };
+    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall };
 }
 
-fn resolveContactWallThin(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: *Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
+fn resolveContactWallThin(t: *TraceData, cd: *ContactData) ContactData {
     const hsh = std.hash.Murmur3_32;
-    const scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
-    const scatter_f = map.getReflection(m_y, m_x).diffusion;
-    const axis = map.getWallThin(m_y, m_x).axis;
-    const from = map.getWallThin(m_y, m_x).from;
-    const to = map.getWallThin(m_y, m_x).to;
-    const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
+    const scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(t.r_i)))) / std.math.maxInt(u32);
+    const scatter_f = map.getReflection(t.m_y, t.m_x).diffusion;
+    const axis = map.getWallThin(t.m_y, t.m_x).axis;
+    const from = map.getWallThin(t.m_y, t.m_x).from;
+    const to = map.getWallThin(t.m_y, t.m_x).to;
+    const r_lim = @min(cd.reflection_limit, map.getReflection(t.m_y, t.m_x).limit);
     if (axis == .x) {
-        if (contact_axis.* == .y) {
+        if (cd.axis == .y) {
             // c_y: contact on y-axis at cell border
             // s_y is always positive (coordinate on map)
-            const c_y = s_y.* - @trunc(s_y.*);
+            const c_y = t.s_y - @trunc(t.s_y);
             if (c_y >= from and c_y <= to) {
-                d_x.* = -d_x0;
-                d_y.* = d_y0 + scatter * scatter_f;
-                return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
-            } else if (c_y < from and d_y0 > 0.0) {
+                t.d_x = -t.d_x0;
+                t.d_y = t.d_y0 + scatter * scatter_f;
+                return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+            } else if (c_y < from and t.d_y0 > 0.0) {
                 // c_yw: contact y on wall within cell
-                const c_yw = (from - c_y) * d_x0 / d_y0;
+                const c_yw = (from - c_y) * t.d_x0 / t.d_y0;
                 if (@abs(c_yw) >= 0.0 and @abs(c_yw) <= 1.0) {
-                    s_x.* += c_yw;
-                    s_y.* += from - c_y;
-                    d_x.* = d_x0 + scatter * scatter_f;
-                    d_y.* = -d_y0;
-                    contact_axis.* = .x;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x += c_yw;
+                    t.s_y += from - c_y;
+                    t.d_x = t.d_x0 + scatter * scatter_f;
+                    t.d_y = -t.d_y0;
+                    cd.axis = .x;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
-            } else if (c_y > to and d_y0 < 0.0) {
+            } else if (c_y > to and t.d_y0 < 0.0) {
                 // c_yw: contact y on wall within cell
-                const c_yw = (c_y - to) * d_x0 / d_y0;
+                const c_yw = (c_y - to) * t.d_x0 / t.d_y0;
                 if (@abs(c_yw) >= 0.0 and @abs(c_yw) <= 1.0) {
-                    s_x.* -= c_yw;
-                    s_y.* -= c_y - to;
-                    d_x.* = d_x0 + scatter * scatter_f;
-                    d_y.* = -d_y0;
-                    contact_axis.* = .x;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x -= c_yw;
+                    t.s_y -= c_y - to;
+                    t.d_x = t.d_x0 + scatter * scatter_f;
+                    t.d_y = -t.d_y0;
+                    cd.axis = .x;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
             }
         } else { // if (contact_axis.* == .x) {
             // c_x: contact on x-axis at cell border
             // s_x is always positive (coordinate on map)
-            const c_x = s_x.* - @trunc(s_x.*);
-            if (d_y0 > 0.0) {
-                const c_xw = c_x + from * d_x0 / d_y0;
+            const c_x = t.s_x - @trunc(t.s_x);
+            if (t.d_y0 > 0.0) {
+                const c_xw = c_x + from * t.d_x0 / t.d_y0;
                 if (c_xw >= 0.0 and c_xw <= 1.0) {
-                    s_x.* += from * d_x0 / d_y0;
-                    s_y.* += from;
-                    d_x.* = d_x0 + scatter * scatter_f;
-                    d_y.* = -d_y0;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x += from * t.d_x0 / t.d_y0;
+                    t.s_y += from;
+                    t.d_x = t.d_x0 + scatter * scatter_f;
+                    t.d_y = -t.d_y0;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
-            } else if (d_y0 < 0.0) {
-                const c_xw = c_x - (1.0 - to) * d_x0 / d_y0;
+            } else if (t.d_y0 < 0.0) {
+                const c_xw = c_x - (1.0 - to) * t.d_x0 / t.d_y0;
                 if (c_xw >= 0.0 and c_xw <= 1.0) {
-                    s_x.* -= (1.0 - to) * d_x0 / d_y0;
-                    s_y.* -= 1.0 - to;
-                    d_x.* = d_x0 + scatter * scatter_f;
-                    d_y.* = -d_y0;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x -= (1.0 - to) * t.d_x0 / t.d_y0;
+                    t.s_y -= 1.0 - to;
+                    t.d_x = t.d_x0 + scatter * scatter_f;
+                    t.d_y = -t.d_y0;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
             }
         }
     } else { // if (axis == .y) {
-        if (contact_axis.* == .x) {
+        if (cd.axis == .x) {
             // c_x: contact on x-axis at cell border
             // s_x is always positive (coordinate on map)
-            const c_x = s_x.* - @trunc(s_x.*);
+            const c_x = t.s_x - @trunc(t.s_x);
             if (c_x >= from and c_x <= to) {
-                d_x.* = d_x0 + scatter * scatter_f;
-                d_y.* = -d_y0;
-                return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
-            } else if (c_x < from and d_x0 > 0.0) {
+                t.d_x = t.d_x0 + scatter * scatter_f;
+                t.d_y = -t.d_y0;
+                return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+            } else if (c_x < from and t.d_x0 > 0.0) {
                 // c_xw: contact x on wall within cell
-                const c_xw = (from - c_x) * d_y0 / d_x0;
+                const c_xw = (from - c_x) * t.d_y0 / t.d_x0;
                 if (@abs(c_xw) >= 0.0 and @abs(c_xw) <= 1.0) {
-                    s_x.* += from - c_x;
-                    s_y.* += c_xw;
-                    d_x.* = -d_x0;
-                    d_y.* = d_y0 + scatter * scatter_f;
-                    contact_axis.* = .y;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x += from - c_x;
+                    t.s_y += c_xw;
+                    t.d_x = -t.d_x0;
+                    t.d_y = t.d_y0 + scatter * scatter_f;
+                    cd.axis = .y;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
-            } else if (c_x > to and d_x0 < 0.0) {
+            } else if (c_x > to and t.d_x0 < 0.0) {
                 // c_xw: contact x on wall within cell
-                const c_xw = (c_x - to) * d_y0 / d_x0;
+                const c_xw = (c_x - to) * t.d_y0 / t.d_x0;
                 if (@abs(c_xw) >= 0.0 and @abs(c_xw) <= 1.0) {
-                    s_x.* -= c_x - to;
-                    s_y.* -= c_xw;
-                    d_x.* = -d_x0;
-                    d_y.* = d_y0 + scatter * scatter_f;
-                    contact_axis.* = .y;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x -= c_x - to;
+                    t.s_y -= c_xw;
+                    t.d_x = -t.d_x0;
+                    t.d_y = t.d_y0 + scatter * scatter_f;
+                    cd.axis = .y;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
             }
         } else { // if (contact_axis.* == .y) {
             // c_y: contact on x-axis at cell border
             // s_y is always positive (coordinate on map)
-            const c_y = s_y.* - @trunc(s_y.*);
-            if (d_x0 > 0.0) {
-                const c_yw = c_y + from * d_y0 / d_x0;
+            const c_y = t.s_y - @trunc(t.s_y);
+            if (t.d_x0 > 0.0) {
+                const c_yw = c_y + from * t.d_y0 / t.d_x0;
                 if (c_yw >= 0.0 and c_yw <= 1.0) {
-                    s_x.* += from;
-                    s_y.* += from * d_y0 / d_x0;
-                    d_x.* = -d_x0;
-                    d_y.* = d_y0 + scatter * scatter_f;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x += from;
+                    t.s_y += from * t.d_y0 / t.d_x0;
+                    t.d_x = -t.d_x0;
+                    t.d_y = t.d_y0 + scatter * scatter_f;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
-            } else if (d_x0 < 0.0) {
-                const c_yw = c_y - (1.0 - to) * d_y0 / d_x0;
+            } else if (t.d_x0 < 0.0) {
+                const c_yw = c_y - (1.0 - to) * t.d_y0 / t.d_x0;
                 if (c_yw >= 0.0 and c_yw <= 1.0) {
-                    s_x.* -= 1.0 - to;
-                    s_y.* -= (1.0 - to) * d_y0 / d_x0;
-                    d_x.* = -d_x0;
-                    d_y.* = d_y0 + scatter * scatter_f;
-                    return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+                    t.s_x -= 1.0 - to;
+                    t.s_y -= (1.0 - to) * t.d_y0 / t.d_x0;
+                    t.d_x = -t.d_x0;
+                    t.d_y = t.d_y0 + scatter * scatter_f;
+                    return .{.axis = cd.axis, .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
                 }
             }
         }
     }
     // Default: nothing's hit, pass through
-    return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
+    return .{.axis = cd.axis, .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim - 1, .cell_type_prev = .wall_thin };
 }
 
-fn resolveContactMirror(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
+fn resolveContactMirror(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactData {
     const hsh = std.hash.Murmur3_32;
     const scatter = 1.0 - 2.0 * @as(f32, @floatFromInt(hsh.hashUint32(@intCast(r_i)))) / std.math.maxInt(u32);
     const scatter_f = map.getReflection(m_y, m_x).diffusion;
@@ -817,7 +860,7 @@ fn resolveContactMirror(d_x: *f32, d_y: *f32, m_x: usize, m_y: usize, r_i: usize
     return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .mirror };
 }
 
-fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_y: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactStatus {
+fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_y: usize, contact_axis: Axis, refl_lim: i8, d_x0: f32, d_y0: f32) ContactData {
     const n = map.getGlass(m_y, m_x).n / n_prev.*;
     n_prev.* = map.getGlass(m_y, m_x).n;
 
@@ -857,7 +900,7 @@ fn resolveContactGlass(d_x: *f32, d_y: *f32, n_prev: *f32, m_x: usize, m_y: usiz
     }
 }
 
-fn resolveContactPillar(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, m_y: usize, m_v: map.CellType, refl_lim: i8, d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) ContactStatus {
+fn resolveContactPillar(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, m_y: usize, m_v: map.CellType, refl_lim: i8, d_x0: f32, d_y0: f32, s_i: usize, r_i: usize) ContactData {
     const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
     const pillar = map.getPillar(m_y, m_x);
     const e_x = @as(f32, @floatFromInt(m_x)) + pillar.center_x - s_x.*;
@@ -905,7 +948,7 @@ fn resolveContactPillar(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32, m_x: usize, 
 fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
                                     m_x: usize, m_y: usize, m_v: map.CellType,
                                     refl_lim: i8, d_x0: f32, d_y0: f32,
-                                    s_i: usize, r_i: usize) ContactStatus {
+                                    s_i: usize, r_i: usize) ContactData {
     const n = map.getGlass(m_y, m_x).n;
     const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
     const pillar = map.getPillar(m_y, m_x);
@@ -965,52 +1008,53 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
     return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = .pillar };
 }
 
-fn proceedPostContact(contact_status: ContactStatus, contact_axis: Axis, m_x: usize, m_y: usize, m_v: map.CellType, c_prev: map.CellType, n_prev: f32, s_i: usize, r_i: usize, s_x: f32, s_y: f32, d_x: f32, d_y: f32) void {
-    segments.cell.items[s_i].contact_axis = contact_axis;
+fn proceedPostContact(t: *TraceData, cd: *ContactData) void {
+    segments.cell.items[t.s_i].contact_axis = cd.axis;
 
     // if there is any kind of contact and a the segment ends, save all
     // common data
-    if (contact_status.finish_segment == true and m_v != .pillar and m_v != .pillar_glass) {
-        if (c_prev == .glass and m_v == .floor) {
-            const s_ip = s_i - 1;
-            segments.cell.items[s_i].x = segments.cell.items[s_ip].x;
-            segments.cell.items[s_i].y = segments.cell.items[s_ip].y;
-            segments.cell.items[s_i].t = segments.cell.items[s_ip].t;
+    const m_v = map.get()[t.m_y][t.m_x];
+    if (cd.finish_segment == true and m_v != .pillar and m_v != .pillar_glass) {
+        if (t.c_prev == .glass and m_v == .floor) {
+            const s_ip = t.s_i - 1;
+            segments.cell.items[t.s_i].x = segments.cell.items[s_ip].x;
+            segments.cell.items[t.s_i].y = segments.cell.items[s_ip].y;
+            segments.cell.items[t.s_i].t = segments.cell.items[s_ip].t;
         } else {
-            segments.cell.items[s_i].x = m_x;
-            segments.cell.items[s_i].y = m_y;
-            segments.cell.items[s_i].t = m_v;
+            segments.cell.items[t.s_i].x = t.m_x;
+            segments.cell.items[t.s_i].y = t.m_y;
+            segments.cell.items[t.s_i].t = m_v;
         }
-        var pos = &segments.pos.items[s_i];
-        pos.x1 = s_x;
-        pos.y1 = s_y;
+        var pos = &segments.pos.items[t.s_i];
+        pos.x1 = t.s_x;
+        pos.y1 = t.s_y;
         const s_x0 = pos.x0;
         const s_y0 = pos.y0;
-        const s_dx = s_x - s_x0;
-        const s_dy = s_y - s_y0;
+        const s_dx = t.s_x - s_x0;
+        const s_dy = t.s_y - s_y0;
 
         // Accumulate distances, if first segment, set
-        if (s_i > rays.items[r_i].seg_i0) {
-            segments.d.items[s_i] = segments.d.items[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy);
+        if (t.s_i > rays.items[t.r_i].seg_i0) {
+            segments.d.items[t.s_i] = segments.d.items[t.s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy);
         } else {
-            segments.d.items[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy);
+            segments.d.items[t.s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy);
         }
     }
     // Prepare next segment
     // Only prepare next segment if not already the last segment of the
     // last ray!
-    if (contact_status.prepare_next_segment and s_i + 1 < rays.items.len * segments_max) {
+    if (cd.prepare_next_segment and t.s_i + 1 < rays.items.len * segments_max) {
         // Just be sure to stay below the maximum segment number per ray
-        // if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_status.reflection_limit) {
-        const refl = contact_status.reflection_limit + 1;
+        // if ((rays.seg_i1[r_i] - rays.seg_i0[r_i]) < contact_data.reflection_limit) {
+        const refl = cd.reflection_limit + 1;
         if (refl > 0) {
-            const subs = map.getReflection(m_y, m_x).sub_sampling;
-            if (r_i % subs == 0) {
-                segments.pos.items[s_i + 1].x0 = s_x;
-                segments.pos.items[s_i + 1].y0 = s_y;
-                segments.sub_sample_level.items[s_i + 1] = segments.sub_sample_level.items[s_i] * subs;
-                rays.items[r_i].seg_i1 += 1;
-                traceSingleSegment0(d_x, d_y, s_i + 1, r_i, contact_status.cell_type_prev, n_prev, contact_status.reflection_limit);
+            const subs = map.getReflection(t.m_y, t.m_x).sub_sampling;
+            if (t.r_i % subs == 0) {
+                segments.pos.items[t.s_i + 1].x0 = t.s_x;
+                segments.pos.items[t.s_i + 1].y0 = t.s_y;
+                segments.sub_sample_level.items[t.s_i + 1] = segments.sub_sample_level.items[t.s_i] * subs;
+                rays.items[t.r_i].seg_i1 += 1;
+                traceSingleSegment0(t.d_x, t.d_y, t.s_i + 1, t.r_i, cd.cell_type_prev, t.n_prev, cd.reflection_limit);
             }
         }
     }
