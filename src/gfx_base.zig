@@ -38,7 +38,7 @@ pub fn init() !void {
 
     shader_program_pxy_crgba_f32 = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
-        cfg.gfx.shader_dir ++ "base.frag");
+        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.frag");
     shader_program_pxy_cuni_f32 = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "pxy_f32_base.vert",
         cfg.gfx.shader_dir ++ "pxy_cuni_f32.frag");
@@ -65,11 +65,25 @@ pub fn init() !void {
 }
 
 pub fn deinit() void {
+    cleanupGL() catch |err| {
+        log_gfx.err("Couldn't clean up GL successfully: {}", .{err});
+    };
     for (bufs.items) |v| v.data.deinit();
     bufs.deinit();
 
     const leaked = gpa.deinit();
     if (leaked == .leak) log_gfx.err("Memory leaked in GeneralPurposeAllocator", .{});
+}
+
+fn cleanupGL() !void {
+    try gfx_core.deleteShaderProgram(shader_program_pxy_crgba_f32);
+    try gfx_core.deleteShaderProgram(shader_program_pxy_cuni_f32);
+    try gfx_core.deleteShaderProgram(shader_program_pxy_tuv_cuni_f32);
+    try gfx_core.deleteShaderProgram(shader_program_pxy_tuv_cuni_f32_font);
+    for (bufs.items) |v| {
+        try gfx_core.deleteBuffer(v.vbo_0);
+        try gfx_core.deleteBuffer(v.vbo_1);
+    }
 }
 
 //-----------------------------------------------------------------------------//
@@ -297,4 +311,39 @@ pub fn updateProjectionPxyTuvCuniF32Font(w: i64, h: i64) void {
     gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
         log_gfx.err("{}", .{e});
     };
+}
+
+//-----------------------------------------------------------------------------//
+//   Tests
+//-----------------------------------------------------------------------------//
+
+test "init_glx_base" {
+    try gfx_core.init();
+    try init();
+    try std.testing.expect(bufs.items.len == 1);
+    try std.testing.expect(bufs.items[0].data.items.len == 0);
+    try std.testing.expect(bufs.items[0].size == batch_size);
+    try std.testing.expect(bufs.items[0].vbo_0 > 0);
+    try std.testing.expect(bufs.items[0].vbo_1 > 0);
+}
+
+test "add_buffer" {
+    const buf_id = try addBuffer(1024);
+    try std.testing.expect(bufs.items.len == 2);
+    try std.testing.expect(bufs.items[buf_id].data.items.len == 0);
+    try std.testing.expect(bufs.items[buf_id].size == 1024);
+    try std.testing.expect(bufs.items[buf_id].vbo_0 > 0);
+    try std.testing.expect(bufs.items[buf_id].vbo_1 > 0);
+}
+
+test "add_circle" {
+    const buf_id = try addBuffer(600);
+    try std.testing.expect(bufs.items.len == 3);
+    try std.testing.expect(bufs.items[buf_id].data.items.len == 0);
+    try std.testing.expect(bufs.items[buf_id].size == 600);
+    try std.testing.expect(bufs.items[buf_id].vbo_0 > 0);
+    try std.testing.expect(bufs.items[buf_id].vbo_1 > 0);
+
+    try addCircle(buf_id, 0, 0, 1.0, 1, 1, 1, 1);
+    try std.testing.expect(bufs.items[buf_id].data.items.len == 600);
 }

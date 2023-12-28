@@ -132,8 +132,8 @@ pub fn initShaders() !void {
     log_gfx.info("Processing shaders", .{});
 
     shader_program_base = try gfx_core.createShaderProgramFromFiles(
-        cfg.gfx.shader_dir ++ "base.vert",
-        cfg.gfx.shader_dir ++ "base.frag");
+        cfg.gfx.shader_dir ++ "pxy_f32_crgba_u32_base.vert",
+        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.frag");
     shader_program_fullscreen = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "fullscreen.vert",
         cfg.gfx.shader_dir ++ "fullscreen.frag");

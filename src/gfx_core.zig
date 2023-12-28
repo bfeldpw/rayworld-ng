@@ -485,7 +485,7 @@ pub fn drawElements(mode: PrimitiveMode, n: i32) !void {
 //   Shader Processing
 //-----------------------------------------------------------------------------//
 
-pub fn compileShader(src: []u8, t: c_uint) !u32 {
+pub fn compileShader(src: []const u8, t: c_uint) !u32 {
 
     const id = c.__glewCreateShader.?(t);
 
@@ -877,17 +877,75 @@ test "init_gl" {
     try initOpenGL();
 }
 
-// test "compile_shader" {
-//     const fragment_shader_source = "#version 330 core\n" ++
-//         "out vec4 FragColor;\n" ++
-//         "\n" ++
-//         "void main()\n" ++
-//         "{\n" ++
-//         "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
-//         "}\n";
-//     var fragment_shader: u32 = 0;
-//     fragment_shader = compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
-// }
+test "compile_shader_vert" {
+    const vertex_shader_source = "#version 330 core\n" ++
+        "layout (location = 0) in vec4 pos;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   gl_Position = pos;\n" ++
+        "}\n";
+    const vertex_shader = try compileShader(vertex_shader_source, c.GL_VERTEX_SHADER);
+    try std.testing.expect(vertex_shader > 0);
+}
+
+test "compile_shader_frag" {
+    const fragment_shader_source = "#version 330 core\n" ++
+        "out vec4 FragColor;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
+        "}\n";
+    const fragment_shader = try compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
+    try std.testing.expect(fragment_shader > 0);
+}
+
+test "create_shader_program" {
+    const vertex_shader_source = "#version 330 core\n" ++
+        "layout (location = 0) in vec4 pos;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   gl_Position = pos;\n" ++
+        "}\n";
+    const vertex_shader = try compileShader(vertex_shader_source, c.GL_VERTEX_SHADER);
+
+    const fragment_shader_source = "#version 330 core\n" ++
+        "out vec4 FragColor;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
+        "}\n";
+    const fragment_shader = try compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
+
+    const shader_program = try createShaderProgram(vertex_shader, fragment_shader);
+    try std.testing.expect(shader_program > 0);
+}
+
+test "generate_framebuffer" {
+    const fbo = try genFBO();
+    try std.testing.expect(fbo > 0);
+}
+
+test "create_framebuffer" {
+    const fb_dat = try createFramebuffer(100, 100);
+    try std.testing.expect(fb_dat.fbo > 0);
+    try std.testing.expect(fb_dat.h == 100);
+    try std.testing.expect(fb_dat.w == 100);
+    try std.testing.expect(fb_dat.h_vp == 100);
+    try std.testing.expect(fb_dat.w_vp == 100);
+    try std.testing.expect(fb_dat.tex > 0);
+}
+
+test "compress_color" {
+    try std.testing.expectEqual(0x04030201, compressColor(1.0/255.0, 2.0/255.0, 3.0/255.0, 4.0/255.0));
+}
+
+test "compress_grey" {
+    try std.testing.expectEqual(0xFF2A2A2A, compressGrey(42.0/255.0, 1.0));
+}
 
 test "set_frequency_invalid_expected" {
     setFpsTarget(0);
