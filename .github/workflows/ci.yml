@@ -19,3 +19,7 @@ jobs:
         run: |
           zig build --summary all
           zig build -Doptimize=ReleaseSafe --summary all
+      - name: Test
+        run: |
+          zig build test --summary all
+          zig build test -Doptimize=ReleaseSafe --summary all
