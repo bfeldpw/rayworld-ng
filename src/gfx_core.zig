@@ -156,9 +156,8 @@ pub fn setViewport(x: u32, y: u32, w: u32, h: u32) !void {
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn setViewportFull() !void {
-    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+pub inline fn setViewportFull() !void {
+    try setViewport(0, 0, @intCast(window_w), @intCast(window_h));
 }
 
 //-----------------------------------------------------------------------------//
@@ -288,12 +287,13 @@ pub fn createTextureAlpha(w: u32, h: u32, data: []u8, tex: u32) !void {
                    @intCast(w), @intCast(h), 0,
                    c.GL_RED, c.GL_UNSIGNED_BYTE, data.ptr);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    // c.glBindTexture(c.GL_TEXTURE_2D, tex);
-    // if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     log_gfx.debug("Texture created with size={}x{}", .{w, h});
 }
 
+/// Create a texture, which is basically genTexture (getting an OpenGL
+/// texture object), but then setting up the texture parameters and
+/// uploading the the texture data
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 
     const tex: u32 = try genTexture();
@@ -304,7 +304,6 @@ pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
-    // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
@@ -713,18 +712,6 @@ var tex_bind_statistics = stats.PerFrameCounter.init("Texture binds");
 var vbo_bind_statistics = stats.PerFrameCounter.init("VBO binds");
 var uniform_update_statistics = stats.PerFrameCounter.init("Uniform updates");
 
-// var quad_statistics = stats.PerFrameCounter.init("Quads");
-// var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");
-
-/// Maximum quad buffer size for rendering
-const quads_max = 4096 / cfg.sub_sampling_base * 8; // 4K resolution, minimm width 2px, maximum of 8 lines in each column of a depth layer
-/// Maximum depth levels for rendering
-const depth_levels = cfg.gfx.depth_levels_max;
-/// Active depth levels
-var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
-
-const shader_ids = std.ArrayList(u8).init(allocator);
-
 const state = struct {
     var active_shader_program: u32 = 0;
     var bound_ebo: u32 = 0;
@@ -773,10 +760,6 @@ fn initGLFW() !void {
 
     const r = c.glfwInit();
     c.glfwWindowHint(c.GLFW_OPENGL_DEBUG_CONTEXT, c.GL_TRUE);
-    // c.glEnable(c.GL_DEBUG_OUTPUT);
-    // c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    // c.__glewDebugMessageCallback.?(debugMessage, null);
-    // glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE););
 
     if (r == c.GLFW_FALSE) {
         glfw_error = glfwCheckError();
@@ -853,17 +836,6 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
         log_gfx.err("Error resizing window ({}x{})", .{ w, h });
     };
 }
-
-// fn debugMessage(source: c.GLenum, deb_type: c.GLenum, id: c.GLuint, severity: c.GLenum,
-//                 length: c.GLsizei,  message: [*c]const c.GLchar, user_param: ?*const anyopaque) callconv(.C) void {
-//     _ = user_param;
-//     _ = length;
-//     _ = severity;
-//     _ = id;
-//     _ = deb_type;
-//     _ = source;
-//     log_gfx.debug("GL debug: {s}", .{message});
-// }
 
 //-----------------------------------------------------------------------------//
 //   Tests
@@ -957,4 +929,30 @@ test "set_frequency" {
     try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
     setFpsTarget(100);
     try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
+}
+
+test "set_line_width" {
+    const w0 = 3;
+    try setLineWidth(w0);
+    var w: f32 = 1;
+    c.glGetFloatv(c.GL_LINE_WIDTH, &w);
+    try std.testing.expect(w == w0);
+}
+
+test "set_point_size" {
+    const s0 = 3;
+    try setPointSize(s0);
+    var s: f32 = 1;
+    c.glGetFloatv(c.GL_POINT_SIZE, &s);
+    try std.testing.expect(s == s0);
+}
+
+test "set_viewport" {
+    try setViewport(10, 20, 100, 200);
+    var v = [4]i32{0, 0, 0, 0};
+    c.glGetIntegerv(c.GL_VIEWPORT, &v);
+    try std.testing.expect(v[0] == 10);
+    try std.testing.expect(v[1] == 20);
+    try std.testing.expect(v[2] == 100);
+    try std.testing.expect(v[3] == 200);
 }
