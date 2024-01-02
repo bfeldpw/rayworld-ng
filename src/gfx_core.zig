@@ -166,20 +166,20 @@ pub inline fn setViewportFull() !void {
 
 pub fn disableVertexAttributes(a: u32) !void {
     std.debug.assert(a < 16);
-    if (state.is_enabled_vertex_attrib.isSet(a)) {
+    // if (state.is_enabled_vertex_attrib.isSet(a)) {
         c.__glewDisableVertexAttribArray.?(a);
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
         state.is_enabled_vertex_attrib.unset(a);
-    }
+    // }
 }
 
 pub fn enableVertexAttributes(a: u32) !void {
     std.debug.assert(a < 16);
-    if (!state.is_enabled_vertex_attrib.isSet(a)) {
+    // if (!state.is_enabled_vertex_attrib.isSet(a)) {
         c.__glewEnableVertexAttribArray.?(a);
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
         state.is_enabled_vertex_attrib.set(a);
-    }
+    // }
 }
 
 pub fn setupVertexAttributesUInt32(id: u32, size: i32, nr: i32, offset: u32) !void {
@@ -204,6 +204,10 @@ pub fn bindVAO(vao: u32) !void {
         state.bound_vao = vao;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
     }
+}
+
+pub inline fn unbindVAO() !void {
+    try bindVAO(0);
 }
 
 pub fn bindEBO(ebo: u32) !void {

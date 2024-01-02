@@ -11,7 +11,7 @@ var is_initialised: bool = false;
 /// Everything that needs to be initialised on graphics engine side
 pub fn init() !void {
     const nr_of_quads = 10000;
-    buf_id = try gfx_base.addBuffer(24 * nr_of_quads);
+    buf_id = try gfx_base.addBuffer(24 * nr_of_quads, .PxyTuv);
 
     is_initialised = true;
 }
@@ -87,5 +87,5 @@ pub fn addQuadTextured(x0: f32, y0: f32, x1: f32, y1: f32,
 /// vertex attributes, setting up shader etc...
 pub fn renderBatch(r: f32, g: f32, b: f32, a: f32) !void {
     try gfx_base.renderBatchPxyTuvCuniF32Font(buf_id, .Triangles,
-                                              r, g, b, a);
+                                              r, g, b, a, .Update);
 }

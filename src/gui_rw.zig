@@ -11,6 +11,7 @@ const sim = @import("sim.zig");
 pub fn init() !void {
 
     try fnt.init();
+    try gui.init();
     try fnt.addFont("anka_b", "resource/AnkaCoder-C87-b.ttf");
     try fnt.addFont("anka_i", "resource/AnkaCoder-C87-i.ttf");
     try fnt.addFont("anka_r", "resource/AnkaCoder-C87-r.ttf");

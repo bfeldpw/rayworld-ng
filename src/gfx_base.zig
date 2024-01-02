@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const cfg = @import("config.zig");
 const gfx_core = @import("gfx_core.zig");
 
@@ -16,26 +17,16 @@ pub const AttributeMode = enum {
     PxyTuv
 };
 
+pub const RenderMode = enum {
+    Keep,
+    Update
+};
 
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
 //-----------------------------------------------------------------------------//
 
 pub fn init() !void {
-    // vao = try gfx_core.genVAO();
-    var data_buf = std.ArrayList(f32).init(allocator);
-    try data_buf.ensureTotalCapacity(batch_size);
-
-    const buf_base = buffer_type{
-        .data = data_buf,
-        .vbo_0 = try gfx_core.genBuffer(),
-        .vbo_1 = try gfx_core.genBuffer(),
-        .size = batch_size
-    };
-    try bufs.append(buf_base);
-    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[0].vbo_0, batch_size, .Dynamic);
-    try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[0].vbo_1, batch_size, .Dynamic);
-
     shader_program_pxy_crgba_f32 = try gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
         cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.frag");
@@ -90,20 +81,31 @@ fn cleanupGL() !void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn addBuffer(n: u32) !u32 {
+pub fn addBuffer(n: u32, am: AttributeMode) !u32 {
     const buf_id = bufs.items.len;
     var data_buf = std.ArrayList(f32).init(allocator);
     try data_buf.ensureTotalCapacity(n);
 
     const buf = buffer_type{
         .data = data_buf,
+        .vao = try gfx_core.genVAO(),
         .vbo_0 = try gfx_core.genBuffer(),
         .vbo_1 = try gfx_core.genBuffer(),
-        .size = n
+        .size = n,
+        .attr_mode = am,
+        .attr_size = 4,
+        .update = false
     };
     try bufs.append(buf);
+    try gfx_core.bindVAO(buf.vao);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_0, n, .Dynamic);
+    _ = try setVertexAttributeMode(buf.attr_mode);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_1, n, .Dynamic);
+    bufs.items[buf_id].attr_size = try setVertexAttributeMode(buf.attr_mode);
+
+    if (builtin.mode == .Debug) {
+        try gfx_core.unbindVAO();
+    }
     return @intCast(buf_id);
 }
 
@@ -131,65 +133,84 @@ pub fn addCircle(buf_id: u32, c_x: f32, c_y: f32, ra: f32,
     }
 }
 
-pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.PrimitiveMode) !void {
+
+pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.PrimitiveMode,
+                   rm: RenderMode) !void {
+    const buf = &bufs.items[buf_id];
     try gfx_core.useShaderProgram(sp);
-    // try gfx_core.bindVAO(vao);
-    if (bufs.items[buf_id].data.items.len > bufs.items[buf_id].size) {
+    if (rm == .Update or !buf.update) {
+        if (buf.data.items.len > buf.size) {
 
-        const s: u32 = @intCast(bufs.items[buf_id].data.items.len);
+            const l: u32 = @intCast(buf.data.items.len);
 
-        try gfx_core.bindVBOAndBufferData(bufs.items[buf_id].vbo_0, s,
-                                          bufs.items[buf_id].data.items, .Dynamic);
-        bufs.items[buf_id].size = s;
-        log_gfx.debug("Resizing vbo {}, n = {}", .{buf_id, s});
+            try gfx_core.bindVBOAndBufferData(buf.vbo_0, l,
+                                              buf.data.items, .Dynamic);
+            buf.size = l;
+            log_gfx.debug("Resizing vbo {}, n = {}", .{buf_id, l});
 
-    } else {
-        try gfx_core.bindVBOAndBufferSubData(f32, 0, bufs.items[buf_id].vbo_0,
-                                             @intCast(bufs.items[buf_id].data.items.len),
-                                             bufs.items[buf_id].data.items);
+        } else {
+            try gfx_core.bindVBOAndBufferSubData(f32, 0, buf.vbo_0,
+                                                @intCast(buf.data.items.len),
+                                                buf.data.items);
+        }
+        if (!buf.update) {
+            std.mem.swap(u32, &buf.vbo_0, &buf.vbo_1);
+        }
+        if (rm == .Keep) {
+            buf.update = true;
+        }
     }
+    try gfx_core.bindVAO(buf.vao);
+    try gfx_core.bindVBO(buf.vbo_1);
+    // const s = buf.attr_size;
     const s = try setVertexAttributeMode(m);
-    try gfx_core.bindVBO(bufs.items[buf_id].vbo_1);
-    try gfx_core.drawArrays(prim, 0, @intCast(bufs.items[buf_id].data.items.len / s));
+    try gfx_core.drawArrays(prim, 0, @intCast(buf.data.items.len / s));
 
-    bufs.items[buf_id].data.clearRetainingCapacity();
-    std.mem.swap(u32, &bufs.items[buf_id].vbo_0, &bufs.items[buf_id].vbo_1);
+    if (rm == .Update) {
+        bufs.items[buf_id].data.clearRetainingCapacity();
+        std.mem.swap(u32, &buf.vbo_0, &buf.vbo_1);
+        buf.update = false;
+    }
+
+    if (builtin.mode == .Debug) {
+        try gfx_core.unbindVAO();
+    }
 }
 
-pub fn renderBatchPxyCrgbaF32(buf_id: u32, prim: gfx_core.PrimitiveMode) !void {
-    try renderBatch(buf_id, shader_program_pxy_crgba_f32, .PxyCrgba, prim);
+pub fn renderBatchPxyCrgbaF32(buf_id: u32, prim: gfx_core.PrimitiveMode, rm: RenderMode) !void {
+    try renderBatch(buf_id, shader_program_pxy_crgba_f32, .PxyCrgba, prim, rm);
 }
 
 pub fn renderBatchPxyCuniF32(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                             r: f32, g: f32, b: f32, a: f32) !void {
+                             r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
 
     try gfx_core.setUniform4f(shader_program_pxy_cuni_f32, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_cuni_f32, .Pxy, prim);
+    try renderBatch(buf_id, shader_program_pxy_cuni_f32, .Pxy, prim, rm);
 }
 
 pub fn renderBatchPxyTuvCuniF32(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                                r: f32, g: f32, b: f32, a: f32) !void {
+                                r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32, .PxyTuv, prim);
+    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32, .PxyTuv, prim, rm);
 }
 
 pub fn renderBatchPxyTuvCuniF32Font(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                                    r: f32, g: f32, b: f32, a: f32) !void {
+                                    r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32_font, .PxyTuv, prim);
+    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32_font, .PxyTuv, prim, rm);
 }
 
-pub fn setColorPxyCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
-    try gfx_core.setUniform4f(shader_program_pxy_cuni_f32, "u_col", r, g, b, a);
-}
+// pub fn setColorPxyCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
+//     try gfx_core.setUniform4f(shader_program_pxy_cuni_f32, "u_col", r, g, b, a);
+// }
 
-pub fn setColorPxyTuvCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
-    try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "u_col", r, g, b, a);
-}
+// pub fn setColorPxyTuvCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
+//     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "u_col", r, g, b, a);
+// }
 
-pub fn setColorPxyTuvCuniF32Font(r: f32, g: f32, b: f32, a: f32) !void {
-    try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "u_col", r, g, b, a);
-}
+// pub fn setColorPxyTuvCuniF32Font(r: f32, g: f32, b: f32, a: f32) !void {
+//     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "u_col", r, g, b, a);
+// }
 
 //-----------------------------------------------------------------------------//
 //   Predefined vertex attribute modes
@@ -260,12 +281,17 @@ const allocator = gpa.allocator();
 
 const buffer_type = struct{
     size: u32,
+    vao: u32,
     vbo_0: u32,
     vbo_1: u32,
     data: std.ArrayList(f32),
+    attr_mode: AttributeMode,
+    attr_size: u32,
+    update: bool
 };
 var bufs = std.ArrayList(buffer_type).init(allocator);
 var batch_size: u32 = 2_100_000; // 100 000 textured triangles (100 000 * (3 * (2 vert-coords + 4 colors + 2 tex-coords)
+// var vao: u32 = 0;
 
 var shader_program_pxy_crgba_f32: u32 = 0;
 var shader_program_pxy_cuni_f32: u32 = 0;

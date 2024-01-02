@@ -24,6 +24,7 @@ pub fn init() !void {
     try gfx_core.addWindowResizeCallback(&handleWindowResize);
 
     vao_0 = try gfx_core.genVAO();
+    try gfx_core.bindVAO(vao_0);
 
     // -- Setup EBO
     ebo = try gfx_core.genBuffer();
@@ -40,6 +41,7 @@ pub fn init() !void {
     }
     try gfx_core.bindEBOAndBufferData(ebo, verts_scene.buf_size*6, ebo_buf.items, .Static);
     ebo_buf.deinit();
+    try gfx_core.bindEBO(ebo);
 
     //--- Setup background ---//
     verts_bg.vbo = try gfx_core.genBuffer();
@@ -305,14 +307,6 @@ pub fn registerTexture(w: u32, h: u32, data: []u8) !u32 {
 pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
-    // const sp_pxy_crgba_f32 = gfx_core.createShaderProgramFromFiles(
-    //     cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.vert",
-    //     cfg.gfx.shader_dir ++ "base.frag") catch |e| {
-
-    //     log_gfx.err("Error reloading shaders: {}", .{e});
-    //     return;
-    // };
-
     const sp_base = gfx_core.createShaderProgramFromFiles(
         cfg.gfx.shader_dir ++ "base.vert",
         cfg.gfx.shader_dir ++ "base.frag") catch |e| {
@@ -337,8 +331,6 @@ pub fn reloadShaders() !void {
         return;
     };
 
-    // try gfx_core.deleteShaderProgram(shader_program_pxy_crgba_f32);
-    // shader_program_pxy_crgba_f32 = sp_pxy_crgba_f32;
     try gfx_core.deleteShaderProgram(shader_program_base);
     shader_program_base = sp_base;
     try gfx_core.deleteShaderProgram(shader_program_fullscreen);
@@ -356,7 +348,6 @@ pub fn reloadShaders() !void {
 
 pub fn renderFrame() !void {
     try gfx_core.disableGammaCorrectionFBO();
-    try gfx_core.bindVAO(vao_0);
 
     // 1. Render to textures used in the scene
     try gfx_core.bindFBO(fb_sim.fbo);
@@ -381,6 +372,7 @@ pub fn renderFrame() !void {
 }
 
 fn renderFloorAndCeiling() !void {
+    try gfx_core.bindVAO(vao_0);
     const w = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowWidth())) * cfg.gfx.scene_sampling_factor));
     const h = @as(u32, @intFromFloat(@as(f32, @floatFromInt(gfx_core.getWindowHeight())) * cfg.gfx.scene_sampling_factor));
     updateProjectionByShader(shader_program_base, w, -@as(i64, @intCast(h)));
@@ -404,6 +396,7 @@ fn renderFloorAndCeiling() !void {
 fn renderScene() !void {
     try renderFloorAndCeiling();
 
+    try gfx_core.bindVAO(vao_0);
     try gfx_core.useShaderProgram(shader_program_scene);
     try gfx_core.setUniform1f(shader_program_scene, "u_center",
                               @as(f32, @floatFromInt(fb_scene.h_vp)) * 0.5);
@@ -431,6 +424,8 @@ fn renderScene() !void {
 }
 
 fn renderSceneToScreen() !void {
+    try gfx_core.bindVAO(vao_0);
+    _ = try gfx_base.setVertexAttributeMode(.PxyTuv);
     try gfx_core.setViewportFull();
     try gfx_core.useShaderProgram(shader_program_fullscreen);
     try gfx_core.bindTexture(fb_scene.tex);
@@ -438,6 +433,7 @@ fn renderSceneToScreen() !void {
 }
 
 fn renderMap() !void {
+    try gfx_core.bindVAO(vao_0);
     //--- Map ---//
     updateProjectionByShader(shader_program_base, fb_map.w, fb_map.h);
     try gfx_core.setViewport(0, 0, fb_map.w, fb_map.h);
@@ -480,9 +476,9 @@ fn renderSimOverlay() !void {
                                                    gfx_core.getWindowHeight());
         }
         try gfx_core.setPointSize(2);
-        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdDebris(), .Points);
+        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdDebris(), .Points, .Update);
         try gfx_core.setPointSize(1);
-        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdPlanet(), .TriangleFan);
+        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdPlanet(), .TriangleFan, .Update);
         {
             gfx_base.updateProjectionPxyTuvCuniF32Font(gfx_core.getWindowWidth(),
                                                        gfx_core.getWindowHeight());

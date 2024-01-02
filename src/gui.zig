@@ -131,7 +131,7 @@ pub fn drawTextureWidget(tw: *TextureWidget) !void {
     autoResizeOverlay(ovl, t_w, t_h);
     alignWidget(TextureWidget, tw, &x_a, &y_a, ovl, t_w, t_h);
 
-    const data = try gfx_base.getBufferToAddVertexData(0, 16);
+    const data = try gfx_base.getBufferToAddVertexData(buf_id, 16);
     const data_p = data.ptr;
     const x = tw.center_x;
     const y = tw.center_y;
@@ -158,8 +158,8 @@ pub fn drawTextureWidget(tw: *TextureWidget) !void {
     data_p[15] = y + 0.5 * z;
 
     try gfx_core.bindTexture(tw.tex_id);
-    try gfx_base.renderBatchPxyTuvCuniF32(0, .TriangleFan,
-                                          tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
+    try gfx_base.renderBatchPxyTuvCuniF32(buf_id, .TriangleFan,
+                                          tw.col[0], tw.col[1], tw.col[2], tw.col[3], .Update);
 }
 
 fn autoResizeOverlay(ovl: *Overlay, w: f32, h: f32) void {
@@ -249,9 +249,9 @@ pub fn addTextureWidget(name_ol: []const u8, name_tw: []const u8, tw: TextureWid
 
 var buf_id: u32 = 0;
 
-pub fn init() void {
+pub fn init() !void {
     const nr_of_quads = 100; // Mostly used for windows/overlays
-    buf_id = try gfx_base.addBuffer(12 * nr_of_quads);
+    buf_id = try gfx_base.addBuffer(12 * nr_of_quads, .Pxy);
 }
 
 pub fn deinit() void {
@@ -328,7 +328,7 @@ pub fn drawCursor(x: f32, y: f32) !void {
 
         try gfx_core.setLineWidth(cursor_thickness);
         try gfx_base.renderBatchPxyCuniF32(buf_id, .Lines,
-                                            1, 1, 0, 0.8);
+                                           1, 1, 0, 0.8, .Update);
     }
 }
 
@@ -399,7 +399,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
         data_p[ 7] = p_y + h;
 
         try gfx_base.renderBatchPxyCuniF32(buf_id, .TriangleFan,
-                                        ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
+                                           ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3], .Update);
     }
 
     //----------------
@@ -436,7 +436,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
 
             try gfx_core.setLineWidth(ovl.title.separator_thickness);
             try gfx_base.renderBatchPxyCuniF32(buf_id, .Lines,
-                                               ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
+                                               ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3], .Update);
         }
     }
     if (ovl.is_focussed) {
@@ -456,9 +456,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
         data_p[ 7] = p_y + h;
 
         try gfx_core.setLineWidth(3.0);
-        // try gfx_base.renderBatchPxyCuniF32(buf_id, .LineLoop,
-        //                                    ovl.col[0], ovl.col[1], ovl.col[2], ovl.col[3]);
-        try gfx_base.renderBatchPxyCuniF32(buf_id, .LineLoop, 1, 1, 0, 0.8);
+        try gfx_base.renderBatchPxyCuniF32(buf_id, .LineLoop, 1, 1, 0, 0.8, .Update);
     }
 
     if (ovl.widget_type == .text and ovl.widget != null) {
@@ -467,7 +465,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
             return error.GuiWidgetCastFailed;
         };
         try fnt.setFont(tw.font_name, tw.font_size);
-        try gfx_base.setColorPxyTuvCuniF32(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
+        // try gfx_base.setColorPxyTuvCuniF32(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
         try drawTextWidget(tw);
     }
     if (ovl.widget_type == .texture and ovl.widget != null) {
@@ -475,7 +473,7 @@ pub fn drawOverlay(ovl: *Overlay) !void {
             gui_log.err("Unable to access widget for drawing", .{});
             return error.GuiWidgetCastFailed;
         };
-        try gfx_base.setColorPxyTuvCuniF32(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
+        // try gfx_base.setColorPxyTuvCuniF32(tw.col[0], tw.col[1], tw.col[2], tw.col[3]);
         try drawTextureWidget(tw);
     }
 
