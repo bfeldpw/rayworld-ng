@@ -678,6 +678,10 @@ pub fn finishFrame() !void {
     tex_bind_statistics.finishFrame();
     vbo_bind_statistics.finishFrame();
     uniform_update_statistics.finishFrame();
+
+    c.glfwPollEvents();
+    if (!glfwCheckError()) return error.GLFWFailed;
+
 }
 
 //-----------------------------------------------------------------------------//

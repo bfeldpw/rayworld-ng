@@ -308,8 +308,8 @@ pub fn reloadShaders() !void {
     log_gfx.info("Reloading shaders", .{});
 
     const sp_base = gfx_core.createShaderProgramFromFiles(
-        cfg.gfx.shader_dir ++ "base.vert",
-        cfg.gfx.shader_dir ++ "base.frag") catch |e| {
+        cfg.gfx.shader_dir ++ "pxy_f32_crgba_u32_base.vert",
+        cfg.gfx.shader_dir ++ "pxy_crgba_f32_base.frag") catch |e| {
 
         log_gfx.err("Error reloading shaders: {}", .{e});
         return;
