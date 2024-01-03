@@ -3,6 +3,7 @@ const gui = @import("gui.zig");
 const cfg = @import("config.zig");
 const fnt = @import("font_manager.zig");
 const gfx_core = @import("gfx_core.zig");
+const gfx_base = @import("gfx_base.zig");
 const input = @import("input.zig");
 const map = @import("map.zig");
 const plr = @import("player.zig");
@@ -167,6 +168,16 @@ pub fn updatePerformanceStats(fps: f64, idle: f64, in: f64, rayc: f64, ren: f64,
 }
 
 pub fn process(x: f32, y: f32, mouse_l: bool, mouse_wheel: f32) !void {
+    gfx_base.updateProjection(.PxyCuniF32,
+                                0, @floatFromInt(gfx_core.getWindowWidth() - 1),
+                                @floatFromInt(gfx_core.getWindowHeight() - 1), 0);
+    gfx_base.updateProjection(.PxyTuvCuniF32,
+                                0, @floatFromInt(gfx_core.getWindowWidth() - 1),
+                                @floatFromInt(gfx_core.getWindowHeight() - 1), 0);
+    gfx_base.updateProjection(.PxyTuvCuniF32Font,
+                                0, @floatFromInt(gfx_core.getWindowWidth() - 1),
+                                @floatFromInt(gfx_core.getWindowHeight() - 1), 0);
+
     try updateFontStats();
     try gui.processOverlays(x, y, mouse_l, mouse_wheel);
 

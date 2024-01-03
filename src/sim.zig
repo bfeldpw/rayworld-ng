@@ -37,8 +37,8 @@ pub fn init() !void {
 
     log_sim.debug("Number of objects: {}", .{objs.len});
 
-    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 6 + 12, .PxyCrgba); // Reserve for debris and station
-    buf_id_planet = try gfx_base.addBuffer(100 * 6, .PxyCrgba); // Reserve for debris and station
+    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 6 + 12, .PxyCrgbaF32); // Reserve for debris and station
+    buf_id_planet = try gfx_base.addBuffer(100 * 6, .PxyCrgbaF32); // Reserve for debris and station
 }
 
 pub fn deinit() void {

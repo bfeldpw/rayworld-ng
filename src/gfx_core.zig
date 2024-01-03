@@ -52,6 +52,7 @@ pub fn init() !void {
 
 pub fn deinit() void {
     window_resize_callbacks.deinit();
+    state.is_set_uniform4f.deinit();
 
     c.glfwDestroyWindow(window);
     log_gfx.info("Destroying window", .{});
@@ -603,9 +604,19 @@ pub fn setUniform1f(sp: u32, u: [*c]const u8, a: f32) !void {
     uniform_update_statistics.inc();
 }
 
-pub fn setUniform4f(sp: u32, u: [*c]const u8, a: f32, b: f32, d: f32, e: f32) !void {
+pub fn setUniform4f(sp: u32, u: []const u8, a: f32, b: f32, d: f32, e: f32) !void {
+    if (state.is_set_uniform4f.contains(@ptrCast(u))) {
+        const v = state.is_set_uniform4f.get(@ptrCast(u)).?;
+        if (sp == v.sp and v.a == a and v.b == b and v.d == d and v.e == e) {
+            return;
+        } else {
+            try state.is_set_uniform4f.put(u, .{.sp = sp, .a = a, .b = b, .d = d, .e = e});
+        }
+    } else {
+        try state.is_set_uniform4f.put(u, .{.sp = sp, .a = a, .b = b, .d = d, .e = e});
+    }
     try useShaderProgram(sp);
-    const l: i32 = c.__glewGetUniformLocation.?(sp, u);
+    const l: i32 = c.__glewGetUniformLocation.?(sp, @ptrCast(u));
     c.__glewUniform4f.?(l, a, b, d, e);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     uniform_update_statistics.inc();
@@ -716,6 +727,14 @@ var tex_bind_statistics = stats.PerFrameCounter.init("Texture binds");
 var vbo_bind_statistics = stats.PerFrameCounter.init("VBO binds");
 var uniform_update_statistics = stats.PerFrameCounter.init("Uniform updates");
 
+const Uniform4fType = struct {
+    sp: u32,
+    a: f32,
+    b: f32,
+    d: f32,
+    e: f32
+};
+
 const state = struct {
     var active_shader_program: u32 = 0;
     var bound_ebo: u32 = 0;
@@ -729,6 +748,7 @@ const state = struct {
     var line_width: f32 = 1.0;
     var point_size: f32 = 1.0;
     var is_enabled_vertex_attrib = std.bit_set.IntegerBitSet(16).initEmpty();
+    var is_set_uniform4f = std.StringHashMap(Uniform4fType).init(allocator);
 };
 
 fn glCheckError() bool {

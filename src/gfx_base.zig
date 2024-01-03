@@ -7,17 +7,18 @@ const gfx_core = @import("gfx_core.zig");
 //   Error Sets / Enums
 //-----------------------------------------------------------------------------//
 
-pub const AttributeMode = enum {
+pub const RenderMode = enum {
     None,
-    Pxy,
-    PxyCrgba,
+    PxyCuniF32,
+    PxyCrgbaF32,
     PxyCrgbaTuv,
     PxyCrgbaH,
     PxyCrgbaTuvH,
-    PxyTuv
+    PxyTuvCuniF32,
+    PxyTuvCuniF32Font
 };
 
-pub const RenderMode = enum {
+pub const BufferedDataHandling = enum {
     Keep,
     Update
 };
@@ -81,7 +82,7 @@ fn cleanupGL() !void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn addBuffer(n: u32, am: AttributeMode) !u32 {
+pub fn addBuffer(n: u32, comptime rm: RenderMode) !u32 {
     const buf_id = bufs.items.len;
     var data_buf = std.ArrayList(f32).init(allocator);
     try data_buf.ensureTotalCapacity(n);
@@ -92,16 +93,16 @@ pub fn addBuffer(n: u32, am: AttributeMode) !u32 {
         .vbo_0 = try gfx_core.genBuffer(),
         .vbo_1 = try gfx_core.genBuffer(),
         .size = n,
-        .attr_mode = am,
+        .render_mode = rm,
         .attr_size = 4,
         .update = false
     };
     try bufs.append(buf);
     try gfx_core.bindVAO(buf.vao);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_0, n, .Dynamic);
-    _ = try setVertexAttributeMode(buf.attr_mode);
+    _ = try setVertexAttributes(buf.render_mode);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_1, n, .Dynamic);
-    bufs.items[buf_id].attr_size = try setVertexAttributeMode(buf.attr_mode);
+    bufs.items[buf_id].attr_size = try setVertexAttributes(buf.render_mode);
 
     if (builtin.mode == .Debug) {
         try gfx_core.unbindVAO();
@@ -134,11 +135,11 @@ pub fn addCircle(buf_id: u32, c_x: f32, c_y: f32, ra: f32,
 }
 
 
-pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.PrimitiveMode,
-                   rm: RenderMode) !void {
+pub fn renderBatch(buf_id: u32, prim: gfx_core.PrimitiveMode,
+                   bdh: BufferedDataHandling) !void {
     const buf = &bufs.items[buf_id];
-    try gfx_core.useShaderProgram(sp);
-    if (rm == .Update or !buf.update) {
+    try gfx_core.useShaderProgram(getShaderProgramFromRenderMode(buf.render_mode));
+    if (bdh == .Update or !buf.update) {
         if (buf.data.items.len > buf.size) {
 
             const l: u32 = @intCast(buf.data.items.len);
@@ -156,17 +157,17 @@ pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.Primit
         if (!buf.update) {
             std.mem.swap(u32, &buf.vbo_0, &buf.vbo_1);
         }
-        if (rm == .Keep) {
+        if (bdh == .Keep) {
             buf.update = true;
         }
     }
     try gfx_core.bindVAO(buf.vao);
     try gfx_core.bindVBO(buf.vbo_1);
     // const s = buf.attr_size;
-    const s = try setVertexAttributeMode(m);
+    const s = try setVertexAttributes(buf.render_mode);
     try gfx_core.drawArrays(prim, 0, @intCast(buf.data.items.len / s));
 
-    if (rm == .Update) {
+    if (bdh == .Update) {
         bufs.items[buf_id].data.clearRetainingCapacity();
         std.mem.swap(u32, &buf.vbo_0, &buf.vbo_1);
         buf.update = false;
@@ -177,49 +178,35 @@ pub fn renderBatch(buf_id: u32, sp: u32, m: AttributeMode, prim: gfx_core.Primit
     }
 }
 
-pub fn renderBatchPxyCrgbaF32(buf_id: u32, prim: gfx_core.PrimitiveMode, rm: RenderMode) !void {
-    try renderBatch(buf_id, shader_program_pxy_crgba_f32, .PxyCrgba, prim, rm);
+fn getShaderProgramFromRenderMode(rm: RenderMode) u32 {
+    var sp: u32 = 0;
+    switch (rm) {
+        .PxyCuniF32 => sp = shader_program_pxy_cuni_f32,
+        .PxyCrgbaF32 => sp = shader_program_pxy_crgba_f32,
+        .PxyTuvCuniF32 => sp = shader_program_pxy_tuv_cuni_f32,
+        .PxyTuvCuniF32Font => sp = shader_program_pxy_tuv_cuni_f32_font,
+        else => { log_gfx.warn("Shader mapping for render mode {} not implemented", .{rm}); }
+    }
+    return sp;
 }
 
-pub fn renderBatchPxyCuniF32(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                             r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
-
-    try gfx_core.setUniform4f(shader_program_pxy_cuni_f32, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_cuni_f32, .Pxy, prim, rm);
+pub fn setColor(comptime rm: RenderMode, r: f32, g: f32, b: f32, a: f32) !void {
+    comptime {
+        if (rm != .PxyCuniF32 and
+            rm != .PxyTuvCuniF32 and
+            rm != .PxyTuvCuniF32Font) @compileError("Not possible to set color for given rendermode");
+    }
+    try gfx_core.setUniform4f(getShaderProgramFromRenderMode(rm), "u_col", r, g, b, a);
 }
-
-pub fn renderBatchPxyTuvCuniF32(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                                r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
-    try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32, .PxyTuv, prim, rm);
-}
-
-pub fn renderBatchPxyTuvCuniF32Font(buf_id: u32, prim: gfx_core.PrimitiveMode,
-                                    r: f32, g: f32, b: f32, a: f32, rm: RenderMode) !void {
-    try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "u_col", r, g, b, a);
-    try renderBatch(buf_id, shader_program_pxy_tuv_cuni_f32_font, .PxyTuv, prim, rm);
-}
-
-// pub fn setColorPxyCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
-//     try gfx_core.setUniform4f(shader_program_pxy_cuni_f32, "u_col", r, g, b, a);
-// }
-
-// pub fn setColorPxyTuvCuniF32(r: f32, g: f32, b: f32, a: f32) !void {
-//     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "u_col", r, g, b, a);
-// }
-
-// pub fn setColorPxyTuvCuniF32Font(r: f32, g: f32, b: f32, a: f32) !void {
-//     try gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "u_col", r, g, b, a);
-// }
 
 //-----------------------------------------------------------------------------//
 //   Predefined vertex attribute modes
 //-----------------------------------------------------------------------------//
 
-pub fn setVertexAttributeMode(m: AttributeMode) !u32 {
+pub fn setVertexAttributes(rm: RenderMode) !u32 {
     var len: u32 = 0;
-    switch (m) {
-        .Pxy => {
+    switch (rm) {
+        .PxyCuniF32 => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.disableVertexAttributes(1);
             try gfx_core.disableVertexAttributes(2);
@@ -227,7 +214,7 @@ pub fn setVertexAttributeMode(m: AttributeMode) !u32 {
             try gfx_core.setupVertexAttributesFloat(0, 2, 2, 0);
             len = 2;
         },
-        .PxyCrgba => {
+        .PxyCrgbaF32 => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.enableVertexAttributes(1);
             try gfx_core.disableVertexAttributes(2);
@@ -257,7 +244,8 @@ pub fn setVertexAttributeMode(m: AttributeMode) !u32 {
             try gfx_core.setupVertexAttributesFloat(3, 2, 10, 8);
             len = 10;
         },
-        .PxyTuv => {
+        .PxyTuvCuniF32,
+        .PxyTuvCuniF32Font => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.enableVertexAttributes(2);
             try gfx_core.disableVertexAttributes(1);
@@ -285,7 +273,7 @@ const buffer_type = struct{
     vbo_0: u32,
     vbo_1: u32,
     data: std.ArrayList(f32),
-    attr_mode: AttributeMode,
+    render_mode: RenderMode,
     attr_size: u32,
     update: bool
 };
@@ -301,41 +289,27 @@ var shader_program_pxy_tuv_cuni_f32_font: u32 = 0;
 fn handleWindowResize(w: u32, h: u32) void {
     // Adjust projection for vertex shader
     // (simple ortho projection, therefore, no explicit matrix)
-    updateProjection(shader_program_pxy_crgba_f32, w, h);
-    updateProjection(shader_program_pxy_cuni_f32, w, h);
-    updateProjection(shader_program_pxy_tuv_cuni_f32, w, h);
-    updateProjection(shader_program_pxy_tuv_cuni_f32_font, w, h);
+
+    // projectOrtho(shader_program_pxy_crgba_f32, 0, @floatFromInt(w - 1), @floatFromInt(h - 1), 0);
+    // projectOrtho(shader_program_pxy_cuni_f32, 0, @floatFromInt(w - 1), @floatFromInt(h - 1), 0);
+    // projectOrtho(shader_program_pxy_tuv_cuni_f32, 0, @floatFromInt(w - 1), @floatFromInt(h - 1), 0);
+    // projectOrtho(shader_program_pxy_tuv_cuni_f32_font, 0, @floatFromInt(w - 1), @floatFromInt(h - 1), 0);
 
     log_gfx.debug("Window resize callback triggered, w = {}, h = {}", .{w, h});
 }
 
-pub fn updateProjection(sp: u32, w: i64, h: i64) void {
-    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
-    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    gfx_core.setUniform4f(sp, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
+pub fn updateProjection(rm: RenderMode, l: f32, r: f32, b: f32, t: f32) void {
+    projectOrtho(getShaderProgramFromRenderMode(rm), l, r, b, t);
 }
 
-pub fn updateProjectionPxyTuvCuniF32(w: i64, h: i64) void {
-    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
-    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
-        log_gfx.err("{}", .{e});
-    };
-}
+pub fn projectOrtho(sp: u32, l: f32, r: f32, b: f32, t: f32) void {
+    const x = 2.0 / (r - l);
+    const y = 2.0 / (t - b);
+    const x_o = - (r + l) / (r - l);
+    const y_o = - (t + b) / (t - b);
 
-pub fn updateProjectionPxyTuvCuniF32Font(w: i64, h: i64) void {
-    const o_w = @as(f32, @floatFromInt(w)) * 0.5;
-    const o_h = @as(f32, @floatFromInt(h)) * 0.5;
-    const w_r = 1.0 / o_w;
-    const h_r = 1.0 / o_h;
-    gfx_core.setUniform4f(shader_program_pxy_tuv_cuni_f32_font, "t", w_r, h_r, o_w, @abs(o_h)) catch |e| {
-        log_gfx.err("{}", .{e});
+    gfx_core.setUniform4f(sp, "t", x, y, x_o, y_o) catch |err| {
+        log_gfx.err("{}", .{err});
     };
 }
 

@@ -403,7 +403,7 @@ fn renderScene() !void {
 
     try gfx_core.bindVBO(verts_scene.vbo);
     try gfx_core.bindEBO(ebo);
-    const s = try gfx_base.setVertexAttributeMode(.PxyCrgbaTuvH);
+    const s = try gfx_base.setVertexAttributes(.PxyCrgbaTuvH);
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
@@ -425,7 +425,7 @@ fn renderScene() !void {
 
 fn renderSceneToScreen() !void {
     try gfx_core.bindVAO(vao_0);
-    _ = try gfx_base.setVertexAttributeMode(.PxyTuv);
+    _ = try gfx_base.setVertexAttributes(.PxyTuvCuniF32);
     try gfx_core.setViewportFull();
     try gfx_core.useShaderProgram(shader_program_fullscreen);
     try gfx_core.bindTexture(fb_scene.tex);
@@ -466,22 +466,25 @@ fn renderMap() !void {
 fn renderSimOverlay() !void {
     if (sim.is_map_displayed) {
         {
-            gfx_base.updateProjectionPxyTuvCuniF32Font(fb_sim.w_vp, -@as(i64, @intCast(fb_sim.h_vp)));
+            gfx_base.updateProjection(.PxyTuvCuniF32Font, 0, @floatFromInt(fb_sim.w_vp - 1), 0,
+                                      @floatFromInt(fb_sim.h_vp - 1));
         }
         try gfx_core.setViewport(0, 0, fb_sim.w_vp, fb_sim.h_vp);
         try fnt.setFont("anka_b", 32);
         try fnt.renderText("Gravity simulation, 10000 asteroids", 10, 10, 0.0, 1.0, 0.1, 0.0, 0.6);
         {
-            gfx_base.updateProjectionPxyTuvCuniF32(gfx_core.getWindowWidth(),
-                                                   gfx_core.getWindowHeight());
+            gfx_base.updateProjection(.PxyCrgbaF32, 0, @floatFromInt(gfx_core.getWindowWidth() - 1), 0,
+                                      @floatFromInt(gfx_core.getWindowHeight() - 1));
         }
         try gfx_core.setPointSize(2);
-        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdDebris(), .Points, .Update);
+        try gfx_base.renderBatch(sim.getBufferIdDebris(), .Points, .Update);
         try gfx_core.setPointSize(1);
-        try gfx_base.renderBatchPxyCrgbaF32(sim.getBufferIdPlanet(), .TriangleFan, .Update);
+        try gfx_base.renderBatch(sim.getBufferIdPlanet(), .TriangleFan, .Update);
         {
-            gfx_base.updateProjectionPxyTuvCuniF32Font(gfx_core.getWindowWidth(),
-                                                       gfx_core.getWindowHeight());
+            gfx_base.updateProjection(.PxyTuvCuniF32, 0, @floatFromInt(gfx_core.getWindowWidth() - 1),
+                                      @floatFromInt(gfx_core.getWindowHeight() - 1), 0);
+            gfx_base.updateProjection(.PxyTuvCuniF32Font, 0, @floatFromInt(gfx_core.getWindowWidth() - 1),
+                                      @floatFromInt(gfx_core.getWindowHeight() - 1), 0);
         }
     }
 }
