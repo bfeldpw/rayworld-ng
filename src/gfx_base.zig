@@ -278,7 +278,7 @@ const buffer_type = struct{
     update: bool
 };
 var bufs = std.ArrayList(buffer_type).init(allocator);
-var batch_size: u32 = 2_100_000; // 100 000 textured triangles (100 000 * (3 * (2 vert-coords + 4 colors + 2 tex-coords)
+// var batch_size: u32 = 2_100_000; // 100 000 textured triangles (100 000 * (3 * (2 vert-coords + 4 colors + 2 tex-coords)
 // var vao: u32 = 0;
 
 var shader_program_pxy_crgba_f32: u32 = 0;
@@ -320,16 +320,12 @@ pub fn projectOrtho(sp: u32, l: f32, r: f32, b: f32, t: f32) void {
 test "init_glx_base" {
     try gfx_core.init();
     try init();
-    try std.testing.expect(bufs.items.len == 1);
-    try std.testing.expect(bufs.items[0].data.items.len == 0);
-    try std.testing.expect(bufs.items[0].size == batch_size);
-    try std.testing.expect(bufs.items[0].vbo_0 > 0);
-    try std.testing.expect(bufs.items[0].vbo_1 > 0);
+    try std.testing.expect(bufs.items.len == 0);
 }
 
 test "add_buffer" {
-    const buf_id = try addBuffer(1024);
-    try std.testing.expect(bufs.items.len == 2);
+    const buf_id = try addBuffer(1024, .PxyCrgbaF32);
+    try std.testing.expect(bufs.items.len == 1);
     try std.testing.expect(bufs.items[buf_id].data.items.len == 0);
     try std.testing.expect(bufs.items[buf_id].size == 1024);
     try std.testing.expect(bufs.items[buf_id].vbo_0 > 0);
@@ -337,8 +333,8 @@ test "add_buffer" {
 }
 
 test "add_circle" {
-    const buf_id = try addBuffer(600);
-    try std.testing.expect(bufs.items.len == 3);
+    const buf_id = try addBuffer(600, .PxyCrgbaF32);
+    try std.testing.expect(bufs.items.len == 2);
     try std.testing.expect(bufs.items[buf_id].data.items.len == 0);
     try std.testing.expect(bufs.items[buf_id].size == 600);
     try std.testing.expect(bufs.items[buf_id].vbo_0 > 0);
