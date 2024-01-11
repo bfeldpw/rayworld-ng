@@ -52,6 +52,7 @@ pub fn init() !void {
 
 pub fn deinit() void {
     window_resize_callbacks.deinit();
+    state.is_set_uniform4f.deinit();
 
     c.glfwDestroyWindow(window);
     log_gfx.info("Destroying window", .{});
@@ -156,9 +157,8 @@ pub fn setViewport(x: u32, y: u32, w: u32, h: u32) !void {
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
 }
 
-pub fn setViewportFull() !void {
-    c.glViewport(0, 0, @intCast(window_w), @intCast(window_h));
-    if (!glCheckError()) return GraphicsError.OpenGLFailed;
+pub inline fn setViewportFull() !void {
+    try setViewport(0, 0, @intCast(window_w), @intCast(window_h));
 }
 
 //-----------------------------------------------------------------------------//
@@ -167,20 +167,20 @@ pub fn setViewportFull() !void {
 
 pub fn disableVertexAttributes(a: u32) !void {
     std.debug.assert(a < 16);
-    if (state.is_enabled_vertex_attrib.isSet(a)) {
+    // if (state.is_enabled_vertex_attrib.isSet(a)) {
         c.__glewDisableVertexAttribArray.?(a);
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
         state.is_enabled_vertex_attrib.unset(a);
-    }
+    // }
 }
 
 pub fn enableVertexAttributes(a: u32) !void {
     std.debug.assert(a < 16);
-    if (!state.is_enabled_vertex_attrib.isSet(a)) {
+    // if (!state.is_enabled_vertex_attrib.isSet(a)) {
         c.__glewEnableVertexAttribArray.?(a);
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
         state.is_enabled_vertex_attrib.set(a);
-    }
+    // }
 }
 
 pub fn setupVertexAttributesUInt32(id: u32, size: i32, nr: i32, offset: u32) !void {
@@ -205,6 +205,10 @@ pub fn bindVAO(vao: u32) !void {
         state.bound_vao = vao;
         if (!glCheckError()) return GraphicsError.OpenGLFailed;
     }
+}
+
+pub inline fn unbindVAO() !void {
+    try bindVAO(0);
 }
 
 pub fn bindEBO(ebo: u32) !void {
@@ -288,12 +292,13 @@ pub fn createTextureAlpha(w: u32, h: u32, data: []u8, tex: u32) !void {
                    @intCast(w), @intCast(h), 0,
                    c.GL_RED, c.GL_UNSIGNED_BYTE, data.ptr);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
-    // c.glBindTexture(c.GL_TEXTURE_2D, tex);
-    // if (!glCheckError()) return GraphicsError.OpenGLFailed;
 
     log_gfx.debug("Texture created with size={}x{}", .{w, h});
 }
 
+/// Create a texture, which is basically genTexture (getting an OpenGL
+/// texture object), but then setting up the texture parameters and
+/// uploading the the texture data
 pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
 
     const tex: u32 = try genTexture();
@@ -304,7 +309,6 @@ pub fn createTexture(w: u32, h: u32, data: []u8) !u32 {
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_MIRRORED_REPEAT);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR_MIPMAP_LINEAR);
-    // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
@@ -485,7 +489,7 @@ pub fn drawElements(mode: PrimitiveMode, n: i32) !void {
 //   Shader Processing
 //-----------------------------------------------------------------------------//
 
-pub fn compileShader(src: []u8, t: c_uint) !u32 {
+pub fn compileShader(src: []const u8, t: c_uint) !u32 {
 
     const id = c.__glewCreateShader.?(t);
 
@@ -600,9 +604,19 @@ pub fn setUniform1f(sp: u32, u: [*c]const u8, a: f32) !void {
     uniform_update_statistics.inc();
 }
 
-pub fn setUniform4f(sp: u32, u: [*c]const u8, a: f32, b: f32, d: f32, e: f32) !void {
+pub fn setUniform4f(sp: u32, u: []const u8, a: f32, b: f32, d: f32, e: f32) !void {
+    if (state.is_set_uniform4f.contains(@ptrCast(u))) {
+        const v = state.is_set_uniform4f.get(@ptrCast(u)).?;
+        if (sp == v.sp and v.a == a and v.b == b and v.d == d and v.e == e) {
+            return;
+        } else {
+            try state.is_set_uniform4f.put(u, .{.sp = sp, .a = a, .b = b, .d = d, .e = e});
+        }
+    } else {
+        try state.is_set_uniform4f.put(u, .{.sp = sp, .a = a, .b = b, .d = d, .e = e});
+    }
     try useShaderProgram(sp);
-    const l: i32 = c.__glewGetUniformLocation.?(sp, u);
+    const l: i32 = c.__glewGetUniformLocation.?(sp, @ptrCast(u));
     c.__glewUniform4f.?(l, a, b, d, e);
     if (!glCheckError()) return GraphicsError.OpenGLFailed;
     uniform_update_statistics.inc();
@@ -664,6 +678,10 @@ pub fn finishFrame() !void {
     tex_bind_statistics.finishFrame();
     vbo_bind_statistics.finishFrame();
     uniform_update_statistics.finishFrame();
+
+    c.glfwPollEvents();
+    if (!glfwCheckError()) return error.GLFWFailed;
+
 }
 
 //-----------------------------------------------------------------------------//
@@ -713,17 +731,13 @@ var tex_bind_statistics = stats.PerFrameCounter.init("Texture binds");
 var vbo_bind_statistics = stats.PerFrameCounter.init("VBO binds");
 var uniform_update_statistics = stats.PerFrameCounter.init("Uniform updates");
 
-// var quad_statistics = stats.PerFrameCounter.init("Quads");
-// var quad_tex_statistics = stats.PerFrameCounter.init("Quads textured");
-
-/// Maximum quad buffer size for rendering
-const quads_max = 4096 / cfg.sub_sampling_base * 8; // 4K resolution, minimm width 2px, maximum of 8 lines in each column of a depth layer
-/// Maximum depth levels for rendering
-const depth_levels = cfg.gfx.depth_levels_max;
-/// Active depth levels
-var depth_levels_active = std.bit_set.IntegerBitSet(depth_levels).initEmpty();
-
-const shader_ids = std.ArrayList(u8).init(allocator);
+const Uniform4fType = struct {
+    sp: u32,
+    a: f32,
+    b: f32,
+    d: f32,
+    e: f32
+};
 
 const state = struct {
     var active_shader_program: u32 = 0;
@@ -738,6 +752,7 @@ const state = struct {
     var line_width: f32 = 1.0;
     var point_size: f32 = 1.0;
     var is_enabled_vertex_attrib = std.bit_set.IntegerBitSet(16).initEmpty();
+    var is_set_uniform4f = std.StringHashMap(Uniform4fType).init(allocator);
 };
 
 fn glCheckError() bool {
@@ -773,10 +788,6 @@ fn initGLFW() !void {
 
     const r = c.glfwInit();
     c.glfwWindowHint(c.GLFW_OPENGL_DEBUG_CONTEXT, c.GL_TRUE);
-    // c.glEnable(c.GL_DEBUG_OUTPUT);
-    // c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    // c.__glewDebugMessageCallback.?(debugMessage, null);
-    // glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE););
 
     if (r == c.GLFW_FALSE) {
         glfw_error = glfwCheckError();
@@ -854,17 +865,6 @@ fn processWindowResizeEvent(win: ?*c.GLFWwindow, w: c_int, h: c_int) callconv(.C
     };
 }
 
-// fn debugMessage(source: c.GLenum, deb_type: c.GLenum, id: c.GLuint, severity: c.GLenum,
-//                 length: c.GLsizei,  message: [*c]const c.GLchar, user_param: ?*const anyopaque) callconv(.C) void {
-//     _ = user_param;
-//     _ = length;
-//     _ = severity;
-//     _ = id;
-//     _ = deb_type;
-//     _ = source;
-//     log_gfx.debug("GL debug: {s}", .{message});
-// }
-
 //-----------------------------------------------------------------------------//
 //   Tests
 //-----------------------------------------------------------------------------//
@@ -877,17 +877,75 @@ test "init_gl" {
     try initOpenGL();
 }
 
-// test "compile_shader" {
-//     const fragment_shader_source = "#version 330 core\n" ++
-//         "out vec4 FragColor;\n" ++
-//         "\n" ++
-//         "void main()\n" ++
-//         "{\n" ++
-//         "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
-//         "}\n";
-//     var fragment_shader: u32 = 0;
-//     fragment_shader = compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
-// }
+test "compile_shader_vert" {
+    const vertex_shader_source = "#version 330 core\n" ++
+        "layout (location = 0) in vec4 pos;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   gl_Position = pos;\n" ++
+        "}\n";
+    const vertex_shader = try compileShader(vertex_shader_source, c.GL_VERTEX_SHADER);
+    try std.testing.expect(vertex_shader > 0);
+}
+
+test "compile_shader_frag" {
+    const fragment_shader_source = "#version 330 core\n" ++
+        "out vec4 FragColor;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
+        "}\n";
+    const fragment_shader = try compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
+    try std.testing.expect(fragment_shader > 0);
+}
+
+test "create_shader_program" {
+    const vertex_shader_source = "#version 330 core\n" ++
+        "layout (location = 0) in vec4 pos;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   gl_Position = pos;\n" ++
+        "}\n";
+    const vertex_shader = try compileShader(vertex_shader_source, c.GL_VERTEX_SHADER);
+
+    const fragment_shader_source = "#version 330 core\n" ++
+        "out vec4 FragColor;\n" ++
+        "\n" ++
+        "void main()\n" ++
+        "{\n" ++
+        "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" ++
+        "}\n";
+    const fragment_shader = try compileShader(fragment_shader_source, c.GL_FRAGMENT_SHADER);
+
+    const shader_program = try createShaderProgram(vertex_shader, fragment_shader);
+    try std.testing.expect(shader_program > 0);
+}
+
+test "generate_framebuffer" {
+    const fbo = try genFBO();
+    try std.testing.expect(fbo > 0);
+}
+
+test "create_framebuffer" {
+    const fb_dat = try createFramebuffer(100, 100);
+    try std.testing.expect(fb_dat.fbo > 0);
+    try std.testing.expect(fb_dat.h == 100);
+    try std.testing.expect(fb_dat.w == 100);
+    try std.testing.expect(fb_dat.h_vp == 100);
+    try std.testing.expect(fb_dat.w_vp == 100);
+    try std.testing.expect(fb_dat.tex > 0);
+}
+
+test "compress_color" {
+    try std.testing.expectEqual(0x04030201, compressColor(1.0/255.0, 2.0/255.0, 3.0/255.0, 4.0/255.0));
+}
+
+test "compress_grey" {
+    try std.testing.expectEqual(0xFF2A2A2A, compressGrey(42.0/255.0, 1.0));
+}
 
 test "set_frequency_invalid_expected" {
     setFpsTarget(0);
@@ -899,4 +957,30 @@ test "set_frequency" {
     try std.testing.expectEqual(frame_time, @as(i64, 25_000_000));
     setFpsTarget(100);
     try std.testing.expectEqual(frame_time, @as(i64, 10_000_000));
+}
+
+test "set_line_width" {
+    const w0 = 3;
+    try setLineWidth(w0);
+    var w: f32 = 1;
+    c.glGetFloatv(c.GL_LINE_WIDTH, &w);
+    try std.testing.expect(w == w0);
+}
+
+test "set_point_size" {
+    const s0 = 3;
+    try setPointSize(s0);
+    var s: f32 = 1;
+    c.glGetFloatv(c.GL_POINT_SIZE, &s);
+    try std.testing.expect(s == s0);
+}
+
+test "set_viewport" {
+    try setViewport(10, 20, 100, 200);
+    var v = [4]i32{0, 0, 0, 0};
+    c.glGetIntegerv(c.GL_VIEWPORT, &v);
+    try std.testing.expect(v[0] == 10);
+    try std.testing.expect(v[1] == 20);
+    try std.testing.expect(v[2] == 100);
+    try std.testing.expect(v[3] == 200);
 }

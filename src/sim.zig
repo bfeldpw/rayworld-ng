@@ -37,8 +37,8 @@ pub fn init() !void {
 
     log_sim.debug("Number of objects: {}", .{objs.len});
 
-    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 6 + 12); // Reserve for debris and station
-    buf_id_planet = try gfx_base.addBuffer(100 * 6); // Reserve for debris and station
+    buf_id_debris = try gfx_base.addBuffer(cfg.sim.number_of_debris * 6 + 12, .PxyCrgbaF32); // Reserve for debris and station
+    buf_id_planet = try gfx_base.addBuffer(100 * 6, .PxyCrgbaF32); // Reserve for debris and station
 }
 
 pub fn deinit() void {
@@ -77,34 +77,6 @@ pub fn createScene() !void {
         if (cam.station_hook) {
             hook = objs.items(.pos)[1];
         }
-
-        // var map_overlay: gui.ParamOverlay = .{.title = .{.text = "System Map",
-        //                                                  .font_size = 64,
-        //                                                  .col = .{1.0, 0.8, 0.3, 0.8}},
-        //                                       .frame = .{10, 64, 10, 10},
-        //                                       .width = win_w * 0.9,
-        //                                       .height = win_h * 0.9,
-        //                                       .ll_x = win_w * 0.05,
-        //                                       .ll_y = win_h * 0.05,
-        //                                       .col = .{1.0, 0.5, 0.0, 0.3}};
-        // try gui.drawOverlay(&map_overlay);
-
-        // gfx_core.setViewport(@intFromFloat(map_overlay.ll_x + map_overlay.frame[0]),
-        //                 @floatToInt(u64, map_overlay.ll_y + map_overlay.frame[3]),
-        //                 @floatToInt(u64, map_overlay.width - map_overlay.frame[0] - map_overlay.frame[2]),
-        //                 @floatToInt(u64, map_overlay.height - map_overlay.frame[1] - map_overlay.frame[3]));
-
-        // gfx.startBatchQuads();
-
-        //     gfx.setColor4(1.0, 0.5, 0.0, 0.8);
-
-        // var data_bg = [36]f32 {100, 100, 0.4, 0.1, 0.0, 0.5,
-        //                     win_w - 100, 100, 0.4, 0.1, 0.0, 0.5,
-        //                     win_w - 100, win_h - 100, 0.4, 0.1, 0.0, 0.5,
-        //                     win_w - 100, win_h - 100, 0.4, 0.1, 0.0, 0.5,
-        //                     100, 100, 0.4, 0.1, 0.0, 0.5,
-        //                     100, win_h - 100, 0.4, 0.1, 0.0, 0.5};
-        // try gfx_base.addVertexData(0, &data_bg);
 
         {
             const data = try gfx_base.getBufferToAddVertexData(buf_id_debris, @intCast((objs.len - 2) * 6));
