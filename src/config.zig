@@ -1,7 +1,7 @@
 /// Globally enable/disable multithreading. Disabling
 /// is mostly used for debugging, frequency targets
 /// might not be met
-pub const multithreading = false;
+pub const multithreading = true;
 /// Globally turn on the General Purpose Allocators (GPAs)
 /// verbose output
 pub const debug_allocator = false;
