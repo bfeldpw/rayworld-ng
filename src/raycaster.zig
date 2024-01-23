@@ -227,10 +227,10 @@ pub fn createScene() void {
                     const r_x= segments.pos.items[k].x1 - segments.pos.items[k].x0;
                     const r_y= segments.pos.items[k].y1 - segments.pos.items[k].y0;
 
-                    var ang_n = std.math.atan2(f32, n_y, n_x);
+                    var ang_n = std.math.atan2(n_y, n_x);
                     if (ang_n < 0) ang_n += 2.0 * std.math.pi;
                     if (ang_n > 2.0 * std.math.pi) ang_n -= 2.0 * std.math.pi;
-                    var ang_r = std.math.atan2(f32, r_y, r_x);
+                    var ang_r = std.math.atan2(r_y, r_x);
                     if (ang_r < 0) ang_r += 2.0 * std.math.pi;
                     if (ang_r > 2.0 * std.math.pi) ang_r -= 2.0 * std.math.pi;
                     const circ = 2.0 * std.math.pi;
@@ -671,7 +671,7 @@ fn resolveContactFloor(t: *TraceData, c: *ContactData) void {
         const n = 1.0 / t.n_prev;
         const refl = std.math.asin(@as(f32, n));
         if (c.axis == .x) {
-            const alpha = std.math.atan2(f32, @abs(t.d_x0), @abs(t.d_y0));
+            const alpha = std.math.atan2(@abs(t.d_x0), @abs(t.d_y0));
             // total inner reflection?
             if (alpha > refl) {
                 t.d_y = -t.d_y0;
@@ -691,7 +691,7 @@ fn resolveContactFloor(t: *TraceData, c: *ContactData) void {
                 c.cell_type_prev = .floor;
             }
         } else { // contact_axis == .y
-            const alpha = std.math.atan2(f32, @abs(t.d_y0), @abs(t.d_x0));
+            const alpha = std.math.atan2(@abs(t.d_y0), @abs(t.d_x0));
             // total inner reflection?
             if (alpha > refl) {
                 t.d_y = t.d_y0;
