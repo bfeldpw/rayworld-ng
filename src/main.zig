@@ -14,14 +14,14 @@ const rc = @import("raycaster.zig");
 const stats = @import("stats.zig");
 const sim = @import("sim.zig");
 
-pub const std_options = struct {
-    pub const log_scope_levels = &[_]std.log.ScopeLevel{
+pub const std_options: std.Options = .{
+    .log_scope_levels = &[_]std.log.ScopeLevel{
         // .{ .scope = .gfx, .level = .debug },
         .{ .scope = .input, .level = .info },
         // .{ .scope = .map, .level = .debug },
         .{ .scope = .plr, .level = .info },
         // .{ .scope = .stats, .level = .info },
-    };
+    }
 };
 
 pub fn main() !void {
@@ -163,9 +163,9 @@ pub fn main() !void {
 
         if (builtin.os.tag == .linux) {
             const gfx_hsr = @import("gfx_hsr.zig");
-            if (gfx_hsr.is_reload_triggered.load(.Monotonic)) {
+            if (gfx_hsr.is_reload_triggered.load(.monotonic)) {
                 try gfx.reloadShaders();
-                gfx_hsr.is_reload_triggered.store(false, .Monotonic);
+                gfx_hsr.is_reload_triggered.store(false, .monotonic);
             }
         }
     }
@@ -173,7 +173,7 @@ pub fn main() !void {
     if (builtin.os.tag == .linux) {
         const gfx_hsr = @import("gfx_hsr.zig");
         gfx_hsr.rmWatch();
-        @atomicStore(bool, &gfx_hsr.is_running, false, .Unordered);
+        @atomicStore(bool, &gfx_hsr.is_running, false, .unordered);
         hsr_thread.join();
     }
 

@@ -174,7 +174,7 @@ pub inline fn getAvgBufMs() f64 {
 
 pub fn stop() void {
     log_sim.info("Simulation terminating", .{});
-    @atomicStore(bool, &is_running, false, .Release);
+    @atomicStore(bool, &is_running, false, .release);
 }
 
 pub inline fn moveMapLeft() void {

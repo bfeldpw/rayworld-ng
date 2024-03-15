@@ -43,7 +43,7 @@ pub fn readEvent() void {
         const len = lnx.read(fd, &buf, event_size);
         _ = len;
         log_gfx_hsr.debug("Shader file(s) modified", .{});
-        is_reload_triggered.store(true, .Monotonic);
+        is_reload_triggered.store(true, .monotonic);
     }
     log_gfx_hsr.debug("Stopping file watch", .{});
 }
