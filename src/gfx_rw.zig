@@ -403,7 +403,7 @@ fn renderScene() !void {
 
     try gfx_core.bindVBO(verts_scene.vbo);
     try gfx_core.bindEBO(ebo);
-    const s = try gfx_base.setVertexAttributes(.PxyCrgbaTuvH);
+    const s = try gfx_base.setVertexAttributes(.PxyCrgbaTuvH, null);
 
     var i: u32 = cfg.gfx.depth_levels_max;
     while (i > 1) : (i -= 1) {
@@ -425,7 +425,7 @@ fn renderScene() !void {
 
 fn renderSceneToScreen() !void {
     try gfx_core.bindVAO(vao_0);
-    _ = try gfx_base.setVertexAttributes(.PxyTuvCuniF32);
+    _ = try gfx_base.setVertexAttributes(.PxyTuvCuniF32, null);
     try gfx_core.setViewportFull();
     try gfx_core.useShaderProgram(shader_program_fullscreen);
     try gfx_core.bindTexture(fb_scene.tex);

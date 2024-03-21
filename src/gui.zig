@@ -252,8 +252,8 @@ var buf_id_tex: u32 = 0;
 
 pub fn init() !void {
     const nr_of_quads = 100; // Mostly used for windows/overlays
-    buf_id_flat = try gfx_base.addBuffer(12 * nr_of_quads, .PxyCuniF32);
-    buf_id_tex = try gfx_base.addBuffer(12 * nr_of_quads, .PxyTuvCuniF32);
+    buf_id_flat = try gfx_base.addBuffer(12 * nr_of_quads, .PxyCuniF32, null);
+    buf_id_tex = try gfx_base.addBuffer(12 * nr_of_quads, .PxyTuvCuniF32, null);
 }
 
 pub fn deinit() void {

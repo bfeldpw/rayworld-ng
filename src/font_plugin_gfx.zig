@@ -11,7 +11,7 @@ var is_initialised: bool = false;
 /// Everything that needs to be initialised on graphics engine side
 pub fn init() !void {
     const nr_of_quads = 10000;
-    buf_id = try gfx_base.addBuffer(24 * nr_of_quads, .PxyTuvCuniF32Font);
+    buf_id = try gfx_base.addBuffer(24 * nr_of_quads, .PxyTuvCuniF32Font, null);
 
     is_initialised = true;
 }

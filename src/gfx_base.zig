@@ -9,6 +9,7 @@ const gfx_core = @import("gfx_core.zig");
 
 pub const RenderMode = enum {
     None,
+    Custom,
     PxyCuniF32,
     PxyCrgbaF32,
     PxyCrgbaTuv,
@@ -16,6 +17,11 @@ pub const RenderMode = enum {
     PxyCrgbaTuvH,
     PxyTuvCuniF32,
     PxyTuvCuniF32Font
+};
+
+pub const RenderModeUserData = struct {
+    vertex_attribute_fn: *const fn () u32,
+    shader_program: u32 = 0
 };
 
 pub const BufferedDataHandling = enum {
@@ -82,7 +88,18 @@ fn cleanupGL() !void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn addBuffer(n: u32, comptime rm: RenderMode) !u32 {
+pub fn addBuffer(n: u32, comptime rm: RenderMode, comptime rmud: ?RenderModeUserData) !u32 {
+    comptime {
+        if (rm == .Custom and rmud == null) {
+            @compileError("Custom render mode without render mode user data");
+        }
+        if (rm == .Custom and rmud != null) {
+            if (rmud.?.shader_program == 0) {
+                @compileError("Custom render mode data without valid shader");
+            }
+        }
+    }
+
     const buf_id = bufs.items.len;
     var data_buf = std.ArrayList(f32).init(allocator);
     try data_buf.ensureTotalCapacity(n);
@@ -94,15 +111,16 @@ pub fn addBuffer(n: u32, comptime rm: RenderMode) !u32 {
         .vbo_1 = try gfx_core.genBuffer(),
         .size = n,
         .render_mode = rm,
+        .render_mode_user_data = rmud,
         .attr_size = 4,
         .update = false
     };
     try bufs.append(buf);
     try gfx_core.bindVAO(buf.vao);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_0, n, .Dynamic);
-    _ = try setVertexAttributes(buf.render_mode);
+    _ = try setVertexAttributes(buf.render_mode, rmud);
     try gfx_core.bindVBOAndReserveBuffer(f32, .Array, bufs.items[buf_id].vbo_1, n, .Dynamic);
-    bufs.items[buf_id].attr_size = try setVertexAttributes(buf.render_mode);
+    bufs.items[buf_id].attr_size = try setVertexAttributes(buf.render_mode, rmud);
 
     if (builtin.mode == .Debug) {
         try gfx_core.unbindVAO();
@@ -138,7 +156,7 @@ pub fn addCircle(buf_id: u32, c_x: f32, c_y: f32, ra: f32,
 pub fn renderBatch(buf_id: u32, prim: gfx_core.PrimitiveMode,
                    bdh: BufferedDataHandling) !void {
     const buf = &bufs.items[buf_id];
-    try gfx_core.useShaderProgram(getShaderProgramFromRenderMode(buf.render_mode));
+    try gfx_core.useShaderProgram(getShaderProgramFromRenderMode(buf.render_mode, buf.render_mode_user_data));
     if (bdh == .Update or !buf.update) {
         if (buf.data.items.len > buf.size) {
 
@@ -164,7 +182,7 @@ pub fn renderBatch(buf_id: u32, prim: gfx_core.PrimitiveMode,
     try gfx_core.bindVAO(buf.vao);
     try gfx_core.bindVBO(buf.vbo_1);
     // const s = buf.attr_size;
-    const s = try setVertexAttributes(buf.render_mode);
+    const s = try setVertexAttributes(buf.render_mode, buf.render_mode_user_data);
     try gfx_core.drawArrays(prim, 0, @intCast(buf.data.items.len / s));
 
     if (bdh == .Update) {
@@ -178,9 +196,13 @@ pub fn renderBatch(buf_id: u32, prim: gfx_core.PrimitiveMode,
     }
 }
 
-fn getShaderProgramFromRenderMode(rm: RenderMode) u32 {
+fn getShaderProgramFromRenderMode(rm: RenderMode, rmud: ?RenderModeUserData) u32 {
     var sp: u32 = 0;
     switch (rm) {
+        .Custom => {
+            std.debug.assert(rmud != null);
+            sp = rmud.?.shader_program;
+        },
         .PxyCuniF32 => sp = shader_program_pxy_cuni_f32,
         .PxyCrgbaF32 => sp = shader_program_pxy_crgba_f32,
         .PxyTuvCuniF32 => sp = shader_program_pxy_tuv_cuni_f32,
@@ -196,16 +218,20 @@ pub fn setColor(comptime rm: RenderMode, r: f32, g: f32, b: f32, a: f32) !void {
             rm != .PxyTuvCuniF32 and
             rm != .PxyTuvCuniF32Font) @compileError("Not possible to set color for given rendermode");
     }
-    try gfx_core.setUniform4f(getShaderProgramFromRenderMode(rm), "u_col", r, g, b, a);
+    try gfx_core.setUniform4f(getShaderProgramFromRenderMode(rm, null), "u_col", r, g, b, a);
 }
 
 //-----------------------------------------------------------------------------//
 //   Predefined vertex attribute modes
 //-----------------------------------------------------------------------------//
 
-pub fn setVertexAttributes(rm: RenderMode) !u32 {
+pub fn setVertexAttributes(rm: RenderMode, rmud: ?RenderModeUserData) !u32 {
     var len: u32 = 0;
     switch (rm) {
+        .Custom => {
+            std.debug.assert(rmud != null);
+            len = rmud.?.vertex_attribute_fn();
+        },
         .PxyCuniF32 => {
             try gfx_core.enableVertexAttributes(0);
             try gfx_core.disableVertexAttributes(1);
@@ -274,6 +300,7 @@ const buffer_type = struct{
     vbo_1: u32,
     data: std.ArrayList(f32),
     render_mode: RenderMode,
+    render_mode_user_data: ?RenderModeUserData,
     attr_size: u32,
     update: bool
 };
@@ -299,7 +326,7 @@ fn handleWindowResize(w: u32, h: u32) void {
 }
 
 pub fn updateProjection(rm: RenderMode, l: f32, r: f32, b: f32, t: f32) void {
-    projectOrtho(getShaderProgramFromRenderMode(rm), l, r, b, t);
+    projectOrtho(getShaderProgramFromRenderMode(rm, null), l, r, b, t);
 }
 
 pub fn projectOrtho(sp: u32, l: f32, r: f32, b: f32, t: f32) void {
