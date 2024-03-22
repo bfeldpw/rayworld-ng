@@ -81,6 +81,10 @@ fn cleanupGL() !void {
     for (bufs.items) |v| {
         try gfx_core.deleteBuffer(v.vbo_0);
         try gfx_core.deleteBuffer(v.vbo_1);
+        if (v.render_mode_user_data != null and
+            v.render_mode_user_data.?.shader_program != 0) {
+            try gfx_core.deleteShaderProgram(v.render_mode_user_data.?.shader_program);
+        }
     }
 }
 
@@ -88,15 +92,13 @@ fn cleanupGL() !void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-pub fn addBuffer(n: u32, comptime rm: RenderMode, comptime rmud: ?RenderModeUserData) !u32 {
-    comptime {
-        if (rm == .Custom and rmud == null) {
-            @compileError("Custom render mode without render mode user data");
-        }
-        if (rm == .Custom and rmud != null) {
-            if (rmud.?.shader_program == 0) {
-                @compileError("Custom render mode data without valid shader");
-            }
+pub fn addBuffer(n: u32, comptime rm: RenderMode, rmud: ?RenderModeUserData) !u32 {
+    if (rm == .Custom and rmud == null) {
+        log_gfx.warn("Custom render mode without render mode user data", .{});
+    }
+    if (rm == .Custom and rmud != null) {
+        if (rmud.?.shader_program == 0) {
+            log_gfx.warn("Custom render mode data without valid shader", .{});
         }
     }
 
