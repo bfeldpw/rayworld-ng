@@ -14,7 +14,7 @@ jobs:
           sudo apt install libglfw3
           sudo apt install libglfw3-dev
           sudo apt install xz-utils
-          sudo sh -c 'wget -c https://ziglang.org/builds/zig-linux-x86_64-0.12.0-dev.3245+4f782d1e8.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin'
+          sudo sh -c 'wget -c https://ziglang.org/builds/zig-linux-x86_64-0.13.0-dev.211+6a65561e.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin'
       - name: Compile
         run: |
           zig build --summary all

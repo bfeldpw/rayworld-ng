@@ -201,11 +201,11 @@ pub fn main() !void {
 fn adjustFovOnAspectChange() void {
     const aspect = gfx_core.getAspect();
     if (cfg.gfx.scale_by == .room_height) {
-        plr.setFOV(cfg.gfx.room_height*aspect*std.math.degreesToRadians(f32, 22.5));
-        cfg.gfx.player_fov = std.math.degreesToRadians(f32, plr.getFOV());
+        plr.setFOV(cfg.gfx.room_height * aspect * std.math.degreesToRadians(22.5));
+        cfg.gfx.player_fov = std.math.degreesToRadians(plr.getFOV());
     } else { // scale_by == player_fov
-        plr.setFOV(std.math.degreesToRadians(f32, cfg.gfx.player_fov));
-        cfg.gfx.room_height = plr.getFOV()/(aspect*std.math.degreesToRadians(f32, 22.5));
+        plr.setFOV(std.math.degreesToRadians(cfg.gfx.player_fov));
+        cfg.gfx.room_height = plr.getFOV()/(aspect * std.math.degreesToRadians(22.5));
     }
 }
 

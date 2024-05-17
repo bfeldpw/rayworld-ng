@@ -1,7 +1,6 @@
 const std = @import("std");
-const c = @import("c.zig").c;
+const c = @import("c_stb_image.zig").c;
 const cfg = @import ("config.zig");
-const zstbi = @import("zstbi");
 
 //-----------------------------------------------------------------------------//
 //   Error Sets
@@ -12,16 +11,20 @@ const ImageError = error{
     ImageLoadingFailed,
 };
 
+pub const Image = struct {
+    w: u32,
+    h: u32,
+    data: []u8,
+};
+
 //-----------------------------------------------------------------------------//
 //   Init / DeInit
 //-----------------------------------------------------------------------------//
 
 pub fn init() void {
-    zstbi.init(allocator);
 }
 
 pub fn deinit() void {
-    zstbi.deinit();
 
     // Allocated memory has to be freed with release after usage. This is typical
     // for Open GL textures. After reading and handing over to GL, the source
@@ -39,9 +42,9 @@ pub fn deinit() void {
 //   Processing
 //-----------------------------------------------------------------------------//
 
-/// Tries to load the bmp at the given location. If an image has been loaded
+/// Tries to load the image at the given location. If an image has been loaded
 /// before, releaseImage needs to be called first
-pub fn loadImage(name: [:0]const u8) !*zstbi.Image {
+pub fn loadImage(name: [:0]const u8) !Image {
 
     if (is_image_already_loaded) {
         log_img.warn("Image {s} loaded since previous image memory hasn't been released",
@@ -51,61 +54,36 @@ pub fn loadImage(name: [:0]const u8) !*zstbi.Image {
         log_img.info("Loading image {s}", .{name});
 
         is_image_already_loaded = true;
-        img = try zstbi.Image.loadFromFile(name, 3);
-        // var img0 = try zstbi.Image.init(name, 3);
-        // defer img0.deinit();
-        // img = img0.resize(2000, 1333);
-        return &img;
+
+        if (c.stbi_is_hdr(name) != 0) {
+            log_img.warn("HDR not supported, yet", .{});
+            return ImageError.ImageLoadingFailed;
+        }
+        if (c.stbi_is_16_bit(name) != 0) {
+            log_img.warn("16bit not supported, yet", .{});
+            return ImageError.ImageLoadingFailed;
+        }
+
+        var w_c: c_int = undefined;
+        var h_c: c_int = undefined;
+        var d: c_int = undefined;
+        const ptr = c.stbi_load(name, &w_c, &h_c, &d, 3);
+        if (ptr == null) return ImageError.ImageLoadingFailed;
+
+        img.w = @as(u32, @intCast(w_c));
+        img.h = @as(u32, @intCast(h_c));
+        img.data = @ptrCast(ptr[0 .. img.w * 3 * img.h]);
+
+        return img;
     }
 }
 
 /// Release allocated memory for image. Image should be handed over before
 /// calling release
 pub fn releaseImage() void {
-    img.deinit();
+    c.stbi_image_free(img.data.ptr);
+    img = undefined;
     is_image_already_loaded = false;
-}
-
-pub fn initDrawTest() c.GLuint {
-    var tex: c.GLuint = 0;
-    c.glGenTextures(1, &tex);
-    c.glBindTexture(c.GL_TEXTURE_2D, tex);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, 3, @truncate(img.width), @truncate(img.height), 0,
-                   c.GL_RGB, c.GL_UNSIGNED_BYTE, @ptrCast(img.data));
-    return tex;
-}
-
-
-pub fn processDrawTest(tex: c.GLuint) void {
-    c.glEnable(c.GL_TEXTURE_2D);
-    c.glBindTexture(c.GL_TEXTURE_2D, tex);
-
-    const u_0 = 0;
-    const u_1 = 1;
-    const v_0 = 0;
-    const v_1 = 1;
-    const offset = 20;
-    const px_size = 1000;
-
-    c.glBegin(c.GL_QUADS);
-
-    c.glColor4f(1.0, 1.0, 1.0, 1.0);
-    c.glTexCoord2f(u_0, v_0); c.glVertex2f(offset, offset);
-    c.glTexCoord2f(u_1, v_0); c.glVertex2f(offset+px_size, offset);
-    c.glTexCoord2f(u_1, v_1); c.glVertex2f(offset+px_size, offset+px_size);
-    c.glTexCoord2f(u_0, v_1); c.glVertex2f(offset, offset+px_size);
-
-    c.glEnd();
-
-    c.glBegin(c.GL_LINES);
-    c.glTexCoord2f(u_0, v_0); c.glVertex2f(offset+1300, offset);
-    c.glTexCoord2f(u_0, v_1); c.glVertex2f(offset+1300, offset+px_size);
-    c.glEnd();
-
-    c.glDisable(c.GL_TEXTURE_2D);
 }
 
 //-----------------------------------------------------------------------------//
@@ -118,7 +96,7 @@ var gpa = if (cfg.debug_allocator)  std.heap.GeneralPurposeAllocator(.{.verbose_
                                     std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
-var img: zstbi.Image = undefined;
+var img: Image = undefined;
 
 /// For now, only one image is stored. After loading, it should be handed over,
 /// e.g. as a texture for GL. Then, memory can be released to load another image

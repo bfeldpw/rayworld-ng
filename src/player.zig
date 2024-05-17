@@ -39,7 +39,7 @@ pub fn lookUpDown(t: f32) void {
     const map_y: u32 = @intFromFloat(pos_y / map.getResolution());
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
-                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
+                  .{pos_x, pos_y, std.math.radiansToDegrees(dir), tilt, map_v});
 }
 
 pub fn turn(d: f32) void {
@@ -51,7 +51,7 @@ pub fn turn(d: f32) void {
     const map_y: u32 = @intFromFloat(pos_y / map.getResolution());
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
-                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
+                  .{pos_x, pos_y, std.math.radiansToDegrees(dir), tilt, map_v});
 }
 
 //-----------------------------------------------------------------------------//
@@ -89,7 +89,7 @@ pub inline fn setDir(d: f32) void {
 pub inline fn setFOV(f: f32) void {
     if (f != fov) {
         fov = f;
-        log_plr.info("New setting, FOV = {d:.1}°", .{std.math.radiansToDegrees(f32, fov)});
+        log_plr.info("New setting, FOV = {d:.1}°", .{std.math.radiansToDegrees(fov)});
     }
 }
 
@@ -99,7 +99,7 @@ pub inline fn setFOV(f: f32) void {
 
 const log_plr = std.log.scoped(.plr);
 
-var fov = std.math.degreesToRadians(f32, 90.0);
+var fov: f32 = std.math.degreesToRadians(90.0);
 var dir: f32 = 0.0;
 var radius: f32 = 0.25;
 var pos_x: f32 = 2.5;
@@ -114,7 +114,7 @@ fn isColliding(x: f32, y: f32, x0: f32, y0: f32) bool {
 
     const map_v = map.get()[map_y][map_x];
     log_plr.debug("pos: ({d:.1}, {d:.1}) / {d:.2}°, tilt: {d:.2} -> map={}",
-                  .{pos_x, pos_y, std.math.radiansToDegrees(f32, dir), tilt, map_v});
+                  .{pos_x, pos_y, std.math.radiansToDegrees(dir), tilt, map_v});
 
     if (map_v == .wall_thin) {
         const wt = map.getWallThin(map_y, map_x);

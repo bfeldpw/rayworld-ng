@@ -36,7 +36,8 @@ pub fn rmWatch() void {
 pub fn readEvent() void {
     log_gfx_hsr.debug("Watching directory for hot shader reload", .{});
 
-    const event_size = (@sizeOf(lnx.inotify_event) + std.os.PATH_MAX) * 10;
+    const os_path_max = 1024;
+    const event_size = (@sizeOf(lnx.inotify_event) + os_path_max) * 10;
     var buf: [event_size]u8 = undefined;
 
     while (is_running) {

@@ -396,7 +396,7 @@ fn loadResources() !void {
 
     {
         const image = try img.loadImage(dir ++ "metal_01_1024x2048_bfeld.jpg");
-        const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
+        const tex = try gfx_rw.registerTexture(image.w, image.h, image.data);
         attribute_components.texture.items[1].id = tex;
         attribute_components.canvas.items[0].tex_id = tex;
         attribute_components.canvas.items[1].tex_id = tex;
@@ -407,20 +407,20 @@ fn loadResources() !void {
     }
     {
         const image = try img.loadImage(dir ++ "metal_01-1_1024x2048_bfeld.jpg");
-        const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
+        const tex = try gfx_rw.registerTexture(image.w, image.h, image.data);
         attribute_components.texture.items[2].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
     }
     {
         const image = try img.loadImage(dir ++ "metal_01-3_1024x2048_bfeld.jpg");
-        const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
+        const tex = try gfx_rw.registerTexture(image.w, image.h, image.data);
         attribute_components.texture.items[3].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
     }{
         const image = try img.loadImage(dir ++ "wildtextures_medival-metal-doors.jpg");
-        const tex = try gfx_rw.registerTexture(image.width, image.height, image.data);
+        const tex = try gfx_rw.registerTexture(image.w, image.h, image.data);
         attribute_components.texture.items[4].id = tex;
         log_map.debug("Creating texture attribute with texture ID={}", .{tex});
         img.releaseImage();
