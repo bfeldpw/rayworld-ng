@@ -350,7 +350,7 @@ fn initFallingStation(mass_planet: f64, orbit_radius: f64) !void {
 }
 
 fn initBreakingAsteriod(mass_planet: f64, orbit_radius: f64) !void {
-    var r_gen = std.rand.DefaultPrng.init(23);
+    var r_gen = std.Random.DefaultPrng.init(23);
     const prng = r_gen.random();
 
     const o_sr = orbit_radius + 1.0e6;
