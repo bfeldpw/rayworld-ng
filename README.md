@@ -15,6 +15,8 @@ My first steps in Zig, importing native C with Glfw and OpenGL for learning purp
 
 **2024-08-08** There was some time off due to another pet project. Nevertheless, several internal adjustments were made. This includes cleaning up the ray casting code structures to be prepared for further additions (floor casting, lights,...).
 
+Apart from that, dependency towards zstbi has been removed, using stb_image directly
+
 **2023-12-09** OpenGL core profile has been merged to main branch. After a lot of work, the main functionality has been moved to modern OpenGL, this includes:
 * Ambient occlusion has been re-introduced (better, shader-based)
 * Framebuffer objects (FBO) have been implemented and are used for
