@@ -6,14 +6,14 @@ pub const multithreading = true;
 /// verbose output
 pub const debug_allocator = false;
 
-pub var sub_sampling_base: u32 = 2;
+pub var sub_sampling_base: u32 = 3;
 pub const sub_sampling_blocky = false;
 
 pub const sub = struct {
     /// Enables auto-subsampling. Based on raycasting and
     /// render time, the number of rays will be reduced in
     /// case of high load
-    pub const auto = true;
+    pub const auto = false;
     /// Upper threshold in [ms] for raycasting and rendering
     /// If exceeded, number of rays will be reduced
     pub const th_high = 6.0;
