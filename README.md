@@ -12,7 +12,9 @@ My first steps in Zig, importing native C with Glfw and OpenGL for learning purp
 
 ## News
 **Next up** The next thing to tackle will most probably be something internal again. Since a lot of vertices are dynamically updated and send to the GPU in each frame, optimisation might be possible by using glStorageBuffer and persistent mapping via glMapBufferRange with persistence and coherence bits set.
+
 **2024-08-08** There was some time off due to another pet project. Nevertheless, several internal adjustments were made. This includes cleaning up the ray casting code structures to be prepared for further additions (floor casting, lights,...).
+
 **2023-12-09** OpenGL core profile has been merged to main branch. After a lot of work, the main functionality has been moved to modern OpenGL, this includes:
 * Ambient occlusion has been re-introduced (better, shader-based)
 * Framebuffer objects (FBO) have been implemented and are used for
