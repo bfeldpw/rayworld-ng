@@ -100,10 +100,10 @@ pub inline fn setFOV(f: f32) void {
 const log_plr = std.log.scoped(.plr);
 
 var fov: f32 = std.math.degreesToRadians(90.0);
-var dir: f32 = 0.0;
+var dir: f32 = std.math.pi / 3.0;
 var radius: f32 = 0.25;
-var pos_x: f32 = 2.5;
-var pos_y: f32 = 2.5;
+var pos_x: f32 = 4.5;
+var pos_y: f32 = 8.5;
 var pos_z: f32 = 0.3;
 var tilt: f32 = 0.0;
 

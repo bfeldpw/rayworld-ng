@@ -60,7 +60,7 @@ pub const gfx = struct {
 
     pub const scene_fbo_size_x_max = 8192;
     pub const scene_fbo_size_y_max = 4096;
-    pub const scene_sampling_factor = 1.5; // maximum: 2.0
+    pub const scene_sampling_factor = 1.0; // maximum: 2.0
 
     pub var room_height: f32 = 2.0; // meter
     pub var player_fov: f32 = 90; // degrees

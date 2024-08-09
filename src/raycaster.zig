@@ -288,11 +288,6 @@ pub fn createScene() void {
                                                     col.a,
                                                     prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, tex_id);
                 } else {
-                    // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0, y0, y1, prev.y1,
-                    //                      col_shading * col.r,
-                    //                      col_shading * col.g,
-                    //                      col_shading * col.b, col.a,
-                    //                      h_ssao, shift_and_tilt, depth_layer);
                     gfx_rw.addVerticalTexturedQuadY(prev.x, x, prev.y0, y0, y1, prev.y1, 0, 0, 0, 0,
                                                     col_shading * col.r,
                                                     col_shading * col.g,
@@ -311,17 +306,6 @@ pub fn createScene() void {
                                                      col_shading * canvas_col.g,
                                                      col_shading * canvas_col.b, canvas_col.a,
                                                      prev.h_ssao, h_ssao, shift_and_tilt, depth_layer, canvas.tex_id);
-                    } else {
-                        // gfx_rw.addVerticalQuadY(prev.x, x, prev.y0_cvs, y0_cvs, y0, prev.y0,
-                        //                     col_shading * canvas_col.r,
-                        //                     col_shading * canvas_col.g,
-                        //                     col_shading * canvas_col.b, canvas_col.a,
-                        //                     h_ssao, shift_and_tilt, depth_layer);
-                        // gfx_rw.addVerticalQuadY(prev.x, x, prev.y1_cvs, y1_cvs, y1, prev.y1,
-                        //                     col_shading * canvas_col.r,
-                        //                     col_shading * canvas_col.g,
-                        //                     col_shading * canvas_col.b, canvas_col.a,
-                        //                     h_ssao, shift_and_tilt, depth_layer);
                     }
                 }
                 prev.cell_type = cell_type;
@@ -517,6 +501,7 @@ const TraceData = struct {
     s_i: usize = 0, // index of currently traced segment
     m_x: usize = 1, // position in map (cell index)
     m_y: usize = 1,
+    m_v: map.CellType = .floor, // current value in map/cell
     axis: Axis = .y,
 };
 
@@ -562,10 +547,10 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
         trace_data.m_x = @intFromFloat(trace_data.s_x + trace_data.o_x);
         if (trace_data.m_y > map.get().len - 1) trace_data.m_y = map.get().len - 1;
         if (trace_data.m_x > map.get()[0].len - 1) trace_data.m_x = map.get()[0].len - 1;
-        const m_v = map.get()[trace_data.m_y][trace_data.m_x];
+        trace_data.m_v = map.get()[trace_data.m_y][trace_data.m_x];
 
         // React to cell type
-        switch (m_v) {
+        switch (trace_data.m_v) {
             .floor => {
                 // if (map.get()[@intFromFloat(plr.getPosY())][@intFromFloat(plr.getPosX())] == .wall_thin) {
                 // if (contact_data.cell_type_prev == .wall_thin) {
@@ -595,12 +580,12 @@ fn traceSingleSegment0(d_x0: f32, d_y0: f32, s_i: usize, r_i: usize, c_prev: map
             .pillar => {
                 resolveContactPillar(&trace_data, &contact_data);
             },
-            // .pillar_glass => {
-                // contact_data = resolveContactPillarGlass(&d_x, &d_y, &s_x, &s_y, m_x, m_y, m_v, refl_lim, d_x0, d_y0, s_i, r_i);
-            // },
-            else => {
-                resolveContactFloor(&trace_data, &contact_data);
-            }
+            .pillar_glass => {
+                resolveContactPillarGlass(&trace_data, &contact_data);
+            },
+            // else => {
+            //     resolveContactFloor(&trace_data, &contact_data);
+            // }
         }
 
         proceedPostContact(&trace_data, &contact_data);
@@ -980,33 +965,36 @@ fn resolveContactPillar(t: *TraceData, c: *ContactData) void {
     }
 }
 
-fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
-                                    m_x: usize, m_y: usize, m_v: map.CellType,
-                                    refl_lim: i8, d_x0: f32, d_y0: f32,
-                                    s_i: usize, r_i: usize) ContactData {
-    const n = map.getGlass(m_y, m_x).n;
-    const r_lim = @min(refl_lim, map.getReflection(m_y, m_x).limit);
-    const pillar = map.getPillar(m_y, m_x);
-    const e_x = @as(f32, @floatFromInt(m_x)) + pillar.center_x - s_x.*;
-    const e_y = @as(f32, @floatFromInt(m_y)) + pillar.center_y - s_y.*;
+fn resolveContactPillarGlass(t: *TraceData, c: *ContactData) void {
+    const n = map.getGlass(t.m_y, t.m_x).n;
+    const r_lim = @min(c.reflection_limit, map.getReflection(t.m_y, t.m_x).limit);
+    const pillar = map.getPillar(t.m_y, t.m_x);
+    const e_x = @as(f32, @floatFromInt(t.m_x)) + pillar.center_x - t.s_x;
+    const e_y = @as(f32, @floatFromInt(t.m_y)) + pillar.center_y - t.s_y;
     const e_norm_sqr = e_x * e_x + e_y * e_y;
-    const c_a = e_x * d_x0 + d_y0 * e_y;
+    const c_a = e_x * t.d_x0 + t.d_y0 * e_y;
     const r = pillar.radius;
     const w = r * r - (e_norm_sqr - c_a * c_a);
+
+    c.finish_segment = false;
+    c.prepare_next_segment = false;
+    c.reflection_limit = r_lim;
+    c.cell_type_prev = .pillar_glass;
+
     if (w >= 0) {
         const d_p = c_a - @sqrt(w);
         if (d_p >= 0) {
-            segments.d.items[s_i] = d_p;
-            segments.cell.items[s_i].x = m_x;
-            segments.cell.items[s_i].y = m_y;
-            segments.cell.items[s_i].t = m_v;
+            segments.d.items[t.s_i] = d_p;
+            segments.cell.items[t.s_i].x = t.m_x;
+            segments.cell.items[t.s_i].y = t.m_y;
+            segments.cell.items[t.s_i].t = t.m_v;
 
-            segments.pos.items[s_i].x1 = s_x.* + d_x0 * d_p;
-            segments.pos.items[s_i].y1 = s_y.* + d_y0 * d_p;
+            segments.pos.items[t.s_i].x1 = t.s_x + t.d_x0 * d_p;
+            segments.pos.items[t.s_i].y1 = t.s_y + t.d_y0 * d_p;
 
-            const norm = std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
-                                             d_x0 * d_p - pillar.center_x);
-            const alpha = std.math.atan2(f32, d_y0, d_x0) - norm;
+            const norm = std.math.atan2(t.d_y0 * d_p - pillar.center_y,
+                                        t.d_x0 * d_p - pillar.center_x);
+            const alpha = std.math.atan2(t.d_y0, t.d_x0) - norm;
 
                           // std.math.atan2(f32, d_y0 * d_p - pillar.center_y,
                           //                     d_x0 * d_p - pillar.center_x);
@@ -1015,32 +1003,34 @@ fn resolveContactPillarGlass(d_x: *f32, d_y: *f32, s_x: *f32, s_y: *f32,
             // if (alpha >  std.math.pi) alpha -= 2.0 * std.math.pi;
             // if (alpha < -std.math.pi) alpha += 2.0 * std.math.pi;
             const beta = alpha / n;
-            d_y.* = @sin(beta + norm);
-            d_x.* = @cos(beta + norm);
+            t.d_y = @sin(beta + norm);
+            t.d_x = @cos(beta + norm);
 
             // const r_x = (d_x0 * d_p - e_x) / r;
             // const r_y = (d_y0 * d_p - e_y) / r;
             // d_x.* = 2 * (-e_x * r_x - e_y * r_y) * r_x - d_x0 * d_p;
             // d_y.* = 2 * (-e_x * r_x - e_y * r_y) * r_y - d_y0 * d_p;
 
-            const s_x0 = segments.pos.items[s_i].x0;
-            const s_y0 = segments.pos.items[s_i].y0;
-            const s_dx = s_x.* - s_x0;
-            const s_dy = s_y.* - s_y0;
+            const s_x0 = segments.pos.items[t.s_i].x0;
+            const s_y0 = segments.pos.items[t.s_i].y0;
+            const s_dx = t.s_x - s_x0;
+            const s_dy = t.s_y - s_y0;
             // Accumulate distances, if first segment, set
-            if (s_i > rays.items[r_i].seg_i0) {
-                segments.d.items[s_i] = segments.d.items[s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+            if (t.s_i > rays.items[t.r_i].seg_i0) {
+                segments.d.items[t.s_i] = segments.d.items[t.s_i - 1] + @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             } else {
-                segments.d.items[s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
+                segments.d.items[t.s_i] = @sqrt(s_dx * s_dx + s_dy * s_dy) + d_p;
             }
 
-            s_x.* += d_x0 * d_p;
-            s_y.* += d_y0 * d_p;
+            t.s_x += t.d_x0 * d_p;
+            t.s_y += t.d_y0 * d_p;
 
-            return .{ .finish_segment = true, .prepare_next_segment = true, .reflection_limit = r_lim - 1, .cell_type_prev = .pillar_glass };
+            c.finish_segment = true;
+            c.prepare_next_segment = true;
+            c.reflection_limit = r_lim - 1;
+            c.cell_type_prev = .pillar_glass;
         }
     }
-    return .{ .finish_segment = false, .prepare_next_segment = false, .reflection_limit = r_lim, .cell_type_prev = .pillar };
 }
 
 fn proceedPostContact(t: *TraceData, cd: *ContactData) void {
