@@ -6,7 +6,7 @@ pub const multithreading = true;
 /// verbose output
 pub const debug_allocator = false;
 
-pub var sub_sampling_base: u32 = 3;
+pub var sub_sampling_base: u32 = 2;
 pub const sub_sampling_blocky = false;
 
 pub const sub = struct {
